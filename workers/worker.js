@@ -47,6 +47,105 @@ export default {
     const url = new URL(request.url);
     const pathParts = url.pathname.split("/").filter(Boolean); // e.g. ["api", "tables", "profile"]
 
+    // ユーザー認可チェック関数
+    const isAuthorized = async () => {
+      const email = request.headers.get("x-user-email") || 
+                    url.searchParams.get("mail") ||
+                    url.searchParams.get("email") ||
+                    (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      if (!email) return false;
+
+      const user = await env.DB.prepare(
+        "SELECT id, name, mail, role FROM whitelist WHERE mail = ?"
+      ).bind(email).first();
+
+      return user || null;
+    };
+
+    // ============================================================
+    // 0. 認証チェック (/api/auth/check)
+    // ============================================================
+    if (pathParts[0] === "api" && pathParts[1] === "auth" && pathParts[2] === "check") {
+      const user = await isAuthorized();
+      if (!user) {
+        return notFoundResponse(); // 未登録は404
+      }
+      return jsonResponse({ authorized: true, user });
+    }
+
+    // ============================================================
+    // 0-2. 全テーブル一括取得 (/api/all)
+    // ============================================================
+    if (pathParts[0] === "api" && pathParts[1] === "all") {
+      const allData = {};
+      for (const t of ALL_TABLES) {
+        if (PROTECTED_TABLES.includes(t)) continue;
+        if (SINGLETON_TABLES.includes(t)) {
+          const row = await env.DB.prepare(`SELECT * FROM ${t} WHERE id = 1`).first();
+          allData[t] = row || null;
+        } else {
+          let query = `SELECT * FROM ${t}`;
+          if (["movieCategory", "linkList", "shop", "visual", "section"].includes(t)) {
+            query += " ORDER BY priority ASC";
+          } else if (t === "notice") {
+            query += " ORDER BY created_at DESC";
+          } else {
+            query += " ORDER BY id ASC";
+          }
+          const { results } = await env.DB.prepare(query).all();
+          allData[t] = results || [];
+        }
+      }
+      return jsonResponse(allData);
+    }
+
+    // ============================================================
+    // 0-3. 保守用エクスポート (/api/export/json, /api/export/sql)
+    // ============================================================
+    if (pathParts[0] === "api" && pathParts[1] === "export") {
+      const authUser = await isAuthorized();
+      if (!authUser) return notFoundResponse();
+
+      const format = pathParts[2]; // "json" または "sql"
+      const dump = {};
+      for (const t of ALL_TABLES) {
+        const { results } = await env.DB.prepare(`SELECT * FROM ${t} ORDER BY id ASC`).all();
+        dump[t] = results || [];
+      }
+
+      if (format === "json") {
+        return jsonResponse({ exported_at: new Date().toISOString(), tables: dump });
+      }
+
+      if (format === "sql") {
+        let sqlDump = `-- D1 Database Export (${new Date().toISOString()})\n\n`;
+        for (const [t, rows] of Object.entries(dump)) {
+          sqlDump += `-- Table: ${t}\n`;
+          for (const row of rows) {
+            const keys = Object.keys(row);
+            const cols = keys.map(k => `\`${k}\``).join(", ");
+            const vals = keys.map(k => {
+              const val = row[k];
+              if (val === null || val === undefined) return "NULL";
+              if (typeof val === "number") return val;
+              return `'${String(val).replace(/'/g, "''")}'`;
+            }).join(", ");
+            sqlDump += `INSERT OR REPLACE INTO \`${t}\` (${cols}) VALUES (${vals});\n`;
+          }
+          sqlDump += "\n";
+        }
+        return new Response(sqlDump, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/sql",
+            "Content-Disposition": `attachment; filename="d1-export-${Date.now()}.sql"`
+          }
+        });
+      }
+
+      return notFoundResponse();
+    }
+
     // /api/tables/:tableName 形式のルーティング
     if (pathParts[0] !== "api" || pathParts[1] !== "tables" || !pathParts[2]) {
       return notFoundResponse();
@@ -58,19 +157,6 @@ export default {
     if (!ALL_TABLES.includes(tableName)) {
       return notFoundResponse();
     }
-
-    // ユーザー認可チェック関数
-    const isAuthorized = async () => {
-      const email = request.headers.get("x-user-email") || 
-                    (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-      if (!email) return false;
-
-      const user = await env.DB.prepare(
-        "SELECT id, role FROM whitelist WHERE mail = ?"
-      ).bind(email).first();
-
-      return !!user;
-    };
 
     const method = request.method;
 

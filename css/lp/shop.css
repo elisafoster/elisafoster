@@ -1,0 +1,140 @@
+/* ==========================================================================
+   Shop Section CSS
+   ========================================================================== */
+.lp-shop-tags {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.lp-shop-tag-btn {
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #ffffff;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.lp-shop-tag-btn:hover,
+.lp-shop-tag-btn.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+.lp-shop-card {
+  flex: 0 0 280px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--theme-card-bg, #ffffff);
+  color: var(--theme-card-text-color, #1e293b);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+}
+
+@media (max-width: 640px) {
+  .lp-shop-card {
+    flex: 0 0 240px;
+  }
+}
+
+.lp-shop-card:hover {
+  transform: translateY(-4px);
+}
+
+.lp-shop-img-wrapper {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.lp-shop-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.lp-shop-card:hover .lp-shop-img {
+  transform: scale(1.05);
+}
+
+.lp-shop-info {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.lp-shop-name {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--theme-card-text-color, #0f172a);
+}
+
+.lp-shop-price {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-accent);
+}
+
+.lp-shop-price span {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+.lp-shop-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.lp-shop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+.lp-shop-btn:hover {
+  opacity: 0.9;
+}
+
+.lp-shop-btn-booth {
+  background: #fc4d50;
+  color: #ffffff;
+}
+
+.lp-shop-btn-base {
+  background: #333333;
+  color: #ffffff;
+}
+
+.lp-shop-btn-streamart {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.lp-shop-btn-other {
+  background: #475569;
+  color: #ffffff;
+}
+

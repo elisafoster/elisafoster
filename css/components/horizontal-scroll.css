@@ -1,0 +1,90 @@
+/* ==========================================================================
+   Horizontal Scroll CSS - 横スクロール（ホイール・ドラッグ・スワイプ対応）
+   ========================================================================== */
+.app-hscroll-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.app-hscroll-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px 4px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* スワイプ操作対応 */
+  cursor: grab;
+  user-select: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.app-hscroll-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.app-hscroll-track::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-hscroll-track::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+.app-hscroll-track::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+/* ドラッグ中の状態 */
+.app-hscroll-track.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.app-hscroll-track.is-dragging * {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ナビゲーション矢印ボタン (PC等での操作支援) */
+.app-hscroll-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text-main);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  backdrop-filter: blur(4px);
+}
+
+.app-hscroll-arrow:hover {
+  background: #ffffff;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.app-hscroll-arrow.is-left {
+  left: -16px;
+}
+
+.app-hscroll-arrow.is-right {
+  right: -16px;
+}
+
+@media (max-width: 768px) {
+  .app-hscroll-arrow {
+    display: none; /* モバイルはスワイプ中心のため非表示 */
+  }
+}
+

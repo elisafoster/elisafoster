@@ -1,0 +1,153 @@
+/* ==========================================================================
+   LP Layout CSS - 4層背景レイヤー構造 & 共通セクション骨格
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Layer 1: 最背面 - ページ全体背景 (themeConfig)
+   -------------------------------------------------------------------------- */
+.lp-body {
+  position: relative;
+  min-height: 100vh;
+  color: var(--color-text-main);
+  background-color: var(--theme-page-bg, #f8fafc);
+  overflow-x: hidden;
+}
+
+/* ページ全体背景レイヤー (横幅100%フィット) */
+.lp-page-bg-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: var(--z-background);
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   セクション骨格 & レイヤー 2〜4
+   -------------------------------------------------------------------------- */
+.lp-main {
+  position: relative;
+  padding-top: var(--header-height);
+  min-height: calc(100vh - var(--header-height));
+}
+
+.lp-section {
+  position: relative;
+  padding: 80px 0;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .lp-section {
+    padding: 50px 0;
+  }
+}
+
+/* Layer 2: 中面 - セクション背景 (section.sectionBackground) */
+.lp-section-bg-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-section-bg);
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  pointer-events: none;
+}
+
+/* Layer 3: 前面 - ライン装飾 (section.topLine, section.outLine) */
+.lp-section-topline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: var(--z-line-decor);
+  pointer-events: none;
+  line-height: 0;
+}
+
+.lp-section-topline img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.lp-section-outline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: var(--z-line-decor);
+  pointer-events: none;
+  line-height: 0;
+}
+
+.lp-section-outline img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* Layer 4: 最前面 - 各セクションのコンテンツ */
+.lp-section-content {
+  position: relative;
+  z-index: var(--z-content);
+}
+
+/* 共通セクションヘッダー */
+.lp-section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.lp-section-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--theme-section-title-color, #1e293b);
+  position: relative;
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.lp-section-title::after {
+  content: "";
+  display: block;
+  width: 50px;
+  height: 4px;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  margin: 10px auto 0;
+}
+
+.lp-section-desc {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  margin-top: 14px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+/* 共通カード（themeConfig スタイル適用） */
+.lp-card {
+  background: var(--theme-card-bg, #ffffff);
+  color: var(--theme-card-text-color, #1e293b);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.lp-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+

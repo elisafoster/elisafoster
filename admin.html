@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>専用管理画面 | ELISA Official</title>
+
+  <!-- Favicon / App Icon -->
+  <link rel="icon" type="image/png" href="assets/visual/thumbnail/ELISA_thumbnail.png">
+
+  <!-- 共通 CSS -->
+  <link rel="stylesheet" href="css/common/reset.css">
+  <link rel="stylesheet" href="css/common/variables.css">
+  <link rel="stylesheet" href="css/common/base.css">
+  <link rel="stylesheet" href="css/components/toast.css">
+  <link rel="stylesheet" href="css/components/modal.css">
+
+  <!-- 管理画面固有 CSS -->
+  <link rel="stylesheet" href="css/admin/admin-auth.css">
+  <link rel="stylesheet" href="css/admin/admin-layout.css">
+  <link rel="stylesheet" href="css/admin/admin-crud.css">
+  <link rel="stylesheet" href="css/admin/richtext-editor.css">
+
+  <!-- Firebase SDK (v9+ modular) importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- =========================================================================
+       1. 未認証時 ログイン画面 (未認証時は内部UIを一切隠蔽しこのカードのみ表示)
+       ========================================================================= -->
+  <div id="admin-auth-wrapper" class="admin-auth-wrapper">
+    <div class="admin-auth-card">
+      <img src="assets/visual/thumbnail/ELISA_thumbnail.png" alt="ELISA" class="admin-auth-logo" onerror="this.style.display='none'">
+      <div class="admin-auth-title-group">
+        <h1 class="admin-auth-title">ELISA 管理システム</h1>
+        <p class="admin-auth-desc">関係者専用の管理画面です。<br>ホワイトリスト登録済みのアカウントでGoogle認証を行ってください。</p>
+      </div>
+
+      <!-- エラーメッセージ -->
+      <div id="admin-auth-error-msg" class="admin-auth-error-msg"></div>
+
+      <!-- Googleログインボタン -->
+      <button id="admin-google-login-btn" class="admin-auth-btn-google">
+        <svg viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Googleアカウントでログイン</span>
+      </button>
+
+      <a href="index.html" style="font-size: 0.85rem; color: var(--color-text-muted); text-decoration: underline;">
+        &larr; ポートフォリオサイトへ戻る
+      </a>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       2. 認証・認可後 管理画面本体レイアウト (初期状態は display: none)
+       ========================================================================= -->
+  <div id="admin-app-layout" class="admin-app-layout" style="display: none;">
+
+    <!-- サイドバー / ハンバーガーメニュー -->
+    <aside id="admin-sidebar" class="admin-sidebar">
+      <div class="admin-sidebar-header">
+        <div class="admin-sidebar-brand">
+          <span>⚙ ELISA ADMIN</span>
+        </div>
+        <button id="admin-sidebar-close-btn" class="admin-sidebar-close" aria-label="閉じる">&times;</button>
+      </div>
+
+      <!-- メニュー一覧 -->
+      <div class="admin-sidebar-nav">
+        <!-- 各セクション管理 -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">セクションコンテンツ管理</div>
+          <div class="admin-nav-list">
+            <button class="admin-nav-item-btn is-active" data-tab="profile">
+              <span class="admin-nav-item-icon">👤</span> <span>プロフィール</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="event">
+              <span class="admin-nav-item-icon">🎪</span> <span>イベントバナー</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="notice">
+              <span class="admin-nav-item-icon">📢</span> <span>お知らせ</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="schedule">
+              <span class="admin-nav-item-icon">📅</span> <span>スケジュール</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="gallery">
+              <span class="admin-nav-item-icon">🖼</span> <span>画像 (ギャラリー)</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="movie">
+              <span class="admin-nav-item-icon">🎬</span> <span>動画リスト</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="shop">
+              <span class="admin-nav-item-icon">🛍</span> <span>ショップ (グッズ)</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="linkList">
+              <span class="admin-nav-item-icon">🔗</span> <span>リンクリスト</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- サイト設定管理 -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">サイト設定・運用管理</div>
+          <div class="admin-nav-list">
+            <button class="admin-nav-item-btn" data-tab="themeConfig">
+              <span class="admin-nav-item-icon">🎨</span> <span>テーマ設定 (themeConfig)</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="section">
+              <span class="admin-nav-item-icon">📑</span> <span>セクション設定 (section)</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="whitelist">
+              <span class="admin-nav-item-icon">🛡</span> <span>許可アカウント (whitelist)</span>
+            </button>
+            <button class="admin-nav-item-btn" data-tab="githubPAT">
+              <span class="admin-nav-item-icon">🔑</span> <span>GitHub PAT 設定</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ガイドライン管理 -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">規約・法務管理</div>
+          <div class="admin-nav-list">
+            <button class="admin-nav-item-btn" data-tab="guideline">
+              <span class="admin-nav-item-icon">📝</span> <span>ガイドライン (guideline)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 保守機能 (SQL / JSON エクスポートボタン) -->
+      <div class="admin-sidebar-maintenance">
+        <span class="admin-maintenance-title">D1 データベース保守</span>
+        <div class="admin-maintenance-btn-group">
+          <button id="admin-btn-export-sql" class="admin-maintenance-btn">SQLダンプ</button>
+          <button id="admin-btn-export-json" class="admin-maintenance-btn">JSON出力</button>
+        </div>
+      </div>
+
+      <!-- ステータス表示 (Cloudflare Deployment & GitHub リポジトリ容量) -->
+      <div class="admin-sidebar-status">
+        <div class="admin-status-item">
+          <span class="admin-status-label">Cloudflare Deployment:</span>
+          <!-- タップでLPサイトへ遷移 -->
+          <a href="index.html" target="_blank" class="admin-status-deploy-link" title="タップで公開サイトへ遷移">
+            <span class="admin-status-dot"></span>
+            <span>稼働中 (Active)</span>
+          </a>
+        </div>
+        <div class="admin-status-item">
+          <span class="admin-status-label">GitHub 容量:</span>
+          <span id="admin-github-repo-size" class="admin-status-val">読み込み中...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- メインエリア -->
+    <div class="admin-main-wrap">
+      <!-- トップバー -->
+      <header class="admin-topbar">
+        <div class="admin-topbar-left">
+          <button id="admin-hamburger-btn" class="admin-hamburger-btn" aria-label="メニュー">&#9776;</button>
+          <h1 id="admin-current-tab-title" class="admin-topbar-title">プロフィール</h1>
+        </div>
+
+        <div class="admin-topbar-right">
+          <div class="admin-user-profile">
+            <span id="admin-user-email" class="admin-user-email">admin@example.com</span>
+            <span id="admin-user-role" class="admin-user-role-badge">owner</span>
+          </div>
+          <button id="admin-logout-btn" class="app-btn app-btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;">ログアウト</button>
+        </div>
+      </header>
+
+      <!-- 動的コンテンツ領域 -->
+      <main id="admin-content-area" class="admin-content-area"></main>
+    </div>
+  </div>
+
+  <!-- スクリプト -->
+  <script type="module" src="js/admin/admin-main.js"></script>
+</body>
+</html>
+

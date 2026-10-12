@@ -1,0 +1,153 @@
+/* ==========================================================================
+   Movie Section CSS
+   ========================================================================== */
+.lp-movie-categories {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.lp-movie-category-btn {
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: #ffffff;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.lp-movie-category-btn:hover,
+.lp-movie-category-btn.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.lp-movie-filters {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.lp-movie-tag-btn {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+}
+
+.lp-movie-tag-btn:hover,
+.lp-movie-tag-btn.is-active {
+  background: #e2e8f0;
+  color: var(--color-text-main);
+}
+
+/* 動画グリッド */
+.lp-movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 640px) {
+  .lp-movie-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lp-movie-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--theme-card-bg, #ffffff);
+  color: var(--theme-card-text-color, #1e293b);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-movie-card:hover {
+  transform: translateY(-4px);
+}
+
+.lp-movie-thumb-wrapper {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.lp-movie-thumb-wrapper.is-tall {
+  aspect-ratio: 9 / 16;
+  max-height: 480px;
+  margin: 0 auto;
+}
+
+.lp-movie-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.lp-movie-thumb-wrapper:hover .lp-movie-thumb-img {
+  transform: scale(1.05);
+}
+
+/* 再生アイコンオーバーレイ */
+.lp-movie-play-btn {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  transition: background var(--transition-fast);
+}
+
+.lp-movie-thumb-wrapper:hover .lp-movie-play-btn {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.lp-movie-play-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: transform var(--transition-fast);
+}
+
+.lp-movie-thumb-wrapper:hover .lp-movie-play-icon {
+  transform: scale(1.15);
+}
+
+.lp-movie-info {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-movie-tags-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+

@@ -1,0 +1,171 @@
+/* ==========================================================================
+   Header Navigation CSS
+   ========================================================================== */
+.lp-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  z-index: var(--z-header);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+  transition: all var(--transition-normal);
+}
+
+.lp-header.is-scrolled {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.lp-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.lp-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  color: var(--color-text-main);
+}
+
+.lp-header-brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* デスクトップナビゲーション */
+.lp-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-header-nav-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lp-header-nav-link {
+  display: block;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  letter-spacing: 0.02em;
+}
+
+.lp-header-nav-link:hover,
+.lp-header-nav-link.is-active {
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+/* 管理画面・外部リンク導線ボタン */
+.lp-header-action {
+  margin-left: 8px;
+}
+
+/* モバイル用ハンバーガーボタン */
+.lp-header-hamburger {
+  display: none;
+  width: 40px;
+  height: 40px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-sm);
+}
+
+.lp-header-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--color-text-main);
+  border-radius: 2px;
+  transition: all var(--transition-normal);
+}
+
+.lp-header-hamburger.is-active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.lp-header-hamburger.is-active span:nth-child(2) {
+  opacity: 0;
+}
+
+.lp-header-hamburger.is-active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* モバイルドロワーメニュー */
+.lp-header-mobile-drawer {
+  display: none;
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--color-border);
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-100%);
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-normal);
+}
+
+.lp-header-mobile-drawer.is-open {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.lp-header-mobile-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-header-mobile-nav-link {
+  display: block;
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.lp-header-mobile-nav-link:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--color-primary);
+}
+
+@media (max-width: 900px) {
+  .lp-header-nav-list {
+    display: none;
+  }
+  .lp-header-hamburger {
+    display: flex;
+  }
+  .lp-header-mobile-drawer {
+    display: block;
+  }
+}
+

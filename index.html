@@ -1,1 +1,81 @@
-text
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELISA Official Website</title>
+  <meta name="description" content="ELISAの公式ポートフォリオ・オフィシャルWebサイトです。">
+
+  <!-- Favicon / App Icon -->
+  <link rel="icon" type="image/png" href="assets/visual/thumbnail/ELISA_thumbnail.png">
+
+  <!-- 共通 CSS -->
+  <link rel="stylesheet" href="css/common/reset.css">
+  <link rel="stylesheet" href="css/common/variables.css">
+  <link rel="stylesheet" href="css/common/base.css">
+  <link rel="stylesheet" href="css/components/toast.css">
+  <link rel="stylesheet" href="css/components/modal.css">
+  <link rel="stylesheet" href="css/components/horizontal-scroll.css">
+  <link rel="stylesheet" href="css/components/header.css">
+  <link rel="stylesheet" href="css/components/footer.css">
+
+  <!-- LP 固有 CSS -->
+  <link rel="stylesheet" href="css/lp/lp-layout.css">
+  <link rel="stylesheet" href="css/lp/profile.css">
+  <link rel="stylesheet" href="css/lp/event.css">
+  <link rel="stylesheet" href="css/lp/notice.css">
+  <link rel="stylesheet" href="css/lp/schedule.css">
+  <link rel="stylesheet" href="css/lp/gallery.css">
+  <link rel="stylesheet" href="css/lp/movie.css">
+  <link rel="stylesheet" href="css/lp/shop.css">
+  <link rel="stylesheet" href="css/lp/link.css">
+</head>
+<body class="lp-body">
+
+  <!-- Layer 1: 最背面 ページ全体背景 (themeConfig.background 画面横幅100%フィット) -->
+  <div id="lp-page-bg-layer" class="lp-page-bg-layer"></div>
+
+  <!-- ヘッダー (スムーズスクロール・ジャンプナビゲーション) -->
+  <header class="lp-header">
+    <div class="app-container lp-header-inner">
+      <a href="#" class="lp-header-brand">
+        <img src="assets/visual/thumbnail/ELISA_thumbnail.png" alt="ELISA" class="lp-header-brand-logo" onerror="this.style.display='none'">
+        <span>ELISA OFFICIAL</span>
+      </a>
+
+      <!-- デスクトップ用ナビゲーション (sectionテーブルから動的生成) -->
+      <nav class="lp-header-nav">
+        <ul id="lp-header-nav-list" class="lp-header-nav-list"></ul>
+      </nav>
+
+      <!-- モバイル用ハンバーガーボタン -->
+      <button id="lp-hamburger-btn" class="lp-header-hamburger" aria-label="メニューを開く">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+
+    <!-- モバイル用ドロワーメニュー -->
+    <div id="lp-mobile-drawer" class="lp-header-mobile-drawer">
+      <ul id="lp-mobile-nav-list" class="lp-header-mobile-nav-list"></ul>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ (sectionテーブルに基づく4層背景レイヤー動的セクション群) -->
+  <main id="lp-main-container" class="lp-main"></main>
+
+  <!-- フッター (コピーライト & guideline.html 導線リンク) -->
+  <footer class="lp-footer">
+    <div class="app-container lp-footer-inner">
+      <div id="lp-footer-links" class="lp-footer-links">
+        <a href="guideline.html" class="lp-footer-link">ガイドライン・二次創作規約</a>
+      </div>
+      <p id="lp-footer-copyright" class="lp-footer-copyright">© ELISA. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <!-- スクリプト -->
+  <script type="module" src="js/lp/lp-main.js"></script>
+</body>
+</html>

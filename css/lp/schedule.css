@@ -1,0 +1,101 @@
+/* ==========================================================================
+   Schedule Section CSS
+   ========================================================================== */
+.lp-schedule-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.lp-schedule-tag-btn {
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #ffffff;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+}
+
+.lp-schedule-tag-btn:hover,
+.lp-schedule-tag-btn.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+.lp-schedule-card {
+  flex: 0 0 320px;
+  background: var(--theme-card-bg, #ffffff);
+  color: var(--theme-card-text-color, #1e293b);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-normal);
+  border: 1px solid var(--color-border);
+}
+
+@media (max-width: 640px) {
+  .lp-schedule-card {
+    flex: 0 0 280px;
+  }
+}
+
+.lp-schedule-card:hover {
+  transform: translateY(-4px);
+}
+
+.lp-schedule-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #f1f5f9;
+}
+
+.lp-schedule-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.lp-schedule-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lp-schedule-datetime {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
+}
+
+.lp-schedule-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--theme-card-text-color, #0f172a);
+}
+
+.lp-schedule-detail {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  flex: 1;
+}
+
+.lp-schedule-link-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+

@@ -1,0 +1,247 @@
+/* ==========================================================================
+   Profile Section CSS
+   ========================================================================== */
+.lp-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .lp-profile-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+/* 立ち絵・ビジュアルエリア */
+.lp-profile-visual-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lp-profile-visual-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  height: 580px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+}
+
+@media (max-width: 640px) {
+  .lp-profile-visual-wrapper {
+    height: 420px;
+  }
+}
+
+.lp-profile-visual-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.3;
+}
+
+.lp-profile-standing-img {
+  position: relative;
+  max-height: 95%;
+  width: auto;
+  object-fit: contain;
+  z-index: 2;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.15));
+  transition: transform var(--transition-normal);
+}
+
+.lp-profile-deformed-img {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  z-index: 3;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  padding: 6px;
+  border: 2px solid #ffffff;
+}
+
+/* 衣装切り替えセレクター */
+.lp-costume-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lp-costume-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.lp-costume-tab-btn img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.lp-costume-tab-btn.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+/* クリエイタークレジット */
+.lp-profile-creators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  justify-content: center;
+}
+
+.lp-profile-creator-tag {
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+/* プロフィール詳細情報エリア */
+.lp-profile-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lp-profile-names {
+  border-bottom: 2px solid rgba(59, 130, 246, 0.15);
+  padding-bottom: 16px;
+}
+
+.lp-profile-furigana {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--color-primary);
+}
+
+.lp-profile-main-name {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-top: 2px;
+  color: var(--theme-card-text-color, #0f172a);
+}
+
+.lp-profile-romaji {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.lp-profile-catchphrase {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  line-height: 1.5;
+  padding: 12px 16px;
+  background: rgba(59, 130, 246, 0.06);
+  border-left: 4px solid var(--color-primary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.lp-profile-message {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: var(--theme-card-text-color, #334155);
+}
+
+/* スペックリスト（誕生日・身長等） */
+.lp-profile-specs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 480px) {
+  .lp-profile-specs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lp-profile-spec-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--color-border);
+  font-size: 0.9rem;
+}
+
+.lp-profile-spec-label {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.lp-profile-spec-value {
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+/* SNS・プラットフォームリンクボタン */
+.lp-profile-sns-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lp-profile-sns-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background: #ffffff;
+  color: var(--color-text-main);
+  transition: all var(--transition-fast);
+}
+
+.lp-profile-sns-btn:hover {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+

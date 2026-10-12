@@ -1,0 +1,76 @@
+/* ==========================================================================
+   Event Banner Section CSS
+   ========================================================================== */
+.lp-event-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lp-event-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-normal);
+  background: #ffffff;
+}
+
+.lp-event-card:hover {
+  transform: translateY(-4px);
+}
+
+.lp-event-banner-link {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3 / 1;
+}
+
+@media (max-width: 640px) {
+  .lp-event-banner-link {
+    aspect-ratio: 2.5 / 1;
+  }
+}
+
+.lp-event-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.lp-event-card:hover .lp-event-banner-img {
+  transform: scale(1.02);
+}
+
+.lp-event-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #ffffff;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+
+.lp-event-dates {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.lp-event-status-badge {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.lp-event-status-badge.is-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-success);
+}
+
