@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 100" width="500" height="100">
+  <!-- 角丸背景プレート -->
+  <rect x="2" y="2" width="496" height="96" rx="12" fill="#f3f4f6" stroke="#d1d5db" stroke-width="2" />
+
+  <!-- 外部リンクアイコン (左側) -->
+  <g transform="translate(36, 36)" stroke="#4b5563" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </g>
+
+  <!-- 矢印アイコン (右側) -->
+  <g transform="translate(446, 38)" stroke="#9ca3af" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="9 18 15 12 9 6" />
+  </g>
+</svg>

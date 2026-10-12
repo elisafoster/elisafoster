@@ -1,0 +1,26 @@
+whitelist:
+  title: "アカウントのwhitelist"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    name:
+      type: string
+      description: "アカウント名"
+      required: true
+
+    mail:
+      type: string
+      description: "Gmailアドレス"
+      required: true
+
+    role:
+      type: string
+      description: "権限"
+      source_type:
+        enum:
+          owner: "オーナー"
+          admin: "共同運営者"
+          editor: "スタッフ"
+          writer: "アシスタント"
+        default: "writer"
+      required: true 

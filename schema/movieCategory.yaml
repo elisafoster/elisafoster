@@ -1,0 +1,33 @@
+movieCategory:
+  title: "動画カテゴリー"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    id:
+      type: number
+      label: "ID"
+      description: "管理番号"
+      required: true
+
+    categoryName:
+      type: string
+      label: "カテゴリー"
+      description: "カテゴリー名称"
+      required: true
+
+    aspectRatio:
+      type: string
+      label: "アスペクト比"
+      description: "動画のアスペクト比"
+      ource_type:
+        enum:
+          wide: "横長（16:9）"
+          tall: "縦長（9:16）"
+        default: "wide"
+      required: true
+
+    priority:
+      type: number
+      label: "優先度"
+      description: "表示優先度（降順）"
+      required: true

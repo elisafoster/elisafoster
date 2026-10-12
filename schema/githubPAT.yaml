@@ -1,0 +1,19 @@
+githubPAT:
+  title: "githubPAT"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    github_repo_owner:
+      type: string
+      description: "リポジトリ所有者名"
+      required: true
+
+    github_repo_name:
+      type: string
+      description: "リポジトリ名"
+      required: true
+
+    github_pat:
+      type: string
+      description: "GitHub PAT"
+      required: true

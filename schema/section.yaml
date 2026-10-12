@@ -1,0 +1,151 @@
+section:
+  title: "セクション設定"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    id:
+      type: number
+      label: "ID"
+      description: "管理番号"
+      required: true
+
+    item:
+      type: string
+      label: "設定項目名"
+      description: "設定項目名"
+      required: true
+
+    headerName:
+      type: string
+      label: "ヘッダー項目名"
+      description: "ページ内のヘッダーに表示されるジャンプ項目"
+      required: true
+    
+    sectionName:
+      type: string
+      label: "ページ内セクション名"
+      description: "ページ内で表示されるセクションのタイトル名"
+      required: false
+      nullable: true
+      ui:
+        # idが 1 または 2 の場合は入力フォームを描画せず、静的テキストとして表示
+        staticIf:
+          id: [1, 2]
+          display: "この項目は設定不要です"
+    
+    comment:
+      type: string
+      label: "ページ内セクション説明"
+      description: "ページ内に表示されるセクションの説明"
+      required: false
+      nullable: true
+      ui:
+        # idが 1 または 2 の場合は入力フォームを描画せず、静的テキストとして表示
+        staticIf:
+          id: [1, 2]
+          display: "この項目は設定不要です"
+
+    topLine:
+      type: image
+      label: "トップライン"
+      description: "表示する画像を選択またはアップロードしてください"
+      required: false
+
+      # 保存先・ライブラリ設定
+      mediaLibrary: "assets/section/topLine"
+      uploadPath: "assets/section/topLine"
+      accept:
+        - ".png"
+
+      # ストレージ・命名規則（蓄積型 & 任意ファイル名）
+      storage:
+        strategy: "accumulate"
+        allowCustomFilename: true
+        namingRules:
+          pattern: "^[a-zA-Z0-9_-]+$"
+          errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+        onConflict: "prevent"
+
+      # 容量制限
+      validation:
+        maxSizeBytes: 1048576 # 1MB (1 * 1024 * 1024)
+      clientProcess:
+          maxLongEdge: 2000     # 長辺2000pxにリサイズ（縦横どちらも破綻なし）
+      fitProcess:
+        enabled: true
+        aspectRatio: "10:1"     # 10:1固定
+        displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
+        background: "transparent"
+
+    outLine:
+      type: image
+      label: "アウトライン"
+      description: "表示する画像を選択またはアップロードしてください"
+      required: false
+
+      # 保存先・ライブラリ設定
+      mediaLibrary: "assets/section/outLine"
+      uploadPath: "assets/section/outLine"
+      accept:
+        - ".png"
+
+      # ストレージ・命名規則（蓄積型 & 任意ファイル名）
+      storage:
+        strategy: "accumulate"
+        allowCustomFilename: true
+        namingRules:
+          pattern: "^[a-zA-Z0-9_-]+$"
+          errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+        onConflict: "prevent"
+
+      # 容量制限
+      validation:
+        maxSizeBytes: 1048576 # 1MB (1 * 1024 * 1024)
+      clientProcess:
+          maxLongEdge: 2000     # 長辺2000pxにリサイズ（縦横どちらも破綻なし）
+      fitProcess:
+        enabled: true
+        aspectRatio: "10:1"     # 10:1固定
+        displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
+        background: "transparent"
+
+    sectionBackground:
+      type: image
+      label: "セクション背景"
+      description: "表示する画像を選択またはアップロードしてください"
+      required: false
+
+      # 保存先・ライブラリ設定
+      mediaLibrary: "assets/section/sectionBackground"
+      uploadPath: "assets/section/sectionBackground"
+      accept:
+        - ".png"
+        - ".jpg"
+        - ".jpeg"
+
+      # ストレージ・命名規則（蓄積型 & 任意ファイル名）
+      storage:
+        strategy: "accumulate"
+        allowCustomFilename: true
+        namingRules:
+          pattern: "^[a-zA-Z0-9_-]+$"
+          errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+        onConflict: "prevent"
+
+      # 容量制限
+      validation:
+        maxSizeBytes: 2097152 # 2MB (2 * 1024 * 1024)
+    
+    isFeatured:
+      type: boolean
+      label: "表示"
+      description: "ページ内にセクションを表示するかどうか"
+      default: true
+      required: true
+      ui:
+        widget: "switch"
+
+    priority:
+      type: number
+      description: "ページ内に表示されるセクションの並び順"
+      required: true

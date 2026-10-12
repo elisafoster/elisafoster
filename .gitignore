@@ -1,0 +1,19 @@
+# 依存パッケージ
+node_modules/
+
+# 環境変数・機密情報
+.env
+.env.*
+!.env.example
+
+# OS・エディタ生成ファイル
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+
+# ビルド・テスト成果物
+dist/
+coverage/
+playwright-report/
+test-results/

@@ -1,0 +1,118 @@
+schedule:
+  title: "スケジュール"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    id:
+      type: number
+      label: "ID"
+      description: "管理番号"
+      required: true
+
+    title:
+      type: string
+      label: "タイトル"
+      description: "タイトル"
+      required: true
+
+    scheduleTag_id:
+      type: string
+      description: "イベントの区分け用ラベル"
+      references:
+        table: "scheduleTag"
+        field: "id"
+      required: true
+
+    schedule_at:
+      type: date
+      description: "日時"
+      format: "yyyy-mm-dd"
+      required: true
+
+    time:
+      type: date
+      description: "時間"
+      format: "hh:mm"
+      default: null
+      required: false
+
+    detail:
+      type: text
+      description: "詳細"
+      required: false
+
+    Image:
+      type: image
+      label: "画像"
+      description: "表示する画像の指定方法を選択してください"
+      required: false
+
+      # ---------------------------------------------
+      # ラジオボタン切り替え定義
+      # ---------------------------------------------
+      inputMode:
+        uiType: "radio"
+        default: "library"
+        options:
+          - value: "library"
+            label: "ライブラリから選択 / アップロード"
+          - value: "url"
+            label: "外部URL指定 (Googleドライブ等)"
+
+      # ---------------------------------------------
+      # 1. ライブラリ選択 / アップロード側の設定
+      # (inputMode == 'library' のときに有効)
+      # ---------------------------------------------
+      libraryConfig:
+        mediaLibrary: "assets/schedule"
+        uploadPath: "assets/schedule"
+        accept:
+          - ".png"
+          - ".jpg"
+          - ".jpeg"
+          - ".webp"
+        storage:
+          strategy: "accumulate"
+          allowCustomFilename: true
+          namingRules:
+            pattern: "^[a-zA-Z0-9_-]+$"
+            errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+          onConflict: "prevent"
+        validation:
+          maxSizeBytes: 2097152 # 2MB (2 * 1024 * 1024)
+        clientProcess:
+          maxLongEdge: 1280     # 長辺1280pxにリサイズ（縦横どちらも破綻なし）
+          compressQuality: 0.85
+
+      # ---------------------------------------------
+      # 2. 直URL指定側の設定
+      # (inputMode == 'url' のときに有効)
+      # ---------------------------------------------
+      urlConfig:
+        placeholder: "https://drive.google.com/file/d/..."
+        hint: "Googleドライブの共有URL、または画像の直接URLを入力してください"
+        # ドライブURLが入力された場合に自動変換・正規化する設定
+        autoConvertDriveUrl: true
+
+      # ---------------------------------------------
+      # 3. 共通の表示・フィッティング設定
+      # (どちらで選んだ画像にも共通して適用)
+      # ---------------------------------------------
+      fitProcess:
+        enabled: true
+        targetAspectRatios:
+          landscape: "16:9"
+          portrait: "9:16"
+        displayMode: "contain"
+        background: "transparent"
+    
+    link:
+      type: string
+      description: "外部リンクURL"
+      required: false
+
+    is_active:
+      type: boolean
+      description: "表示フラグ（true: 表示 / false: 非表示）"
+      default: true
+      required: true

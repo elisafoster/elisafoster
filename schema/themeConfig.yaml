@@ -1,0 +1,57 @@
+themeConfig:
+  title: "テーマ・外観カラー設定"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    id:
+      type: number
+      description: "管理番号 (固定: 1)"
+
+    card_bg_type:
+      type: string
+      description: "カード背景タイプ (single / gradient)"
+
+    card_bg_color:
+      type: string
+      description: "カード背景色 (単色用HEX)"
+
+    card_bg_gradient_start:
+      type: string
+      description: "グラデーション開始色 (HEX)"
+
+    card_bg_gradient_end:
+      type: string
+      description: "グラデーション終了色 (HEX)"
+
+    card_bg_gradient_angle:
+      type: number
+      description: "グラデーション角度 (0-360)"
+
+    card_text_color:
+      type: string
+      description: "カード内文字色 (HEX)"
+
+    section_title_color:
+      type: string
+      description: "セクション見出し文字色 (HEX)"
+
+    background:
+      type: image
+      label: "背景画像"
+      description: "基本背景画像"
+      required: true
+      default: "assets/config/background.jpg"
+
+      # アップロード専用設定
+      uploadPath: "assets/config"
+      fileName: "background"
+      overwrite: true
+      accept:
+        - ".jpg"
+        - ".jpeg"
+        - ".png"
+        - ".webp"
+
+      # 必要に応じて容量制限を追加
+      validation:
+        maxSizeBytes: 5242880 # 5MB

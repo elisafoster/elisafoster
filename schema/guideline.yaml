@@ -1,0 +1,62 @@
+guideline:
+  title: "ガイドライン"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    title:
+      type: string
+      label: "ページタイトル"
+      description: "ガイドラインのメインタイトル"
+      default: "二次創作・ファン活動に関するガイドライン"
+      required: true
+      validation:
+        maxLength: 100
+        errorMessage: "タイトルは100文字以内で入力してください"
+
+    comment:
+      type: richtext
+      label: "ガイドライン本文"
+      description: "見出し、箇条書き、太字装飾に対応したエディタです"
+      required: true
+      editorConfig:
+        toolbar:
+          # ブロック種別の切り替え（ドロップダウンまたはボタングループ）
+          blockTypes:
+            - key: "heading"
+              label: "項目"
+              format: "# "         # Markdownの見出し (h2)
+            - key: "paragraph"
+              label: "内容文"
+              format: ""           # 通常の段落 (p)
+            - key: "alert"
+              label: "注意書き"
+              format: "> "         # 引用ブロック記法、または「! 」等 (div.alert) 
+          # インライン装飾・リスト
+          inline:
+            - "bold"               # 太字 (**)
+            - "italic"             # 斜体 (*)
+            - "link"               # リンク ([text](url))
+            - "bulletList"         # 箇条書き (- )
+        placeholder: "ガイドラインの本文を入力してください..."
+      validation:
+        maxSizeBytes: 524288 # 512KB (テキストとしては膨大な容量を確保)
+
+    establishedDate:
+      type: string
+      label: "制定日"
+      description: "制定または最終更新日（例: 2026年10月1日）"
+      default: "2026年10月1日"
+      required: true
+      validation:
+        maxLength: 50
+        errorMessage: "制定日は50文字以内で入力してください"
+
+    authorName:
+      type: string
+      label: "制定者名 / サイン"
+      description: "末尾に表示される活動者名・サークル名"
+      default: "[VTuber名]"
+      required: true
+      validation:
+        maxLength: 50
+        errorMessage: "制定者名は50文字以内で入力してください"

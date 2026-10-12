@@ -1,0 +1,16 @@
+movieTag:
+  title: "動画タグ"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    id:
+      type: number
+      label: "ID"
+      description: "管理番号"
+      required: true
+
+    tagName:
+      type: string
+      label: "タグ"
+      description: "タグ名称"
+      required: true

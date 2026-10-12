@@ -1,0 +1,276 @@
+visual:
+  title: "立ち絵/衣装"
+  headerRow: 1
+  dataStartRow: 2
+  columns:
+    id:
+      type: number
+      description: "管理用番号"
+      required: true
+
+    costumeName:
+      type: string
+      description: "衣装名 ※識別するための管理用"
+      required: false
+
+    visual:
+      type: image
+      label: "立ち絵画像"
+      description: "表示する画像の指定方法を選択してください"
+      required: true
+
+      # ---------------------------------------------
+      # ラジオボタン切り替え定義
+      # ---------------------------------------------
+      inputMode:
+        uiType: "radio"
+        default: "library"
+        options:
+          - value: "library"
+            label: "ライブラリから選択 / アップロード"
+          - value: "url"
+            label: "外部URL指定 (Googleドライブ等)"
+
+      # ---------------------------------------------
+      # 1. ライブラリ選択 / アップロード側の設定
+      # (inputMode == 'library' のときに有効)
+      # ---------------------------------------------
+      libraryConfig:
+        mediaLibrary: "assets/visual/standing"
+        uploadPath: "assets/visual/standing"
+        accept:
+          - ".png"
+
+        storage:
+          strategy: "accumulate"
+          allowCustomFilename: true
+          namingRules:
+            pattern: "^[a-zA-Z0-9_-]+$"
+            errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+          onConflict: "prevent"
+        validation:
+          maxSizeBytes: 5242880 # 5MB (5 * 1024 * 1024)
+        clientProcess:
+          maxLongEdge: 1280     # 長辺1280pxにリサイズ（縦横どちらも破綻なし）
+          compressQuality: 0.85
+
+      # ---------------------------------------------
+      # 2. 直URL指定側の設定
+      # (inputMode == 'url' のときに有効)
+      # ---------------------------------------------
+      urlConfig:
+        placeholder: "https://drive.google.com/file/d/..."
+        hint: "Googleドライブの共有URL、または画像の直接URLを入力してください"
+        # ドライブURLが入力された場合に自動変換・正規化する設定
+        autoConvertDriveUrl: true
+
+      # ---------------------------------------------
+      # 3. 共通の表示・フィッティング設定
+      # (どちらで選んだ画像にも共通して適用)
+      # ---------------------------------------------
+      fitProcess:
+        enabled: true
+        aspectRatio: "4:3"     # 4:3固定
+        displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
+        background: "transparent"
+
+    defoemed:
+      type: image
+      label: "デフォルメ画像"
+      description: "表示する画像の指定方法を選択してください"
+      required: true
+
+      # ---------------------------------------------
+      # ラジオボタン切り替え定義
+      # ---------------------------------------------
+      inputMode:
+        uiType: "radio"
+        default: "library"
+        options:
+          - value: "library"
+            label: "ライブラリから選択 / アップロード"
+          - value: "url"
+            label: "外部URL指定 (Googleドライブ等)"
+
+      # ---------------------------------------------
+      # 1. ライブラリ選択 / アップロード側の設定
+      # (inputMode == 'library' のときに有効)
+      # ---------------------------------------------
+      libraryConfig:
+        mediaLibrary: "assets/visual/defoemed"
+        uploadPath: "assets/visual/defoemed"
+        accept:
+          - ".png"
+
+        storage:
+          strategy: "accumulate"
+          allowCustomFilename: true
+          namingRules:
+            pattern: "^[a-zA-Z0-9_-]+$"
+            errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+          onConflict: "prevent"
+        validation:
+          maxSizeBytes: 3145728 # 3MB (3 * 1024 * 1024)
+        clientProcess:
+          maxLongEdge: 640     # 長辺640pxにリサイズ（縦横どちらも破綻なし）
+          compressQuality: 0.85
+
+      # ---------------------------------------------
+      # 2. 直URL指定側の設定
+      # (inputMode == 'url' のときに有効)
+      # ---------------------------------------------
+      urlConfig:
+        placeholder: "https://drive.google.com/file/d/..."
+        hint: "Googleドライブの共有URL、または画像の直接URLを入力してください"
+        # ドライブURLが入力された場合に自動変換・正規化する設定
+        autoConvertDriveUrl: true
+
+      # ---------------------------------------------
+      # 3. 共通の表示・フィッティング設定
+      # (どちらで選んだ画像にも共通して適用)
+      # ---------------------------------------------
+      fitProcess:
+        enabled: true
+        aspectRatio: "4:3"     # 4:3固定
+        displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
+        background: "transparent"
+
+    thumbnail:
+      type: image
+      label: "サムネイル画像"
+      description: "表示する画像の指定方法を選択してください"
+      required: false
+
+      # ---------------------------------------------
+      # ラジオボタン切り替え定義
+      # ---------------------------------------------
+      inputMode:
+        uiType: "radio"
+        default: "library"
+        options:
+          - value: "library"
+            label: "ライブラリから選択 / アップロード"
+          - value: "url"
+            label: "外部URL指定 (Googleドライブ等)"
+
+      # ---------------------------------------------
+      # 1. ライブラリ選択 / アップロード側の設定
+      # (inputMode == 'library' のときに有効)
+      # ---------------------------------------------
+      libraryConfig:
+        mediaLibrary: "assets/visual/thumbnail"
+        uploadPath: "assets/visual/thumbnail"
+        accept:
+          - ".png"
+        storage:
+          strategy: "accumulate"
+          allowCustomFilename: true
+          namingRules:
+            pattern: "^[a-zA-Z0-9_-]+$"
+            errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+          onConflict: "prevent"
+        validation:
+          maxSizeBytes: 1048576 # 1MB (1 * 1024 * 1024)
+        clientProcess:
+          maxLongEdge: 512     # 長辺512pxにリサイズ（縦横どちらも破綻なし）
+          compressQuality: 0.85
+
+      # ---------------------------------------------
+      # 2. 直URL指定側の設定
+      # (inputMode == 'url' のときに有効)
+      # ---------------------------------------------
+      urlConfig:
+        placeholder: "https://drive.google.com/file/d/..."
+        hint: "Googleドライブの共有URL、または画像の直接URLを入力してください"
+        # ドライブURLが入力された場合に自動変換・正規化する設定
+        autoConvertDriveUrl: true
+
+      # ---------------------------------------------
+      # 3. 共通の表示・フィッティング設定
+      # (どちらで選んだ画像にも共通して適用)
+      # ---------------------------------------------
+      fitProcess:
+        enabled: true
+        aspectRatio: "1:1"     # 1:1固定
+        displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
+        background: "transparent"
+
+    visualBackground:
+      type: image
+      label: "演出背景"
+      description: "表示する画像の指定方法を選択してください"
+      required: false
+
+      # ---------------------------------------------
+      # ラジオボタン切り替え定義
+      # ---------------------------------------------
+      inputMode:
+        uiType: "radio"
+        default: "library"
+        options:
+          - value: "library"
+            label: "ライブラリから選択 / アップロード"
+          - value: "url"
+            label: "外部URL指定 (Googleドライブ等)"
+
+      # ---------------------------------------------
+      # 1. ライブラリ選択 / アップロード側の設定
+      # (inputMode == 'library' のときに有効)
+      # ---------------------------------------------
+      libraryConfig:
+        mediaLibrary: "assets/visual/background"
+        uploadPath: "assets/visual/background"
+        accept:
+          - ".png"
+          - ".jpg"
+          - ".jpeg"
+
+        storage:
+          strategy: "accumulate"
+          allowCustomFilename: true
+          namingRules:
+            pattern: "^[a-zA-Z0-9_-]+$"
+            errorMessage: "半角英数字、ハイフン、アンダースコアのみ使用可能です"
+          onConflict: "prevent"
+        validation:
+          maxSizeBytes: 5242880 # 5MB (5 * 1024 * 1024)
+
+      # ---------------------------------------------
+      # 2. 直URL指定側の設定
+      # (inputMode == 'url' のときに有効)
+      # ---------------------------------------------
+      urlConfig:
+        placeholder: "https://drive.google.com/file/d/..."
+        hint: "Googleドライブの共有URL、または画像の直接URLを入力してください"
+        # ドライブURLが入力された場合に自動変換・正規化する設定
+        autoConvertDriveUrl: true
+
+    characterDesign:
+      label: "キャラクターデザイン"
+      type: string
+      description: "キャラクターデザイン"
+      required: false
+
+    illustrator:
+      label: "イラストレーター"
+      type: string
+      description: "イラストレーター"
+      required: false
+
+    live2d:
+      label: "Live2Dモデリング"
+      type: string
+      description: "Live2Dモデラー"
+      required: false
+
+    3dModeling:
+      label: "3Dモデリング"
+      type: string
+      description: "3Dモデラー"
+      required: false
+
+    priority:
+      type: number
+      description: "表示優先度"
+      min: 1
+      required: true
