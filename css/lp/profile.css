@@ -1,7 +1,7 @@
 /* ==========================================================================
    Profile Section CSS
    - 左右反転レイアウト (画面左側: プロフィール情報 / 画面右側: 巨大立ち絵・サムネイル)
-   - 重なり順の厳守: セクション背景 (1) < 立ち絵 (2) < outLine (3) < デフォルメ (6) < サムネイル/カード (10)
+   - 重なり順の厳守: セクション背景 (1) < topLine (2) < 立ち絵 (3) < outLine (4) < サムネイル/クレジット/プロフィールカード (10)
    - カードカラー: themeConfig 変数 (--theme-card-bg, --theme-card-text-color) に完全連動
    - サムネイル: 外枠カード表示なし、単体拡大表示、背景 thumbnail_background.jpg 適用
    - 自己紹介動画 (profile.moves) プレイヤーカード (参考画像⑧番)
@@ -446,8 +446,8 @@
 }
 
 /* ⑩ 巨大立ち絵ラッパー
-   重要: セクション背景 (1) < 立ち絵 (2) < outLine (3)
-   outLine の「下（背面）」に潜り込む z-index: 2
+   重要: topLine (2) < 立ち絵 (3) < outLine (4)
+   topLine の前面、outLine の「下（背面）」に潜り込む z-index: 3
    画面右端の見切れ、左側カードへの一部重なりを許容
    -------------------------------------------------------------------------- */
 .lp-profile-standing-wrapper {
@@ -458,7 +458,7 @@
   width: 135%;  /* 左側カードに一部潜り込む迫力の拡大サイズ */
   max-width: 900px;
   height: calc(100% + 140px);
-  z-index: 2; /* 厳守: outLine (3) の背面 */
+  z-index: 3; /* 厳守: topLine (2) < 立ち絵 (3) < outLine (4) */
   display: flex;
   align-items: flex-end;
   justify-content: center;

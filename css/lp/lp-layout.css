@@ -37,18 +37,19 @@
 
 .lp-section {
   position: relative;
-  padding: 130px 0 140px; /* topLine と outLine がコンテンツに被らない十分なクリアランス */
-  overflow: hidden;
+  padding: 140px 0 160px; /* topLine と outLine の画像比率表示に合わせたクリアランス */
+  overflow: visible; /* 影の途切れ防止および立ち絵の自然な表示 */
 }
 
-/* プロフィールセクションは立ち絵の拡大・はみ出し表示のため overflow: visible */
-.lp-section.lp-section-profile {
-  overflow: visible;
-}
-
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .lp-section {
-    padding: 90px 0 100px;
+    padding: 90px 0 110px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lp-section {
+    padding: 60px 0 80px;
   }
 }
 
@@ -58,7 +59,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  z-index: 1; /* 全セクション共通: セクション背景 (1) */
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
@@ -66,24 +67,23 @@
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15); /* ページ背景から浮かび上がる立体感 */
 }
 
-/* Layer 3: 前面 - ライン装飾 (section.topLine, section.outLine) */
+/* Layer 3: 前面 - ライン装飾 (section.topLine, section.outLine) - 画像比率維持 & 自然な影 */
 .lp-section-topline {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  max-height: 110px;
-  overflow: hidden;
-  z-index: 3;
   pointer-events: none;
   line-height: 0;
+  overflow: visible; /* 影が途中で途切れないよう visible */
+  z-index: 2; /* 全セクション共通: topLine (2) */
 }
 
 .lp-section-topline img {
   width: 100%;
-  height: auto;
-  object-fit: cover;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.12));
+  height: auto; /* 画像の比率のまま100%幅で表示 */
+  display: block;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.09)); /* 自然で途切れないソフトな影 */
 }
 
 .lp-section-outline {
@@ -91,24 +91,40 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  max-height: 110px;
-  overflow: hidden;
-  z-index: 3; /* 重なり順: outLine (3) < 立ち絵 (5) < プロフィールカード (10) */
   pointer-events: none;
   line-height: 0;
+  overflow: visible; /* 影が途中で途切れないよう visible */
+  z-index: 3; /* デフォルト（プロフィールセクション以外）: outLine (3) */
 }
 
 .lp-section-outline img {
   width: 100%;
-  height: auto;
-  object-fit: cover;
-  filter: drop-shadow(0 -4px 14px rgba(0, 0, 0, 0.12));
+  height: auto; /* 画像の比率のまま100%幅で表示 */
+  display: block;
+  filter: drop-shadow(0 -8px 20px rgba(0, 0, 0, 0.09)); /* 自然で途切れないソフトな影 */
 }
 
-/* Layer 4: 各セクションのコンテンツ (独立したスタッキングコンテキストを作らず、子要素がoutLineと直接重なり順を競合できるようにする) */
-.lp-section-content {
+/* --------------------------------------------------------------------------
+   重なり順（z-index）の制御
+   ＜プロフィールセクション以外＞
+   セクション背景 (1) < topLine (2) < outLine (3) < セクション表示物 (5)
+   -------------------------------------------------------------------------- */
+.lp-section:not(.lp-section-profile) .lp-section-content {
   position: relative;
-  z-index: auto;
+  z-index: 5; /* セクション表示物を topLine(2)・outLine(3) より前面に配置 */
+}
+
+/* --------------------------------------------------------------------------
+   ＜プロフィールセクションのみ＞
+   セクション背景 (1) < topLine (2) < 立ち絵 (3) < outLine (4) < サムネイル/クレジット/プロフィールカード (10)
+   -------------------------------------------------------------------------- */
+.lp-section-profile .lp-section-content {
+  position: relative;
+  z-index: auto; /* スタッキングコンテキストを分離せず、子要素が直接 outLine/topLine と競合できるようにする */
+}
+
+.lp-section-profile .lp-section-outline {
+  z-index: 4; /* 立ち絵(3) より前面、サムネイル/クレジット/プロフィールカード(10) より背面に配置 */
 }
 
 /* 共通セクションヘッダー */

@@ -205,7 +205,8 @@ class LpApp {
     this.sections.forEach((sec) => {
       const sectionEl = document.createElement("section");
       sectionEl.id = `section-${sec.id}`;
-      sectionEl.className = `lp-section lp-section-${sec.headerName?.toLowerCase() || sec.id}`;
+      const isProfile = (sec.headerName || "").toUpperCase() === "PROFILE" || sec.id === 1;
+      sectionEl.className = `lp-section lp-section-${sec.headerName?.toLowerCase() || sec.id} ${isProfile ? "lp-section-profile" : ""}`.trim();
 
       // Layer 2: 中面 - セクション背景 (section.sectionBackground)
       if (sec.sectionBackground) {
