@@ -37,17 +37,22 @@
 
 .lp-section {
   position: relative;
-  padding: 80px 0;
+  padding: 130px 0 140px; /* topLine と outLine がコンテンツに被らない十分なクリアランス */
   overflow: hidden;
+}
+
+/* プロフィールセクションは立ち絵の拡大・はみ出し表示のため overflow: visible */
+.lp-section.lp-section-profile {
+  overflow: visible;
 }
 
 @media (max-width: 768px) {
   .lp-section {
-    padding: 50px 0;
+    padding: 90px 0 100px;
   }
 }
 
-/* Layer 2: 中面 - セクション背景 (section.sectionBackground) */
+/* Layer 2: 中面 - セクション背景 (section.sectionBackground) - 立体感シャドウ付与 */
 .lp-section-bg-layer {
   position: absolute;
   inset: 0;
@@ -58,6 +63,7 @@
   background-position: center center;
   background-size: cover;
   pointer-events: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15); /* ページ背景から浮かび上がる立体感 */
 }
 
 /* Layer 3: 前面 - ライン装飾 (section.topLine, section.outLine) */
@@ -66,6 +72,8 @@
   top: 0;
   left: 0;
   width: 100%;
+  max-height: 110px;
+  overflow: hidden;
   z-index: 3;
   pointer-events: none;
   line-height: 0;
@@ -83,7 +91,9 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  z-index: 3;
+  max-height: 110px;
+  overflow: hidden;
+  z-index: 3; /* 重なり順: outLine (3) < 立ち絵 (5) < プロフィールカード (10) */
   pointer-events: none;
   line-height: 0;
 }
@@ -98,7 +108,7 @@
 /* Layer 4: 最前面 - 各セクションのコンテンツ */
 .lp-section-content {
   position: relative;
-  z-index: 2;
+  z-index: 4;
 }
 
 /* 共通セクションヘッダー */

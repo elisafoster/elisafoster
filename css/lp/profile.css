@@ -1,38 +1,46 @@
 /* ==========================================================================
    Profile Section CSS
-   左右反転（左: プロフィールカード / 右: 立ち絵）、z-index階層、サムネイル改修
+   - 左右反転レイアウト (左: プロフィールカード / 右: 立ち絵)
+   - 重なり順厳守: outLine (3) < 立ち絵 (5) < プロフィールカード (10)
+   - 立ち絵の拡大表示 (topLine底辺付近からoutLine底辺付近まで)
+   - セクション高さ固定 (レイアウトシフト完全防止)
+   - 円形サムネイルアイコンのみの衣装切り替え
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   レイアウトグリッド
-   PC: 左にプロフィール(order: 1)、右に立ち絵(order: 2)
-   SP: 上に立ち絵(order: 1)、下にプロフィール(order: 2)
+   レイアウトグリッド (セクション高さ固定基準)
    -------------------------------------------------------------------------- */
 .lp-profile-grid {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  gap: 48px;
+  gap: 40px;
   align-items: center;
   position: relative;
+  min-height: 740px; /* 衣装切り替え時のレイアウトシフト防止のための固定基準 */
 }
 
 @media (max-width: 900px) {
   .lp-profile-grid {
     grid-template-columns: 1fr;
-    gap: 36px;
+    gap: 40px;
+    min-height: auto;
   }
 }
 
 /* --------------------------------------------------------------------------
    画面左側: プロフィール情報カード
+   重なり順: outLine (3) < 立ち絵 (5) < プロフィールカード (10)
+   立ち絵が一部被っても、必ずカード・文字・ボタンが最前面に表示される
    -------------------------------------------------------------------------- */
 .lp-profile-info-card {
   order: 1;
   position: relative;
-  z-index: 2; /* 重なり順: プロフィールカード (2) < outLine (3) < 立ち絵 (10) */
+  z-index: 10; /* 最前面: 立ち絵(5)より手前 */
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background: var(--theme-card-bg, #ffffff);
+  box-shadow: var(--shadow-card);
 }
 
 @media (max-width: 900px) {
@@ -91,7 +99,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  background: rgba(248, 250, 252, 0.8);
+  background: rgba(248, 250, 252, 0.85);
   padding: 18px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(226, 232, 240, 0.8);
@@ -143,6 +151,7 @@
   color: var(--color-text-main);
   transition: all var(--transition-fast);
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
 }
 
 .lp-profile-sns-btn:hover {
@@ -155,6 +164,7 @@
 
 /* --------------------------------------------------------------------------
    画面右側: 立ち絵・衣装切り替えサムネイル表示エリア
+   重なり順: outLine (3) < 立ち絵 (5) < プロフィールカード (10)
    -------------------------------------------------------------------------- */
 .lp-profile-visual-container {
   order: 2;
@@ -163,33 +173,47 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  z-index: 10; /* 重なり順: outLine (3) より前面の 10 */
+  z-index: 5; /* outLine (3) より前面、カード (10) より背面 */
   width: 100%;
+  height: 100%;
+  min-height: 740px; /* 立ち絵エリアの高さ固定基準 */
 }
 
 @media (max-width: 900px) {
   .lp-profile-visual-container {
     order: 1;
+    min-height: 520px;
   }
 }
 
-/* 立ち絵ラッパー（セクションの上下いっぱいに追従） */
+/* 立ち絵ラッパー
+   セクションの上下制限を超えて拡張:
+   topLine底辺付近からoutLine底辺付近まで届く拡大配置
+-------------------------------------------------------------------------- */
 .lp-profile-visual-wrapper {
-  position: relative;
-  width: 100%;
-  max-width: 520px;
-  height: 640px;
+  position: absolute;
+  top: -80px;   /* 上部装飾 (topLine) の底辺付近まで届く */
+  bottom: -90px; /* 下部装飾 (outLine) の底辺付近まで届く */
+  right: -30px;  /* 画面右端への自然なはみ出しを許容 */
+  width: 125%;   /* プロフィールカードへの一部被りを許容する拡大サイズ */
+  max-width: 720px;
+  height: calc(100% + 170px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  margin-bottom: -40px; /* 下部装飾ライン (outLine) に被さるように前面突き出し */
-  overflow: visible; /* 立ち絵が見切れないように制御 */
+  overflow: visible;
+  pointer-events: none; /* 背面画像がカード等のクリックを遮断しない */
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .lp-profile-visual-wrapper {
-    height: 440px;
-    margin-bottom: 0;
+    position: relative;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    max-width: 480px;
+    height: 480px;
   }
 }
 
@@ -201,50 +225,60 @@
   max-width: 100%;
   object-fit: contain;
   object-position: bottom center;
-  z-index: 12; /* outLine (3) よりも最前面 */
-  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.22));
-  transition: transform var(--transition-normal);
+  z-index: 5; /* outLine (3) より上 */
+  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.25));
+  transition: opacity var(--transition-fast);
   display: block;
-  pointer-events: auto;
 }
 
 /* デフォルメイラスト（立ち絵の右下に配置） */
 .lp-profile-deformed-img {
   position: absolute;
-  bottom: 30px;
-  right: 10px;
+  bottom: 80px;
+  right: 20px;
   width: 120px;
   height: 120px;
   object-fit: contain;
-  z-index: 15; /* 立ち絵のさらに前面 */
+  z-index: 7; /* 立ち絵の前面 */
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
   background: rgba(255, 255, 255, 0.95);
   border-radius: 50%;
   padding: 8px;
   border: 3px solid #ffffff;
+  pointer-events: auto;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .lp-profile-deformed-img {
-    width: 86px;
-    height: 86px;
-    bottom: 16px;
-    right: 4px;
-    padding: 5px;
+    width: 90px;
+    height: 90px;
+    bottom: 20px;
+    right: 10px;
+    padding: 6px;
   }
 }
 
 /* --------------------------------------------------------------------------
    衣装切り替えサムネイル (テキスト非表示・円形アイコンボタン)
+   操作可能な手前レイヤー (z-index: 12)
    -------------------------------------------------------------------------- */
 .lp-costume-tabs {
+  position: relative;
+  z-index: 12; /* 操作可能な前面 */
+  pointer-events: auto;
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: auto;
+  padding-bottom: 6px;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  z-index: 15;
+}
+
+@media (max-width: 900px) {
+  .lp-costume-tabs {
+    margin-top: 16px;
+  }
 }
 
 .lp-costume-tab-btn {
@@ -286,18 +320,19 @@
 
 /* クリエイタークレジット */
 .lp-profile-creators {
+  position: relative;
+  z-index: 12;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 12px;
   font-size: 0.8rem;
   color: var(--color-text-muted);
   justify-content: center;
-  z-index: 15;
 }
 
 .lp-profile-creator-tag {
-  background: rgba(241, 245, 249, 0.9);
+  background: rgba(241, 245, 249, 0.95);
   padding: 5px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
