@@ -282,7 +282,10 @@ class LpApp {
 
     switch (key) {
       case "PROFILE":
-        new ProfileSection(container, this.allData.profile, this.allData.visual).render();
+        const defaultBg = this.themeConfig?.background
+          ? api.resolveAssetUrl(this.themeConfig.background, "config")
+          : "";
+        new ProfileSection(container, this.allData.profile, this.allData.visual, defaultBg).render();
         break;
       case "EVENT":
         new EventSection(container, this.allData.event).render();

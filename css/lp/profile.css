@@ -1,139 +1,44 @@
 /* ==========================================================================
    Profile Section CSS
+   左右反転（左: プロフィールカード / 右: 立ち絵）、z-index階層、サムネイル改修
    ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   レイアウトグリッド
+   PC: 左にプロフィール(order: 1)、右に立ち絵(order: 2)
+   SP: 上に立ち絵(order: 1)、下にプロフィール(order: 2)
+   -------------------------------------------------------------------------- */
 .lp-profile-grid {
   display: grid;
-  grid-template-columns: 1fr 1.1fr;
-  gap: 40px;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 48px;
   align-items: center;
+  position: relative;
 }
 
 @media (max-width: 900px) {
   .lp-profile-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 36px;
   }
 }
 
-/* 立ち絵・ビジュアルエリア */
-.lp-profile-visual-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.lp-profile-visual-wrapper {
-  position: relative;
-  width: 100%;
-  max-width: 480px;
-  height: 580px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-}
-
-@media (max-width: 640px) {
-  .lp-profile-visual-wrapper {
-    height: 420px;
-  }
-}
-
-.lp-profile-visual-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.3;
-}
-
-.lp-profile-standing-img {
-  position: relative;
-  max-height: 95%;
-  width: auto;
-  object-fit: contain;
-  z-index: 2;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.15));
-  transition: transform var(--transition-normal);
-}
-
-.lp-profile-deformed-img {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  width: 110px;
-  height: 110px;
-  object-fit: contain;
-  z-index: 3;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
-  padding: 6px;
-  border: 2px solid #ffffff;
-}
-
-/* 衣装切り替えセレクター */
-.lp-costume-tabs {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.lp-costume-tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  background: #ffffff;
-  border: 1px solid var(--color-border);
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all var(--transition-fast);
-  box-shadow: var(--shadow-sm);
-}
-
-.lp-costume-tab-btn img {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.lp-costume-tab-btn.is-active {
-  background: var(--color-primary);
-  color: #ffffff;
-  border-color: var(--color-primary);
-}
-
-/* クリエイタークレジット */
-.lp-profile-creators {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 14px;
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  justify-content: center;
-}
-
-.lp-profile-creator-tag {
-  background: #f1f5f9;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-}
-
-/* プロフィール詳細情報エリア */
+/* --------------------------------------------------------------------------
+   画面左側: プロフィール情報カード
+   -------------------------------------------------------------------------- */
 .lp-profile-info-card {
+  order: 1;
+  position: relative;
+  z-index: 2; /* 重なり順: プロフィールカード (2) < outLine (3) < 立ち絵 (10) */
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .lp-profile-info-card {
+    order: 2;
+  }
 }
 
 .lp-profile-names {
@@ -149,7 +54,7 @@
 }
 
 .lp-profile-main-name {
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   font-weight: 800;
   line-height: 1.2;
   margin-top: 2px;
@@ -168,8 +73,8 @@
   font-weight: 700;
   color: var(--color-primary-dark);
   line-height: 1.5;
-  padding: 12px 16px;
-  background: rgba(59, 130, 246, 0.06);
+  padding: 12px 18px;
+  background: rgba(59, 130, 246, 0.08);
   border-left: 4px solid var(--color-primary);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
@@ -186,9 +91,10 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  background: #f8fafc;
-  padding: 16px;
+  background: rgba(248, 250, 252, 0.8);
+  padding: 18px;
   border-radius: var(--radius-md);
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 @media (max-width: 480px) {
@@ -228,7 +134,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 18px;
   border-radius: var(--radius-full);
   font-size: 0.85rem;
   font-weight: 600;
@@ -236,6 +142,7 @@
   background: #ffffff;
   color: var(--color-text-main);
   transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
 .lp-profile-sns-btn:hover {
@@ -243,5 +150,156 @@
   color: #ffffff;
   border-color: var(--color-primary);
   transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
+/* --------------------------------------------------------------------------
+   画面右側: 立ち絵・衣装切り替えサムネイル表示エリア
+   -------------------------------------------------------------------------- */
+.lp-profile-visual-container {
+  order: 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 10; /* 重なり順: outLine (3) より前面の 10 */
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .lp-profile-visual-container {
+    order: 1;
+  }
+}
+
+/* 立ち絵ラッパー（セクションの上下いっぱいに追従） */
+.lp-profile-visual-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  height: 640px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: -40px; /* 下部装飾ライン (outLine) に被さるように前面突き出し */
+  overflow: visible; /* 立ち絵が見切れないように制御 */
+}
+
+@media (max-width: 640px) {
+  .lp-profile-visual-wrapper {
+    height: 440px;
+    margin-bottom: 0;
+  }
+}
+
+/* 立ち絵画像 (縦幅100%基準でアスペクト比維持、outLineより前面) */
+.lp-profile-standing-img {
+  position: relative;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  z-index: 12; /* outLine (3) よりも最前面 */
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.22));
+  transition: transform var(--transition-normal);
+  display: block;
+  pointer-events: auto;
+}
+
+/* デフォルメイラスト（立ち絵の右下に配置） */
+.lp-profile-deformed-img {
+  position: absolute;
+  bottom: 30px;
+  right: 10px;
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  z-index: 15; /* 立ち絵のさらに前面 */
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  padding: 8px;
+  border: 3px solid #ffffff;
+}
+
+@media (max-width: 640px) {
+  .lp-profile-deformed-img {
+    width: 86px;
+    height: 86px;
+    bottom: 16px;
+    right: 4px;
+    padding: 5px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   衣装切り替えサムネイル (テキスト非表示・円形アイコンボタン)
+   -------------------------------------------------------------------------- */
+.lp-costume-tabs {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  z-index: 15;
+}
+
+.lp-costume-tab-btn {
+  width: 54px;
+  height: 54px;
+  padding: 3px;
+  border-radius: 50%; /* 正円アイコンボタン */
+  background: #ffffff;
+  border: 2px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.lp-costume-tab-btn img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.lp-costume-tab-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.lp-costume-tab-btn.is-active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.35), var(--shadow-md);
+  transform: scale(1.12);
+}
+
+/* クリエイタークレジット */
+.lp-profile-creators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  justify-content: center;
+  z-index: 15;
+}
+
+.lp-profile-creator-tag {
+  background: rgba(241, 245, 249, 0.9);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(4px);
+}

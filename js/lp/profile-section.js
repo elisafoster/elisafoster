@@ -1,16 +1,28 @@
 /**
  * Profile Section Component
  * profile テーブル & visual テーブルのデータ描画
+ * - 左右反転 (左: プロフィール / 右: 立ち絵)
+ * - サムネイル画像のみの衣装切り替え
+ * - visualBackground によるページ背景の動的切り替え
  */
 
 import { api } from "../common/api-client.js";
 
 export class ProfileSection {
-  constructor(container, profileData, visualList) {
+  constructor(container, profileData, visualList, defaultPageBackground = "") {
     this.container = container;
     this.profile = profileData || {};
     this.visuals = Array.isArray(visualList) ? visualList : [];
     this.currentVisualIndex = 0;
+    this.defaultPageBackground = defaultPageBackground || "";
+
+    // 初期背景レイヤーの背景画像URLを記録（未指定時のフォールバック用）
+    if (!this.defaultPageBackground && typeof document !== "undefined") {
+      const pageBg = document.getElementById("lp-page-bg-layer");
+      if (pageBg && pageBg.style.backgroundImage) {
+        this.defaultPageBackground = pageBg.style.backgroundImage;
+      }
+    }
   }
 
   render() {
@@ -20,86 +32,15 @@ export class ProfileSection {
     const grid = document.createElement("div");
     grid.className = "lp-profile-grid";
 
-    // 1. 左側: 立ち絵・ビジュアルエリア
-    const visualCol = document.createElement("div");
-    visualCol.className = "lp-profile-visual-container";
+    // 現在選択中のビジュアル
+    const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0] || null;
 
-    if (this.visuals.length > 0) {
-      const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0];
+    // 4. visual.visualBackground に応じたページ背景の動的切り替え
+    this.updatePageBackground(currentVisual);
 
-      // ビジュアルラッパー
-      const wrapper = document.createElement("div");
-      wrapper.className = "lp-profile-visual-wrapper";
-
-      if (currentVisual.visualBackground) {
-        const bgImg = document.createElement("img");
-        bgImg.className = "lp-profile-visual-bg";
-        bgImg.src = api.resolveAssetUrl(currentVisual.visualBackground, "visual/background");
-        bgImg.alt = "演出背景";
-        wrapper.appendChild(bgImg);
-      }
-
-      const standingImg = document.createElement("img");
-      standingImg.className = "lp-profile-standing-img";
-      standingImg.src = api.resolveAssetUrl(currentVisual.visual, "visual/standing");
-      standingImg.alt = this.profile.name || "立ち絵";
-      wrapper.appendChild(standingImg);
-
-      if (currentVisual.defoemed) {
-        const defImg = document.createElement("img");
-        defImg.className = "lp-profile-deformed-img";
-        defImg.src = api.resolveAssetUrl(currentVisual.defoemed, "visual/deformed");
-        defImg.alt = "デフォルメイラスト";
-        wrapper.appendChild(defImg);
-      }
-
-      visualCol.appendChild(wrapper);
-
-      // 複数衣装がある場合のタブ切り替え
-      if (this.visuals.length > 1) {
-        const costumeTabs = document.createElement("div");
-        costumeTabs.className = "lp-costume-tabs";
-
-        this.visuals.forEach((v, idx) => {
-          const btn = document.createElement("button");
-          btn.className = `lp-costume-tab-btn ${idx === this.currentVisualIndex ? "is-active" : ""}`;
-          btn.innerHTML = `
-            ${v.thumbnail ? `<img src="${api.resolveAssetUrl(v.thumbnail, "visual/thumbnail")}" alt="" />` : ""}
-            <span>${v.costumeName || `衣装 ${idx + 1}`}</span>
-          `;
-          btn.onclick = () => {
-            this.currentVisualIndex = idx;
-            this.render();
-          };
-          costumeTabs.appendChild(btn);
-        });
-
-        visualCol.appendChild(costumeTabs);
-      }
-
-      // クリエイタークレジット
-      const creators = [];
-      if (currentVisual.characterDesign) creators.push(`キャラデザ: ${currentVisual.characterDesign}`);
-      if (currentVisual.illustrator) creators.push(`イラスト: ${currentVisual.illustrator}`);
-      if (currentVisual.live2d) creators.push(`Live2D: ${currentVisual.live2d}`);
-      if (currentVisual["3dModeling"]) creators.push(`3D: ${currentVisual["3dModeling"]}`);
-
-      if (creators.length > 0) {
-        const creatorEl = document.createElement("div");
-        creatorEl.className = "lp-profile-creators";
-        creators.forEach((c) => {
-          const tag = document.createElement("span");
-          tag.className = "lp-profile-creator-tag";
-          tag.textContent = c;
-          creatorEl.appendChild(tag);
-        });
-        visualCol.appendChild(creatorEl);
-      }
-    }
-
-    grid.appendChild(visualCol);
-
-    // 2. 右側: プロフィール詳細情報
+    // =========================================================================
+    // 1. 画面左側: プロフィール詳細情報カード (order: 1)
+    // =========================================================================
     const infoCol = document.createElement("div");
     infoCol.className = "lp-card lp-profile-info-card";
 
@@ -208,6 +149,107 @@ export class ProfileSection {
     }
 
     grid.appendChild(infoCol);
+
+    // =========================================================================
+    // 2. 画面右側: 立ち絵・衣装切り替えサムネイル表示エリア (order: 2)
+    // =========================================================================
+    const visualCol = document.createElement("div");
+    visualCol.className = "lp-profile-visual-container";
+
+    if (currentVisual) {
+      // 立ち絵ラッパー (セクション上下いっぱいに追従)
+      const wrapper = document.createElement("div");
+      wrapper.className = "lp-profile-visual-wrapper";
+
+      // 立ち絵画像 (縦幅100%基準でアスペクト比維持、outLineより前面)
+      const standingImg = document.createElement("img");
+      standingImg.className = "lp-profile-standing-img";
+      standingImg.src = api.resolveAssetUrl(currentVisual.visual, "visual/standing");
+      standingImg.alt = currentVisual.costumeName || this.profile.name || "立ち絵";
+      wrapper.appendChild(standingImg);
+
+      // デフォルメイラスト（立ち絵の右下に配置）
+      if (currentVisual.defoemed) {
+        const defImg = document.createElement("img");
+        defImg.className = "lp-profile-deformed-img";
+        defImg.src = api.resolveAssetUrl(currentVisual.defoemed, "visual/deformed");
+        defImg.alt = "デフォルメイラスト";
+        wrapper.appendChild(defImg);
+      }
+
+      visualCol.appendChild(wrapper);
+
+      // 3. 衣装切り替えサムネイル (テキスト非表示・画像アイコンのみ)
+      if (this.visuals.length > 1) {
+        const costumeTabs = document.createElement("div");
+        costumeTabs.className = "lp-costume-tabs";
+
+        this.visuals.forEach((v, idx) => {
+          const btn = document.createElement("button");
+          btn.className = `lp-costume-tab-btn ${idx === this.currentVisualIndex ? "is-active" : ""}`;
+          btn.type = "button";
+          btn.title = v.costumeName || `衣装 ${idx + 1}`;
+          btn.setAttribute("aria-label", v.costumeName || `衣装 ${idx + 1}`);
+
+          // テキストを一切含めずサムネイル画像のみ描画
+          const thumbSrc = v.thumbnail
+            ? api.resolveAssetUrl(v.thumbnail, "visual/thumbnail")
+            : api.resolveAssetUrl(v.visual, "visual/standing");
+
+          btn.innerHTML = `<img src="${thumbSrc}" alt="${v.costumeName || ""}" />`;
+
+          btn.onclick = () => {
+            this.currentVisualIndex = idx;
+            this.render();
+          };
+          costumeTabs.appendChild(btn);
+        });
+
+        visualCol.appendChild(costumeTabs);
+      }
+
+      // クリエイタークレジット
+      const creators = [];
+      if (currentVisual.characterDesign) creators.push(`キャラデザ: ${currentVisual.characterDesign}`);
+      if (currentVisual.illustrator) creators.push(`イラスト: ${currentVisual.illustrator}`);
+      if (currentVisual.live2d) creators.push(`Live2D: ${currentVisual.live2d}`);
+      if (currentVisual["3dModeling"]) creators.push(`3D: ${currentVisual["3dModeling"]}`);
+
+      if (creators.length > 0) {
+        const creatorEl = document.createElement("div");
+        creatorEl.className = "lp-profile-creators";
+        creators.forEach((c) => {
+          const tag = document.createElement("span");
+          tag.className = "lp-profile-creator-tag";
+          tag.textContent = c;
+          creatorEl.appendChild(tag);
+        });
+        visualCol.appendChild(creatorEl);
+      }
+    }
+
+    grid.appendChild(visualCol);
     this.container.appendChild(grid);
+  }
+
+  /**
+   * visual.visualBackground に応じたページ背景レイヤーの動的切り替え
+   */
+  updatePageBackground(visual) {
+    if (typeof document === "undefined") return;
+    const pageBgLayer = document.getElementById("lp-page-bg-layer");
+    if (!pageBgLayer) return;
+
+    if (visual && visual.visualBackground) {
+      const bgUrl = api.resolveAssetUrl(visual.visualBackground, "visual/background");
+      pageBgLayer.style.backgroundImage = `url("${bgUrl}")`;
+      pageBgLayer.style.transition = "background-image 0.4s ease-in-out";
+    } else if (this.defaultPageBackground) {
+      if (this.defaultPageBackground.startsWith("url(")) {
+        pageBgLayer.style.backgroundImage = this.defaultPageBackground;
+      } else {
+        pageBgLayer.style.backgroundImage = `url("${this.defaultPageBackground}")`;
+      }
+    }
   }
 }
