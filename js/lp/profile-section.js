@@ -1,11 +1,15 @@
 /**
  * Profile Section Component
- * profile テーブル & visual テーブルのデータ描画
- * - 左右反転 (左: プロフィール情報 & 紹介動画 / 右: 巨大立ち絵 & サムネイル)
- * - 立ち絵の拡大・はみ出し配置 (outLine の下に潜り込む)
- * - デフォルメキャラクターの透過・足元寄り添い配置
- * - profile.moves (自己紹介動画) の埋め込み・モーダル再生
- * - visualBackground によるページ背景の動的切り替え
+ * 画像配置仕様に完全対応:
+ * ① 名前（ふりがな・ローマ字・メイン名）
+ * ② NICKNAMEバッジ
+ * ③ キャッチフレーズカード (themeConfig色)
+ * ④ 自己紹介カード (themeConfig色)
+ * ⑤ PROFILE SPECS & ⑥ CREATIVE CREDITS の2カラムカード (themeConfig色)
+ * ⑦ OFFICIAL CHANNELS & PLATFORMS
+ * ⑧ INTRO MOVIES (自己紹介動画: profile.moves)
+ * ⑨ サムネイル: カード表示なし、単体表示、サイズ拡大、背景thumbnail_background.jpg
+ * ⑩ 巨大立ち絵 & 透過デフォルメキャラ (outLineの下に潜り込む)
  */
 
 import { api } from "../common/api-client.js";
@@ -31,7 +35,6 @@ export class ProfileSection {
     this.currentVisualIndex = 0;
     this.defaultPageBackground = defaultPageBackground || "";
 
-    // 初期背景レイヤーの背景画像URLを記録（未指定時のフォールバック用）
     if (!this.defaultPageBackground && typeof document !== "undefined") {
       const pageBg = document.getElementById("lp-page-bg-layer");
       if (pageBg && pageBg.style.backgroundImage) {
@@ -54,139 +57,185 @@ export class ProfileSection {
     this.updatePageBackground(currentVisual);
 
     // =========================================================================
-    // 1. 画面左側: プロフィール詳細情報カード (order: 1 / z-index: 10 最前面)
+    // 1. 画面左側: プロフィール詳細情報エリア (order: 1 / z-index: 10)
     // =========================================================================
-    const infoCol = document.createElement("div");
-    infoCol.className = "lp-card lp-profile-info-card";
+    const leftCol = document.createElement("div");
+    leftCol.className = "lp-profile-left-col";
 
-    // ① 名前・ふりがな・ローマ字
-    const namesDiv = document.createElement("div");
-    namesDiv.className = "lp-profile-names";
-    if (this.profile.pronunciation) {
-      const furi = document.createElement("div");
-      furi.className = "lp-profile-furigana";
-      furi.textContent = this.profile.pronunciation;
-      namesDiv.appendChild(furi);
+    // ① 名前ブロック (ふりがな・ローマ字バッジ & メイン名)
+    const nameBlock = document.createElement("div");
+    nameBlock.className = "lp-profile-name-block";
+
+    if (this.profile.pronunciation || this.profile.romanization) {
+      const badgePill = document.createElement("div");
+      badgePill.className = "lp-profile-ruby-pill";
+      if (this.profile.pronunciation) {
+        const rubySpan = document.createElement("span");
+        rubySpan.className = "lp-profile-ruby-furi";
+        rubySpan.textContent = this.profile.pronunciation;
+        badgePill.appendChild(rubySpan);
+      }
+      if (this.profile.romanization) {
+        const romajiSpan = document.createElement("span");
+        romajiSpan.className = "lp-profile-ruby-romaji";
+        romajiSpan.textContent = this.profile.romanization;
+        badgePill.appendChild(romajiSpan);
+      }
+      nameBlock.appendChild(badgePill);
     }
-    const mainName = document.createElement("h3");
-    mainName.className = "lp-profile-main-name";
+
+    const mainName = document.createElement("h2");
+    mainName.className = "lp-profile-main-title";
     mainName.textContent = this.profile.name || "ELISA";
-    namesDiv.appendChild(mainName);
+    nameBlock.appendChild(mainName);
+    leftCol.appendChild(nameBlock);
 
-    if (this.profile.romanization) {
-      const romaji = document.createElement("div");
-      romaji.className = "lp-profile-romaji";
-      romaji.textContent = this.profile.romanization;
-      namesDiv.appendChild(romaji);
-    }
-    infoCol.appendChild(namesDiv);
-
-    // ② ニックネーム
+    // ② NICKNAME バッジ
     if (this.profile.nickname) {
       const nickBadge = document.createElement("div");
-      nickBadge.className = "lp-profile-nickname-badge";
+      nickBadge.className = "lp-profile-nick-badge";
       nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${this.profile.nickname}</span>`;
-      infoCol.appendChild(nickBadge);
+      leftCol.appendChild(nickBadge);
     }
 
-    // ③ キャッチフレーズ
+    // ③ キャッチフレーズカード (themeConfigカードカラー適用)
     if (this.profile.comment) {
-      const phrase = document.createElement("div");
-      phrase.className = "lp-profile-catchphrase";
-      phrase.textContent = this.profile.comment;
-      infoCol.appendChild(phrase);
+      const phraseCard = document.createElement("div");
+      phraseCard.className = "lp-profile-theme-card lp-profile-catchphrase-card";
+      phraseCard.textContent = this.profile.comment;
+      leftCol.appendChild(phraseCard);
     }
 
-    // ④ 自己紹介
+    // ④ 自己紹介カード (themeConfigカードカラー適用)
     if (this.profile.message) {
-      const msg = document.createElement("div");
-      msg.className = "lp-profile-message";
-      msg.textContent = this.profile.message;
-      infoCol.appendChild(msg);
+      const msgCard = document.createElement("div");
+      msgCard.className = "lp-profile-theme-card lp-profile-message-card";
+      msgCard.textContent = this.profile.message;
+      leftCol.appendChild(msgCard);
     }
 
-    // ⑤ スペック情報（誕生日、身長等）
+    // ⑤ & ⑥ 横並びの2カラムカード (SPECS & CREDITS)
+    const twoColCards = document.createElement("div");
+    twoColCards.className = "lp-profile-two-cards-grid";
+
+    // ⑤ PROFILE SPECS
     const specs = [
-      { label: "誕生日", value: this.profile.birthday },
-      { label: "活動開始日", value: this.profile.streaming },
-      { label: "年齢", value: this.profile.age ? `${this.profile.age}歳` : null },
-      { label: "身長", value: this.profile.height ? `${this.profile.height}cm` : null },
-      { label: "ファンネーム", value: this.profile.fanName },
+      { icon: "🎂", label: "誕生日", value: this.profile.birthday },
+      { icon: "🚀", label: "活動開始日", value: this.profile.streaming },
+      { icon: "✨", label: "年齢", value: this.profile.age ? `${this.profile.age} 歳` : null },
+      { icon: "📏", label: "身長", value: this.profile.height ? `${this.profile.height} cm` : null },
+      { icon: "💫", label: "ファンネーム", value: this.profile.fanName },
     ].filter((s) => s.value);
 
-    if (specs.length > 0) {
-      const specsDiv = document.createElement("div");
-      specsDiv.className = "lp-profile-specs";
-      specs.forEach((s) => {
-        const item = document.createElement("div");
-        item.className = "lp-profile-spec-item";
-        item.innerHTML = `
-          <span class="lp-profile-spec-label">${s.label}</span>
-          <span class="lp-profile-spec-value">${s.value}</span>
-        `;
-        specsDiv.appendChild(item);
-      });
-      infoCol.appendChild(specsDiv);
+    const specsCard = document.createElement("div");
+    specsCard.className = "lp-profile-theme-card lp-profile-specs-card";
+    specsCard.innerHTML = `<div class="lp-card-header-badge lp-badge-yellow">✦ PROFILE SPECS ✦</div>`;
+
+    const specsList = document.createElement("div");
+    specsList.className = "lp-specs-row-list";
+    specs.forEach((s) => {
+      const row = document.createElement("div");
+      row.className = "lp-spec-row-item";
+      row.innerHTML = `
+        <span class="lp-spec-row-label"><i>${s.icon}</i> ${s.label}</span>
+        <span class="lp-spec-row-val">${s.value}</span>
+      `;
+      specsList.appendChild(row);
+    });
+    specsCard.appendChild(specsList);
+    twoColCards.appendChild(specsCard);
+
+    // ⑥ CREATIVE CREDITS
+    const credits = [];
+    if (currentVisual?.characterDesign) credits.push({ label: "キャラクターデザイン", val: currentVisual.characterDesign });
+    if (currentVisual?.illustrator) credits.push({ label: "イラストレーター", val: currentVisual.illustrator });
+    if (currentVisual?.live2d) credits.push({ label: "Live2Dモデラー", val: currentVisual.live2d });
+    if (currentVisual?.["3dModeling"]) credits.push({ label: "3Dモデラー", val: currentVisual["3dModeling"] });
+
+    // 初期空時のフォールバック
+    if (credits.length === 0) {
+      credits.push({ label: "キャラクターデザイン", val: "テスト" });
+      credits.push({ label: "イラストレーター", val: "テスト" });
+      credits.push({ label: "Live2Dモデラー", val: "-" });
     }
 
-    // ⑦ 公式チャンネル＆プラットフォームリンク
-    const snsGroup = document.createElement("div");
-    snsGroup.className = "lp-profile-sns-group";
+    const creditsCard = document.createElement("div");
+    creditsCard.className = "lp-profile-theme-card lp-profile-credits-card";
+    creditsCard.innerHTML = `<div class="lp-card-header-badge lp-badge-purple">✦ CREATIVE CREDITS ✦</div>`;
+
+    const creditsList = document.createElement("div");
+    creditsList.className = "lp-credits-row-list";
+    credits.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "lp-credit-row-item";
+      row.innerHTML = `
+        <span class="lp-credit-row-label">${c.label}</span>
+        <span class="lp-credit-row-val">${c.val}</span>
+      `;
+      creditsList.appendChild(row);
+    });
+    creditsCard.appendChild(creditsList);
+    twoColCards.appendChild(creditsCard);
+
+    leftCol.appendChild(twoColCards);
+
+    // ⑦ OFFICIAL CHANNELS & PLATFORMS
+    const snsBlock = document.createElement("div");
+    snsBlock.className = "lp-profile-sns-block";
+    snsBlock.innerHTML = `<div class="lp-channels-badge-title">✦ OFFICIAL CHANNELS & PLATFORMS ✦</div>`;
+
+    const snsBtns = document.createElement("div");
+    snsBtns.className = "lp-channels-btn-group";
 
     if (this.profile.youtubeUrl) {
       const ytBtn = document.createElement("a");
-      ytBtn.className = "lp-profile-sns-btn lp-profile-btn-youtube";
+      ytBtn.className = "lp-channel-btn lp-btn-youtube";
       ytBtn.href = this.profile.youtubeUrl;
       ytBtn.target = "_blank";
       ytBtn.rel = "noopener noreferrer";
       ytBtn.innerHTML = `<span>▶ YouTube Channel</span>`;
-      snsGroup.appendChild(ytBtn);
+      snsBtns.appendChild(ytBtn);
     }
 
     if (this.profile.xUrl) {
       const xBtn = document.createElement("a");
-      xBtn.className = "lp-profile-sns-btn lp-profile-btn-x";
+      xBtn.className = "lp-channel-btn lp-btn-x";
       xBtn.href = this.profile.xUrl;
       xBtn.target = "_blank";
       xBtn.rel = "noopener noreferrer";
       xBtn.innerHTML = `<span>𝕏 Official X</span>`;
-      snsGroup.appendChild(xBtn);
+      snsBtns.appendChild(xBtn);
     }
 
     if (Array.isArray(this.profile.platforms)) {
       this.profile.platforms.forEach((p) => {
         if (!p.link) return;
         const pBtn = document.createElement("a");
-        pBtn.className = "lp-profile-sns-btn";
+        pBtn.className = "lp-channel-btn lp-btn-platform";
         pBtn.href = p.link;
         pBtn.target = "_blank";
         pBtn.rel = "noopener noreferrer";
-        pBtn.textContent = p.name || "Link";
-        snsGroup.appendChild(pBtn);
+        pBtn.textContent = p.name || "Platform";
+        snsBtns.appendChild(pBtn);
       });
     }
 
-    if (snsGroup.children.length > 0) {
-      infoCol.appendChild(snsGroup);
-    }
+    snsBlock.appendChild(snsBtns);
+    leftCol.appendChild(snsBlock);
 
-    // ⑧ INTRO MOVIES (自己紹介動画: profile.moves)
+    // ⑧ INTRO MOVIES (自己紹介動画)
     if (Array.isArray(this.profile.moves) && this.profile.moves.length > 0) {
-      const movesContainer = document.createElement("div");
-      movesContainer.className = "lp-profile-moves-container";
-
-      const movesTitle = document.createElement("div");
-      movesTitle.className = "lp-profile-moves-title";
-      movesTitle.innerHTML = "<span>✦ INTRO MOVIES ✦</span>";
-      movesContainer.appendChild(movesTitle);
+      const movesBlock = document.createElement("div");
+      movesBlock.className = "lp-profile-moves-block";
+      movesBlock.innerHTML = `<div class="lp-moves-badge-title">✦ INTRO MOVIES ✦</div>`;
 
       const movesList = document.createElement("div");
-      movesList.className = "lp-profile-moves-list";
+      movesList.className = "lp-profile-moves-grid";
 
       this.profile.moves.forEach((videoUrl, idx) => {
         if (!videoUrl) return;
         const card = document.createElement("div");
-        card.className = "lp-profile-movie-card";
+        card.className = "lp-profile-movie-item";
 
         const ytInfo = getYouTubeInfo(videoUrl);
         const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
@@ -198,7 +247,7 @@ export class ProfileSection {
               <div class="lp-profile-movie-play-icon">▶</div>
             </div>
           </div>
-          <div class="lp-profile-movie-caption">活動者・配信者 紹介ムービー</div>
+          <div class="lp-profile-movie-footer">活動者・配信者</div>
         `;
 
         card.onclick = () => {
@@ -208,58 +257,49 @@ export class ProfileSection {
         movesList.appendChild(card);
       });
 
-      movesContainer.appendChild(movesList);
-      infoCol.appendChild(movesContainer);
+      movesBlock.appendChild(movesList);
+      leftCol.appendChild(movesBlock);
     }
 
-    grid.appendChild(infoCol);
+    grid.appendChild(leftCol);
 
     // =========================================================================
-    // 2. 画面右側: 立ち絵エリア & サムネイル・クレジットパネル
+    // 2. 画面右側: 巨大立ち絵 & サムネイル (カード枠なし・背景画像付き)
     // =========================================================================
     const visualCol = document.createElement("div");
     visualCol.className = "lp-profile-visual-container";
 
     if (currentVisual) {
-      // 立ち絵ラッパー (巨大拡大・上下いっぱい・outLineの下に潜り込む z-index: 2)
+      // ⑩ 立ち絵ラッパー (巨大拡大・上下いっぱい・outLineの背面に潜り込む z-index: 2)
       const standingWrapper = document.createElement("div");
       standingWrapper.className = "lp-profile-standing-wrapper";
 
-      // 立ち絵画像本体
       const standingImg = document.createElement("img");
       standingImg.className = "lp-profile-standing-img";
       standingImg.src = api.resolveAssetUrl(currentVisual.visual, "visual/standing");
       standingImg.alt = currentVisual.costumeName || this.profile.name || "立ち絵";
       standingWrapper.appendChild(standingImg);
 
-      // ④ デフォルメイラスト（白丸座布団なし・透過単体で足元手前に寄り添う z-index: 6）
-      if (currentVisual.defoemed) {
+      // 透過デフォルメキャラクター（白座布団なし・足元手前寄り添い配置 z-index: 6）
+      const defUrl = currentVisual.defoemed || currentVisual.deformed;
+      if (defUrl) {
         const defImg = document.createElement("img");
         defImg.className = "lp-profile-deformed-img";
-        defImg.src = api.resolveAssetUrl(currentVisual.defoemed, "visual/deformed");
+        defImg.src = api.resolveAssetUrl(defUrl, "visual/deformed");
         defImg.alt = "デフォルメイラスト";
         standingWrapper.appendChild(defImg);
       }
 
       visualCol.appendChild(standingWrapper);
 
-      // ⑨ COSTUME SELECT & クリエイタークレジット (outLineの上に浮いて操作可能 z-index: 10)
-      const costumePanel = document.createElement("div");
-      costumePanel.className = "lp-costume-select-panel";
-
-      // サムネイル切り替え (テキストなし・画像アイコンのみ)
-      if (this.visuals.length > 1) {
-        const panelTitle = document.createElement("div");
-        panelTitle.className = "lp-costume-panel-title";
-        panelTitle.textContent = "✦ COSTUME SELECT ✦";
-        costumePanel.appendChild(panelTitle);
-
+      // ⑨ サムネイルのみ表示 (外側カード表示なし・拡大サイズ・背景thumbnail_background.jpg)
+      if (this.visuals.length > 0) {
         const costumeTabs = document.createElement("div");
-        costumeTabs.className = "lp-costume-tabs";
+        costumeTabs.className = "lp-costume-tabs-standalone";
 
         this.visuals.forEach((v, idx) => {
           const btn = document.createElement("button");
-          btn.className = `lp-costume-tab-btn ${idx === this.currentVisualIndex ? "is-active" : ""}`;
+          btn.className = `lp-costume-thumb-btn ${idx === this.currentVisualIndex ? "is-active" : ""}`;
           btn.type = "button";
           btn.title = v.costumeName || `衣装 ${idx + 1}`;
           btn.setAttribute("aria-label", v.costumeName || `衣装 ${idx + 1}`);
@@ -277,29 +317,8 @@ export class ProfileSection {
           costumeTabs.appendChild(btn);
         });
 
-        costumePanel.appendChild(costumeTabs);
+        visualCol.appendChild(costumeTabs);
       }
-
-      // クリエイタークレジット
-      const creators = [];
-      if (currentVisual.characterDesign) creators.push({ label: "キャラクターデザイン", val: currentVisual.characterDesign });
-      if (currentVisual.illustrator) creators.push({ label: "イラストレーター", val: currentVisual.illustrator });
-      if (currentVisual.live2d) creators.push({ label: "Live2Dモデラー", val: currentVisual.live2d });
-      if (currentVisual["3dModeling"]) creators.push({ label: "3Dモデラー", val: currentVisual["3dModeling"] });
-
-      if (creators.length > 0) {
-        const creditEl = document.createElement("div");
-        creditEl.className = "lp-profile-creators";
-        creators.forEach((c) => {
-          const tag = document.createElement("span");
-          tag.className = "lp-profile-creator-tag";
-          tag.innerHTML = `<strong>${c.label}:</strong> ${c.val}`;
-          creditEl.appendChild(tag);
-        });
-        costumePanel.appendChild(creditEl);
-      }
-
-      visualCol.appendChild(costumePanel);
     }
 
     grid.appendChild(visualCol);
