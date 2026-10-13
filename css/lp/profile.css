@@ -1,10 +1,11 @@
 /* ==========================================================================
    Profile Section CSS
-   - 左右反転レイアウト (左: プロフィールカード / 右: 立ち絵)
-   - 重なり順厳守: outLine (3) < 立ち絵 (5) < プロフィールカード (10)
-   - 立ち絵の拡大表示 (topLine底辺付近からoutLine底辺付近まで)
-   - セクション高さ固定 (レイアウトシフト完全防止)
-   - 円形サムネイルアイコンのみの衣装切り替え
+   - 左右反転レイアウト (左: プロフィールカード / 右: 巨大立ち絵)
+   - 重なり順の厳守: セクション背景 (1) < 立ち絵 (2) < outLine (3) < サムネイル/クレジット/カード (10)
+   - 立ち絵の拡大・はみ出し配置 (outLineの背面に潜り込む)
+   - デフォルメキャラクターの透過・足元寄り添い配置 (画像3基準)
+   - 自己紹介動画 (profile.moves) プレイヤーカード (画像1の⑧番)
+   - COSTUME SELECT パネル (画像1の⑨番)
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -14,31 +15,30 @@
   display: grid;
   grid-template-columns: 1.15fr 1fr;
   gap: 40px;
-  align-items: center;
+  align-items: flex-start;
   position: relative;
-  min-height: 740px; /* 衣装切り替え時のレイアウトシフト防止のための固定基準 */
+  min-height: 760px; /* 衣装切り替え時のレイアウトシフト防止のための固定基準 */
 }
 
 @media (max-width: 900px) {
   .lp-profile-grid {
     grid-template-columns: 1fr;
-    gap: 40px;
+    gap: 48px;
     min-height: auto;
   }
 }
 
 /* --------------------------------------------------------------------------
-   画面左側: プロフィール情報カード
-   重なり順: outLine (3) < 立ち絵 (5) < プロフィールカード (10)
+   画面左側: プロフィール情報カード (z-index: 10 最前面)
    立ち絵が一部被っても、必ずカード・文字・ボタンが最前面に表示される
    -------------------------------------------------------------------------- */
 .lp-profile-info-card {
   order: 1;
   position: relative;
-  z-index: 10; /* 最前面: 立ち絵(5)より手前 */
+  z-index: 10; /* 重なり順: outLine (3) < プロフィールカード (10) */
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
   background: var(--theme-card-bg, #ffffff);
   box-shadow: var(--shadow-card);
 }
@@ -49,9 +49,10 @@
   }
 }
 
+/* ① 名前・ふりがな・ローマ字 */
 .lp-profile-names {
   border-bottom: 2px solid rgba(59, 130, 246, 0.15);
-  padding-bottom: 16px;
+  padding-bottom: 14px;
 }
 
 .lp-profile-furigana {
@@ -76,6 +77,31 @@
   letter-spacing: 0.05em;
 }
 
+/* ② ニックネームバッジ */
+.lp-profile-nickname-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #1e293b;
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.lp-nick-label {
+  color: #f43f5e;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.lp-nick-val {
+  color: #ffffff;
+}
+
+/* ③ キャッチフレーズ */
 .lp-profile-catchphrase {
   font-size: 1.1rem;
   font-weight: 700;
@@ -87,6 +113,7 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/* ④ 自己紹介文 */
 .lp-profile-message {
   font-size: 0.95rem;
   line-height: 1.8;
@@ -94,13 +121,13 @@
   color: var(--theme-card-text-color, #334155);
 }
 
-/* スペックリスト（誕生日・身長等） */
+/* ⑤ スペックリスト */
 .lp-profile-specs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   background: rgba(248, 250, 252, 0.85);
-  padding: 18px;
+  padding: 16px 18px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
@@ -115,9 +142,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 5px 0;
   border-bottom: 1px dashed var(--color-border);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .lp-profile-spec-label {
@@ -130,12 +157,12 @@
   color: var(--color-text-main);
 }
 
-/* SNS・プラットフォームリンクボタン */
+/* ⑦ 公式チャンネル＆プラットフォームリンク */
 .lp-profile-sns-group {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .lp-profile-sns-btn {
@@ -155,186 +182,326 @@
 }
 
 .lp-profile-sns-btn:hover {
-  background: var(--color-primary);
-  color: #ffffff;
-  border-color: var(--color-primary);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
+.lp-profile-btn-youtube {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.lp-profile-btn-youtube:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.lp-profile-btn-x {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.lp-profile-btn-x:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+/* ⑧ INTRO MOVIES (自己紹介動画: profile.moves) */
+.lp-profile-moves-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.lp-profile-moves-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.lp-profile-moves-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.lp-profile-movie-card {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.lp-profile-movie-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.lp-profile-movie-thumb-wrapper {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000000;
+}
+
+.lp-profile-movie-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.lp-profile-movie-card:hover .lp-profile-movie-thumb {
+  transform: scale(1.06);
+}
+
+.lp-profile-movie-play-btn {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  transition: background var(--transition-fast);
+}
+
+.lp-profile-movie-card:hover .lp-profile-movie-play-btn {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.lp-profile-movie-play-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.95); /* 紫の再生ボタン (画像1の⑧番) */
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform var(--transition-fast);
+}
+
+.lp-profile-movie-card:hover .lp-profile-movie-play-icon {
+  transform: scale(1.15);
+}
+
+.lp-profile-movie-caption {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-align: center;
+  background: #1e293b;
+}
+
 /* --------------------------------------------------------------------------
-   画面右側: 立ち絵・衣装切り替えサムネイル表示エリア
-   重なり順: outLine (3) < 立ち絵 (5) < プロフィールカード (10)
+   画面右側: 立ち絵エリア & COSTUME SELECT パネル
    -------------------------------------------------------------------------- */
 .lp-profile-visual-container {
   order: 2;
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
-  z-index: 5; /* outLine (3) より前面、カード (10) より背面 */
   width: 100%;
   height: 100%;
-  min-height: 740px; /* 立ち絵エリアの高さ固定基準 */
+  min-height: 760px; /* 立ち絵エリアの高さ固定基準 */
 }
 
 @media (max-width: 900px) {
   .lp-profile-visual-container {
     order: 1;
     min-height: 520px;
+    align-items: center;
   }
 }
 
-/* 立ち絵ラッパー
-   セクションの上下制限を超えて拡張:
-   topLine底辺付近からoutLine底辺付近まで届く拡大配置
+/* 巨大立ち絵ラッパー
+   重要: セクション背景 (1) < 立ち絵 (2) < outLine (3)
+   outLine の「下（背面）」に潜り込む z-index: 2
+   画面右端の見切れ、左側カードへの一部重なりを許容
 -------------------------------------------------------------------------- */
-.lp-profile-visual-wrapper {
+.lp-profile-standing-wrapper {
   position: absolute;
-  top: -80px;   /* 上部装飾 (topLine) の底辺付近まで届く */
-  bottom: -90px; /* 下部装飾 (outLine) の底辺付近まで届く */
-  right: -30px;  /* 画面右端への自然なはみ出しを許容 */
-  width: 125%;   /* プロフィールカードへの一部被りを許容する拡大サイズ */
-  max-width: 720px;
-  height: calc(100% + 170px);
+  top: -80px;
+  bottom: -40px;
+  right: -90px; /* 右側へ大きくはみ出し */
+  width: 135%;  /* 左側カードに一部潜り込む迫力の拡大サイズ */
+  max-width: 880px;
+  height: calc(100% + 140px);
+  z-index: 2; /* 厳守: outLine (3) の背面 */
   display: flex;
   align-items: flex-end;
   justify-content: center;
   overflow: visible;
-  pointer-events: none; /* 背面画像がカード等のクリックを遮断しない */
+  pointer-events: none;
 }
 
 @media (max-width: 900px) {
-  .lp-profile-visual-wrapper {
+  .lp-profile-standing-wrapper {
     position: relative;
     top: 0;
     bottom: 0;
     right: 0;
     width: 100%;
-    max-width: 480px;
-    height: 480px;
+    max-width: 500px;
+    height: 500px;
   }
 }
 
-/* 立ち絵画像 (縦幅100%基準でアスペクト比維持、outLineより前面) */
 .lp-profile-standing-img {
   position: relative;
   height: 100%;
   width: auto;
-  max-width: 100%;
+  max-width: none;
   object-fit: contain;
   object-position: bottom center;
-  z-index: 5; /* outLine (3) より上 */
-  filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.25));
-  transition: opacity var(--transition-fast);
+  z-index: 2;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.28));
   display: block;
 }
 
-/* デフォルメイラスト（立ち絵の右下に配置） */
+/* ④ デフォルメイラスト（画像3基準: 白座布団なし透過、足元手前にちょこんと寄り添う） */
 .lp-profile-deformed-img {
   position: absolute;
-  bottom: 80px;
-  right: 20px;
-  width: 120px;
-  height: 120px;
+  bottom: 30px;
+  right: 50px;
+  width: 160px;
+  height: 160px;
   object-fit: contain;
-  z-index: 7; /* 立ち絵の前面 */
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 50%;
-  padding: 8px;
-  border: 3px solid #ffffff;
+  z-index: 6; /* 立ち絵 (2) より前面（手前） */
+  background: none; /* 白丸座布団を完全撤去！ */
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.3));
   pointer-events: auto;
+  transition: transform var(--transition-fast);
+}
+
+.lp-profile-deformed-img:hover {
+  transform: scale(1.08) rotate(3deg);
 }
 
 @media (max-width: 900px) {
   .lp-profile-deformed-img {
-    width: 90px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
     bottom: 20px;
-    right: 10px;
-    padding: 6px;
+    right: 20px;
   }
 }
 
 /* --------------------------------------------------------------------------
-   衣装切り替えサムネイル (テキスト非表示・円形アイコンボタン)
-   操作可能な手前レイヤー (z-index: 12)
+   ⑨ COSTUME SELECT パネル (画像1の⑨番)
+   重要: outLine (3) < サムネイル/クレジット (10)
+   outLine の上に浮いて綺麗に操作・視認可能
    -------------------------------------------------------------------------- */
-.lp-costume-tabs {
+.lp-costume-select-panel {
   position: relative;
-  z-index: 12; /* 操作可能な前面 */
+  z-index: 10; /* 厳守: outLine (3) より前面！ */
   pointer-events: auto;
-  display: flex;
-  gap: 12px;
   margin-top: auto;
-  padding-bottom: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
+  margin-bottom: -36px; /* outLine との重複配置を許容 */
+  background: rgba(15, 23, 42, 0.85); /* ダークパネル */
+  backdrop-filter: blur(10px);
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 10px;
+  max-width: 440px;
 }
 
 @media (max-width: 900px) {
-  .lp-costume-tabs {
+  .lp-costume-select-panel {
+    margin-bottom: 0;
     margin-top: 16px;
+    width: 100%;
   }
 }
 
+.lp-costume-panel-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lp-costume-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .lp-costume-tab-btn {
-  width: 54px;
-  height: 54px;
-  padding: 3px;
-  border-radius: 50%; /* 正円アイコンボタン */
-  background: #ffffff;
-  border: 2px solid var(--color-border);
-  box-shadow: var(--shadow-md);
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+  border-radius: var(--radius-sm); /* 画像1のように角丸サムネイル */
+  background: #1e293b;
+  border: 2px solid transparent;
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  position: relative;
 }
 
 .lp-costume-tab-btn img {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
+  border-radius: calc(var(--radius-sm) - 2px);
   object-fit: cover;
   display: block;
 }
 
 .lp-costume-tab-btn:hover {
-  transform: translateY(-2px) scale(1.08);
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  border-color: #38bdf8;
 }
 
 .lp-costume-tab-btn.is-active {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.35), var(--shadow-md);
-  transform: scale(1.12);
+  border-color: #f59e0b; /* アクティブ時のアクセント枠 (画像1参照) */
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+  transform: scale(1.08);
 }
 
 /* クリエイタークレジット */
 .lp-profile-creators {
-  position: relative;
-  z-index: 12;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 12px;
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
+  gap: 8px;
   justify-content: center;
 }
 
 .lp-profile-creator-tag {
-  background: rgba(241, 245, 249, 0.95);
-  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lp-profile-creator-tag strong {
+  color: #38bdf8;
+  font-weight: 600;
 }

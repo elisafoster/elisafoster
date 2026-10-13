@@ -1,12 +1,27 @@
 /**
  * Profile Section Component
  * profile テーブル & visual テーブルのデータ描画
- * - 左右反転 (左: プロフィール / 右: 立ち絵)
- * - サムネイル画像のみの衣装切り替え
+ * - 左右反転 (左: プロフィール情報 & 紹介動画 / 右: 巨大立ち絵 & サムネイル)
+ * - 立ち絵の拡大・はみ出し配置 (outLine の下に潜り込む)
+ * - デフォルメキャラクターの透過・足元寄り添い配置
+ * - profile.moves (自己紹介動画) の埋め込み・モーダル再生
  * - visualBackground によるページ背景の動的切り替え
  */
 
 import { api } from "../common/api-client.js";
+import { Modal } from "../common/modal.js";
+
+function getYouTubeInfo(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (match) {
+    return {
+      videoId: match[1],
+      thumbUrl: `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`,
+    };
+  }
+  return null;
+}
 
 export class ProfileSection {
   constructor(container, profileData, visualList, defaultPageBackground = "") {
@@ -35,16 +50,16 @@ export class ProfileSection {
     // 現在選択中のビジュアル
     const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0] || null;
 
-    // 4. visual.visualBackground に応じたページ背景の動的切り替え
+    // visual.visualBackground に応じたページ背景の動的切り替え
     this.updatePageBackground(currentVisual);
 
     // =========================================================================
-    // 1. 画面左側: プロフィール詳細情報カード (order: 1)
+    // 1. 画面左側: プロフィール詳細情報カード (order: 1 / z-index: 10 最前面)
     // =========================================================================
     const infoCol = document.createElement("div");
     infoCol.className = "lp-card lp-profile-info-card";
 
-    // 名前
+    // ① 名前・ふりがな・ローマ字
     const namesDiv = document.createElement("div");
     namesDiv.className = "lp-profile-names";
     if (this.profile.pronunciation) {
@@ -66,7 +81,15 @@ export class ProfileSection {
     }
     infoCol.appendChild(namesDiv);
 
-    // キャッチフレーズ
+    // ② ニックネーム
+    if (this.profile.nickname) {
+      const nickBadge = document.createElement("div");
+      nickBadge.className = "lp-profile-nickname-badge";
+      nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${this.profile.nickname}</span>`;
+      infoCol.appendChild(nickBadge);
+    }
+
+    // ③ キャッチフレーズ
     if (this.profile.comment) {
       const phrase = document.createElement("div");
       phrase.className = "lp-profile-catchphrase";
@@ -74,7 +97,7 @@ export class ProfileSection {
       infoCol.appendChild(phrase);
     }
 
-    // 自己紹介
+    // ④ 自己紹介
     if (this.profile.message) {
       const msg = document.createElement("div");
       msg.className = "lp-profile-message";
@@ -82,14 +105,13 @@ export class ProfileSection {
       infoCol.appendChild(msg);
     }
 
-    // スペック情報（誕生日、身長など）
+    // ⑤ スペック情報（誕生日、身長等）
     const specs = [
       { label: "誕生日", value: this.profile.birthday },
       { label: "活動開始日", value: this.profile.streaming },
       { label: "年齢", value: this.profile.age ? `${this.profile.age}歳` : null },
       { label: "身長", value: this.profile.height ? `${this.profile.height}cm` : null },
       { label: "ファンネーム", value: this.profile.fanName },
-      { label: "ニックネーム", value: this.profile.nickname },
     ].filter((s) => s.value);
 
     if (specs.length > 0) {
@@ -107,27 +129,27 @@ export class ProfileSection {
       infoCol.appendChild(specsDiv);
     }
 
-    // SNS & プラットフォームリンク
+    // ⑦ 公式チャンネル＆プラットフォームリンク
     const snsGroup = document.createElement("div");
     snsGroup.className = "lp-profile-sns-group";
 
     if (this.profile.youtubeUrl) {
       const ytBtn = document.createElement("a");
-      ytBtn.className = "lp-profile-sns-btn";
+      ytBtn.className = "lp-profile-sns-btn lp-profile-btn-youtube";
       ytBtn.href = this.profile.youtubeUrl;
       ytBtn.target = "_blank";
       ytBtn.rel = "noopener noreferrer";
-      ytBtn.innerHTML = `<span>▶ YouTube</span>`;
+      ytBtn.innerHTML = `<span>▶ YouTube Channel</span>`;
       snsGroup.appendChild(ytBtn);
     }
 
     if (this.profile.xUrl) {
       const xBtn = document.createElement("a");
-      xBtn.className = "lp-profile-sns-btn";
+      xBtn.className = "lp-profile-sns-btn lp-profile-btn-x";
       xBtn.href = this.profile.xUrl;
       xBtn.target = "_blank";
       xBtn.rel = "noopener noreferrer";
-      xBtn.innerHTML = `<span>𝕏 Official</span>`;
+      xBtn.innerHTML = `<span>𝕏 Official X</span>`;
       snsGroup.appendChild(xBtn);
     }
 
@@ -148,39 +170,90 @@ export class ProfileSection {
       infoCol.appendChild(snsGroup);
     }
 
+    // ⑧ INTRO MOVIES (自己紹介動画: profile.moves)
+    if (Array.isArray(this.profile.moves) && this.profile.moves.length > 0) {
+      const movesContainer = document.createElement("div");
+      movesContainer.className = "lp-profile-moves-container";
+
+      const movesTitle = document.createElement("div");
+      movesTitle.className = "lp-profile-moves-title";
+      movesTitle.innerHTML = "<span>✦ INTRO MOVIES ✦</span>";
+      movesContainer.appendChild(movesTitle);
+
+      const movesList = document.createElement("div");
+      movesList.className = "lp-profile-moves-list";
+
+      this.profile.moves.forEach((videoUrl, idx) => {
+        if (!videoUrl) return;
+        const card = document.createElement("div");
+        card.className = "lp-profile-movie-card";
+
+        const ytInfo = getYouTubeInfo(videoUrl);
+        const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
+
+        card.innerHTML = `
+          <div class="lp-profile-movie-thumb-wrapper">
+            <img class="lp-profile-movie-thumb" src="${thumbSrc}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
+            <div class="lp-profile-movie-play-btn">
+              <div class="lp-profile-movie-play-icon">▶</div>
+            </div>
+          </div>
+          <div class="lp-profile-movie-caption">活動者・配信者 紹介ムービー</div>
+        `;
+
+        card.onclick = () => {
+          Modal.openVideo(videoUrl, `自己紹介ムービー`);
+        };
+
+        movesList.appendChild(card);
+      });
+
+      movesContainer.appendChild(movesList);
+      infoCol.appendChild(movesContainer);
+    }
+
     grid.appendChild(infoCol);
 
     // =========================================================================
-    // 2. 画面右側: 立ち絵・衣装切り替えサムネイル表示エリア (order: 2)
+    // 2. 画面右側: 立ち絵エリア & サムネイル・クレジットパネル
     // =========================================================================
     const visualCol = document.createElement("div");
     visualCol.className = "lp-profile-visual-container";
 
     if (currentVisual) {
-      // 立ち絵ラッパー (セクション上下いっぱいに追従)
-      const wrapper = document.createElement("div");
-      wrapper.className = "lp-profile-visual-wrapper";
+      // 立ち絵ラッパー (巨大拡大・上下いっぱい・outLineの下に潜り込む z-index: 2)
+      const standingWrapper = document.createElement("div");
+      standingWrapper.className = "lp-profile-standing-wrapper";
 
-      // 立ち絵画像 (縦幅100%基準でアスペクト比維持、outLineより前面)
+      // 立ち絵画像本体
       const standingImg = document.createElement("img");
       standingImg.className = "lp-profile-standing-img";
       standingImg.src = api.resolveAssetUrl(currentVisual.visual, "visual/standing");
       standingImg.alt = currentVisual.costumeName || this.profile.name || "立ち絵";
-      wrapper.appendChild(standingImg);
+      standingWrapper.appendChild(standingImg);
 
-      // デフォルメイラスト（立ち絵の右下に配置）
+      // ④ デフォルメイラスト（白丸座布団なし・透過単体で足元手前に寄り添う z-index: 6）
       if (currentVisual.defoemed) {
         const defImg = document.createElement("img");
         defImg.className = "lp-profile-deformed-img";
         defImg.src = api.resolveAssetUrl(currentVisual.defoemed, "visual/deformed");
         defImg.alt = "デフォルメイラスト";
-        wrapper.appendChild(defImg);
+        standingWrapper.appendChild(defImg);
       }
 
-      visualCol.appendChild(wrapper);
+      visualCol.appendChild(standingWrapper);
 
-      // 3. 衣装切り替えサムネイル (テキスト非表示・画像アイコンのみ)
+      // ⑨ COSTUME SELECT & クリエイタークレジット (outLineの上に浮いて操作可能 z-index: 10)
+      const costumePanel = document.createElement("div");
+      costumePanel.className = "lp-costume-select-panel";
+
+      // サムネイル切り替え (テキストなし・画像アイコンのみ)
       if (this.visuals.length > 1) {
+        const panelTitle = document.createElement("div");
+        panelTitle.className = "lp-costume-panel-title";
+        panelTitle.textContent = "✦ COSTUME SELECT ✦";
+        costumePanel.appendChild(panelTitle);
+
         const costumeTabs = document.createElement("div");
         costumeTabs.className = "lp-costume-tabs";
 
@@ -191,7 +264,6 @@ export class ProfileSection {
           btn.title = v.costumeName || `衣装 ${idx + 1}`;
           btn.setAttribute("aria-label", v.costumeName || `衣装 ${idx + 1}`);
 
-          // テキストを一切含めずサムネイル画像のみ描画
           const thumbSrc = v.thumbnail
             ? api.resolveAssetUrl(v.thumbnail, "visual/thumbnail")
             : api.resolveAssetUrl(v.visual, "visual/standing");
@@ -205,27 +277,29 @@ export class ProfileSection {
           costumeTabs.appendChild(btn);
         });
 
-        visualCol.appendChild(costumeTabs);
+        costumePanel.appendChild(costumeTabs);
       }
 
       // クリエイタークレジット
       const creators = [];
-      if (currentVisual.characterDesign) creators.push(`キャラデザ: ${currentVisual.characterDesign}`);
-      if (currentVisual.illustrator) creators.push(`イラスト: ${currentVisual.illustrator}`);
-      if (currentVisual.live2d) creators.push(`Live2D: ${currentVisual.live2d}`);
-      if (currentVisual["3dModeling"]) creators.push(`3D: ${currentVisual["3dModeling"]}`);
+      if (currentVisual.characterDesign) creators.push({ label: "キャラクターデザイン", val: currentVisual.characterDesign });
+      if (currentVisual.illustrator) creators.push({ label: "イラストレーター", val: currentVisual.illustrator });
+      if (currentVisual.live2d) creators.push({ label: "Live2Dモデラー", val: currentVisual.live2d });
+      if (currentVisual["3dModeling"]) creators.push({ label: "3Dモデラー", val: currentVisual["3dModeling"] });
 
       if (creators.length > 0) {
-        const creatorEl = document.createElement("div");
-        creatorEl.className = "lp-profile-creators";
+        const creditEl = document.createElement("div");
+        creditEl.className = "lp-profile-creators";
         creators.forEach((c) => {
           const tag = document.createElement("span");
           tag.className = "lp-profile-creator-tag";
-          tag.textContent = c;
-          creatorEl.appendChild(tag);
+          tag.innerHTML = `<strong>${c.label}:</strong> ${c.val}`;
+          creditEl.appendChild(tag);
         });
-        visualCol.appendChild(creatorEl);
+        costumePanel.appendChild(creditEl);
       }
+
+      visualCol.appendChild(costumePanel);
     }
 
     grid.appendChild(visualCol);

@@ -105,10 +105,10 @@
   filter: drop-shadow(0 -4px 14px rgba(0, 0, 0, 0.12));
 }
 
-/* Layer 4: 最前面 - 各セクションのコンテンツ */
+/* Layer 4: 各セクションのコンテンツ (独立したスタッキングコンテキストを作らず、子要素がoutLineと直接重なり順を競合できるようにする) */
 .lp-section-content {
   position: relative;
-  z-index: 4;
+  z-index: auto;
 }
 
 /* 共通セクションヘッダー */
