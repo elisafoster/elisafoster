@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBnjvA5J2Yqnbg4yxYUxwzRtxvkXikTsBk",
-  authDomain: "nr-development-5bb32.firebaseapp.com",
-  projectId: "nr-development-5bb32",
-  storageBucket: "nr-development-5bb32.firebasestorage.app",
-  messagingSenderId: "573178036744",
-  appId: "1:573178036744:web:8ab4e4545643f1c91107bd"
+  apiKey: "AIzaSyDXwCtp3TavrG0S4lQi8Z90n-XBFsZqlIs",
+  authDomain: "elisa-d6e4a.firebaseapp.com",
+  projectId: "elisa-d6e4a",
+  storageBucket: "elisa-d6e4a.firebasestorage.app",
+  messagingSenderId: "985782089933",
+  appId: "1:985782089933:web:7df5c68bce727850c75184"
 };
 
 export const app = initializeApp(firebaseConfig);
