@@ -35,21 +35,85 @@
   min-height: calc(100vh - var(--header-height));
 }
 
+/* --------------------------------------------------------------------------
+   セクション骨格
+   - ライン装飾（topLine, outLine）がない場合は余分なスペースを確保せず詰めて表示
+   - ライン装飾がある場合のみ、画像比率表示に合わせたクリアランスを確保
+   -------------------------------------------------------------------------- */
 .lp-section {
   position: relative;
-  padding: 140px 0 160px; /* topLine と outLine の画像比率表示に合わせたクリアランス */
+  padding-top: 48px;
+  padding-bottom: 48px;
   overflow: visible; /* 影の途切れ防止および立ち絵の自然な表示 */
+}
+
+/* topLine が設定されている場合 */
+.lp-section.has-topline {
+  padding-top: 140px;
+}
+
+/* outLine が設定されている場合 */
+.lp-section.has-outline {
+  padding-bottom: 160px;
+}
+
+/* プロフィールセクション（立ち絵の上下配置に合わせた最適パディング） */
+.lp-section.lp-section-profile {
+  padding-top: 70px;
+  padding-bottom: 60px;
+}
+
+.lp-section.lp-section-profile.has-topline {
+  padding-top: 140px;
+}
+
+.lp-section.lp-section-profile.has-outline {
+  padding-bottom: 160px;
 }
 
 @media (max-width: 900px) {
   .lp-section {
-    padding: 90px 0 110px;
+    padding-top: 36px;
+    padding-bottom: 36px;
+  }
+  .lp-section.has-topline {
+    padding-top: 90px;
+  }
+  .lp-section.has-outline {
+    padding-bottom: 110px;
+  }
+  .lp-section.lp-section-profile {
+    padding-top: 50px;
+    padding-bottom: 50px;
+  }
+  .lp-section.lp-section-profile.has-topline {
+    padding-top: 90px;
+  }
+  .lp-section.lp-section-profile.has-outline {
+    padding-bottom: 110px;
   }
 }
 
 @media (max-width: 480px) {
   .lp-section {
-    padding: 60px 0 80px;
+    padding-top: 28px;
+    padding-bottom: 28px;
+  }
+  .lp-section.has-topline {
+    padding-top: 60px;
+  }
+  .lp-section.has-outline {
+    padding-bottom: 80px;
+  }
+  .lp-section.lp-section-profile {
+    padding-top: 40px;
+    padding-bottom: 40px;
+  }
+  .lp-section.lp-section-profile.has-topline {
+    padding-top: 60px;
+  }
+  .lp-section.lp-section-profile.has-outline {
+    padding-bottom: 80px;
   }
 }
 
