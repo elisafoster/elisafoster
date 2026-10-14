@@ -1,35 +1,93 @@
 /* ==========================================================================
    Event Banner Section CSS
+   - 期間・ステータスバッジの撤去、バナー画像のみのシンプル＆プレミアム表示
+   - 複数バナー時の自動無限ループカルーセル（スワイプ・ドラッグ対応）
+   - 前後ナビゲーション矢印 & インジケータードット
    ========================================================================== */
-.lp-event-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+
+/* 空状態メッセージ */
+.lp-event-empty-msg {
+  text-align: center;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.95rem;
+  padding: 40px 20px;
 }
 
-.lp-event-card {
-  position: relative;
-  border-radius: var(--radius-lg);
+/* --------------------------------------------------------------------------
+   単一バナー表示スタイル
+   -------------------------------------------------------------------------- */
+.lp-event-single-wrapper {
+  max-width: 1040px;
+  margin: 0 auto;
+  width: 100%;
+  border-radius: var(--radius-lg, 16px);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
-  transition: transform var(--transition-normal);
-  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: #0f172a;
 }
 
-.lp-event-card:hover {
-  transform: translateY(-4px);
+/* --------------------------------------------------------------------------
+   無限ループスライダー
+   -------------------------------------------------------------------------- */
+.lp-event-slider {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  width: 100%;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.lp-event-slider-track-wrapper {
+  overflow: hidden;
+  width: 100%;
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: #0f172a;
+}
+
+.lp-event-slider-track {
+  display: flex;
+  width: 100%;
+  will-change: transform;
+}
+
+.lp-event-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   バナーカード & 画像表示（画像比率 3:1 固定）
+   -------------------------------------------------------------------------- */
+.lp-event-banner-card {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  background: #0f172a;
 }
 
 .lp-event-banner-link {
   display: block;
   position: relative;
-  overflow: hidden;
+  width: 100%;
   aspect-ratio: 3 / 1;
+  overflow: hidden;
+  text-decoration: none;
+  background: #0f172a;
+}
+
+.lp-event-banner-link.has-link {
+  cursor: pointer;
 }
 
 @media (max-width: 640px) {
   .lp-event-banner-link {
-    aspect-ratio: 2.5 / 1;
+    aspect-ratio: 2.8 / 1;
   }
 }
 
@@ -37,40 +95,101 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
   transition: transform var(--transition-normal);
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 
-.lp-event-card:hover .lp-event-banner-img {
+.lp-event-banner-link.has-link:hover .lp-event-banner-img {
   transform: scale(1.02);
 }
 
-.lp-event-meta {
+/* --------------------------------------------------------------------------
+   左右ナビゲーション矢印 (Prev / Next)
+   -------------------------------------------------------------------------- */
+.lp-event-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 1.6rem;
+  line-height: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  background: #ffffff;
-  border-top: 1px solid var(--color-border);
-  font-size: 0.9rem;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: all var(--transition-fast);
+  user-select: none;
 }
 
-.lp-event-dates {
+.lp-event-nav-btn:hover {
+  background: rgba(15, 23, 42, 0.9);
+  transform: translateY(-50%) scale(1.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.lp-event-prev {
+  left: 14px;
+}
+
+.lp-event-next {
+  right: 14px;
+}
+
+@media (max-width: 640px) {
+  .lp-event-nav-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.2rem;
+  }
+
+  .lp-event-prev {
+    left: 8px;
+  }
+
+  .lp-event-next {
+    right: 8px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   インジケータードット
+   -------------------------------------------------------------------------- */
+.lp-event-dots {
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 8px;
-  color: var(--color-text-muted);
-  font-weight: 500;
+  margin-top: 18px;
 }
 
-.lp-event-status-badge {
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  font-size: 0.75rem;
-  font-weight: 700;
+.lp-event-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.45);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.lp-event-status-badge.is-active {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--color-success);
+.lp-event-dot:hover {
+  background: rgba(148, 163, 184, 0.8);
 }
 
+.lp-event-dot.is-active {
+  width: 28px;
+  background: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+}
