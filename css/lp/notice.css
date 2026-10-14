@@ -1,29 +1,50 @@
 /* ==========================================================================
    Notice Section CSS
+   - セクション背景あり: 個別カードに themeConfig 設定色 (var(--theme-card-bg)) を適用
+   - セクション背景なし: 大きなウィンドウ風背景カード (themeConfig色) を配置し、
+     内部の個別カードは白単色 (#ffffff) ＋ 立体ドロップシャドウで同化を防止
    ========================================================================== */
+
+/* 空状態メッセージ */
+.lp-notice-empty-msg {
+  text-align: center;
+  color: var(--color-text-muted, #94a3b8);
+  font-size: 0.95rem;
+  padding: 40px 20px;
+}
+
+/* --------------------------------------------------------------------------
+   お知らせカードリスト共通
+   -------------------------------------------------------------------------- */
 .lp-notice-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
   max-width: 900px;
   margin: 0 auto;
+  width: 100%;
 }
 
+/* --------------------------------------------------------------------------
+   セクション背景あり（通常・単独カード表示）
+   カードごとに themeConfig の色 (var(--theme-card-bg)) を適用
+   -------------------------------------------------------------------------- */
 .lp-notice-item {
   background: var(--theme-card-bg, #ffffff);
   color: var(--theme-card-text-color, #1e293b);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md, 14px);
   padding: 20px 24px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border);
-  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--color-border, rgba(226, 232, 240, 0.8));
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .lp-notice-item:hover {
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md, 0 6px 18px rgba(0, 0, 0, 0.12));
   border-color: rgba(59, 130, 246, 0.4);
 }
 
@@ -35,7 +56,7 @@
 }
 
 .lp-notice-date {
-  color: var(--color-text-muted);
+  color: var(--color-text-muted, #64748b);
   font-weight: 600;
 }
 
@@ -48,20 +69,123 @@
 
 .lp-notice-image-wrapper {
   margin-top: 8px;
-  max-width: 400px;
-  border-radius: var(--radius-sm);
+  max-width: 440px;
+  border-radius: var(--radius-sm, 8px);
   overflow: hidden;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .lp-notice-image-wrapper img {
   width: 100%;
   height: auto;
-  border-radius: var(--radius-sm);
+  display: block;
+  border-radius: var(--radius-sm, 8px);
   transition: transform var(--transition-fast);
+}
+
+.lp-notice-image-wrapper:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 .lp-notice-image-wrapper:hover img {
   transform: scale(1.02);
 }
 
+/* --------------------------------------------------------------------------
+   セクション背景なし（ウィンドウ風大きな背景カード表示）
+   - 外側の背景カード: themeConfig の設定色を適用
+   - 内部の個別カード: 白単色 (#ffffff) ＆ 背景と同色でも同化しない立体シャドウ
+   -------------------------------------------------------------------------- */
+.lp-notice-window {
+  background: var(--theme-card-bg, #ffffff);
+  color: var(--theme-card-text-color, #1e293b);
+  border-radius: var(--radius-lg, 20px);
+  padding: 24px 28px 32px;
+  max-width: 940px;
+  margin: 0 auto;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .lp-notice-window {
+    padding: 18px 16px 24px;
+    border-radius: var(--radius-md, 16px);
+  }
+}
+
+/* ウィンドウ風ヘッダーバー (マック風操作ドット & NOTICEタイトル) */
+.lp-notice-window-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.lp-notice-window-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lp-window-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-red {
+  background: #ff5f56;
+}
+
+.dot-yellow {
+  background: #ffbd2e;
+}
+
+.dot-green {
+  background: #27c93f;
+}
+
+.lp-notice-window-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+/* ウィンドウ内の個別カード: 白単色 ＆ 同化防止の立体シャドウ */
+.lp-notice-window .lp-notice-list {
+  gap: 16px;
+}
+
+.lp-notice-window .lp-notice-item {
+  background: #ffffff;
+  color: #1e293b;
+  border-radius: var(--radius-md, 14px);
+  padding: 20px 24px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.lp-notice-window .lp-notice-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.06);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.lp-notice-window .lp-notice-item .lp-notice-date {
+  color: #64748b;
+}
+
+.lp-notice-window .lp-notice-item .lp-notice-body {
+  color: #1e293b;
+}

@@ -292,7 +292,7 @@ class LpApp {
         new EventSection(container, this.allData.event).render();
         break;
       case "NOTICE":
-        new NoticeSection(container, this.allData.notice).render();
+        new NoticeSection(container, this.allData.notice, sec).render();
         break;
       case "SCHEDULE":
         new ScheduleSection(container, this.allData.schedule, this.allData.scheduleTag).render();
