@@ -13,7 +13,7 @@ export class GallerySection {
   constructor(container, galleryList) {
     this.container = container;
     this.gallery = Array.isArray(galleryList) ? galleryList.filter((g) => g && g.image) : [];
-    this.viewMode = "grid"; // "grid" または "slide"
+    this.viewMode = "slide"; // デフォルトをスライド表示に設定 ("slide" または "grid")
     this.currentPage = 1;
     this.itemsPerPage = 9; // 3列3行 = 最大9件/ページ
   }
