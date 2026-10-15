@@ -65,9 +65,9 @@
 }
 
 .lp-gallery-view-btn.is-active {
-  background: #ffffff;
-  color: var(--color-primary, #3b82f6);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  background: var(--color-primary, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
 }
 
 .lp-view-icon {

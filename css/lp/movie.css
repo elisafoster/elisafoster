@@ -26,10 +26,12 @@
 .lp-movie-view-switcher {
   display: inline-flex;
   align-items: center;
-  background: #f1f5f9;
+  background: rgba(226, 232, 240, 0.6);
   padding: 4px;
   border-radius: var(--radius-full, 9999px);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  gap: 4px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .lp-movie-view-btn {
@@ -52,9 +54,9 @@
 }
 
 .lp-movie-view-btn.is-active {
-  background: #ffffff;
-  color: var(--color-primary, #3b82f6);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-primary, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
 }
 
 .lp-movie-view-icon {
@@ -503,12 +505,13 @@
 }
 
 .lp-movie-cat-track-container {
-  background: #f1f5f9;
+  background: rgba(226, 232, 240, 0.6);
   border-radius: var(--radius-full, 9999px);
   padding: 4px;
   display: inline-flex;
   max-width: 100%;
   overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
