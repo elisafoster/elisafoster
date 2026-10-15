@@ -214,37 +214,32 @@
   align-items: flex-end;
 }
 
-/* 下地バー（白半透明帯＋シャドー＋右端スラッシュ＆ストライプ装飾） */
+/* 下地バー（単一要素: 右側角丸 & 右側フェードアウトグラデーション & シャドウ） */
 .lp-section-bar-bg {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 100%;
   height: var(--bar-height);
-  display: flex;
-  align-items: stretch; /* 左側の帯と右側SVGが常に100%同じ高さで完全に同期 */
   pointer-events: none;
   z-index: 0;
-  /* 同色背景でも同化しない立体感のあるシャドー */
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.12)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.08));
-}
-
-.lp-section-bar-fill {
-  flex: 1;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.78);
+  /* 右側の角を丸くする (右上 & 右下) */
+  border-radius: 0 var(--radius-full, 9999px) var(--radius-full, 9999px) 0;
+  /* 右側に向かってだんだん薄くなっていくグラデーション */
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(255, 255, 255, 0.78) 40%,
+    rgba(255, 255, 255, 0.5) 75%,
+    rgba(255, 255, 255, 0.15) 95%,
+    transparent 100%
+  );
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-top: 1px solid rgba(255, 255, 255, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-.lp-section-bar-deco {
-  display: block;
-  height: 100%;
-  width: calc(var(--bar-height) * 2.708);
-  color: rgba(255, 255, 255, 0.78);
-  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  /* 同色背景でも同化しない立体感のあるシャドー */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* 前面テキストラッパー */
@@ -255,7 +250,7 @@
   display: flex;
   align-items: baseline;
   gap: 20px;
-  padding: 0 calc(var(--bar-height) * 2.708 + 12px) 4px 16px;
+  padding: 0 32px 4px 16px;
 }
 
 /* セクション名フォント（今の1.5倍・画面幅に応じて可変・下地ラインより上部が少しはみ出る） */
@@ -294,7 +289,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 3px;
-    padding: 0 calc(var(--bar-height) * 2.708 * 0.7) 4px 12px;
+    padding: 0 24px 4px 12px;
   }
 
   .lp-section-title {

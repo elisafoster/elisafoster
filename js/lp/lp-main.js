@@ -251,19 +251,10 @@ class LpApp {
         const barContainer = document.createElement("div");
         barContainer.className = "lp-section-bar-container";
 
-        // 下地バー (白半透明帯 + ドロップシャドウ + 右端スラッシュ&ストライプSVG装飾)
+        // 下地バー (単一要素: 右側角丸 & 右側フェードアウトグラデーション & シャドウ)
         const barBg = document.createElement("div");
         barBg.className = "lp-section-bar-bg";
         barBg.setAttribute("aria-hidden", "true");
-        barBg.innerHTML = `
-          <div class="lp-section-bar-fill"></div>
-          <svg class="lp-section-bar-deco" viewBox="0 0 130 48" preserveAspectRatio="none" fill="currentColor">
-            <polygon points="-1,0 -1,48 53,48" />
-            <polygon points="5,0 37,0 90,48 58,48" />
-            <polygon points="42,0 59,0 112,48 95,48" />
-            <polygon points="64,0 73,0 126,48 117,48" />
-          </svg>
-        `;
         barContainer.appendChild(barBg);
 
         // 前面テキスト（PC: 横並び、スマホ: 縦並びで行間を詰めて下地内に収める）
