@@ -222,6 +222,48 @@ export class MovieSection {
   }
 
   /**
+   * トラックのマウスドラッグ横スクロール操作ヘルパー（誤クリック防止付き）
+   */
+  setupTrackDragging(track) {
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    let hasDragged = false;
+
+    track.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      isDown = true;
+      hasDragged = false;
+      track.classList.add("is-dragging");
+      startX = e.pageX - track.offsetLeft;
+      scrollLeft = track.scrollLeft;
+    });
+
+    track.addEventListener("mouseleave", () => {
+      isDown = false;
+      track.classList.remove("is-dragging");
+    });
+
+    track.addEventListener("mouseup", () => {
+      isDown = false;
+      track.classList.remove("is-dragging");
+    });
+
+    track.addEventListener("mousemove", (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - track.offsetLeft;
+      const walk = (x - startX) * 1.5;
+      if (Math.abs(walk) > 4) {
+        hasDragged = true;
+      }
+      track.scrollLeft = scrollLeft - walk;
+    });
+
+    return () => hasDragged;
+  }
+
+  /**
    * カテゴリー選択バーの構築（添付画像デザイン: カプセル背景、選択中黒ピル、非選択下線、オーバーフロー時プルダウン）
    */
   createCategoryBar({ categories, selectedId, onSelect }) {
@@ -252,6 +294,9 @@ export class MovieSection {
     const track = document.createElement("div");
     track.className = "lp-movie-cat-track";
 
+    // トラックのマウスドラッグ操作を有効化
+    const getHasDragged = this.setupTrackDragging(track);
+
     const allCatList = [
       { id: "ALL", name: "すべて" },
       ...categories.map((c) => ({ id: String(c.id), name: c.categoryName })),
@@ -281,7 +326,10 @@ export class MovieSection {
       catItem.className = `lp-movie-cat-item ${isSelected ? "is-active" : ""}`;
       catItem.type = "button";
       catItem.textContent = item.name;
-      catItem.onclick = () => onSelect(item.id);
+      catItem.onclick = () => {
+        if (getHasDragged()) return;
+        onSelect(item.id);
+      };
       track.appendChild(catItem);
     });
 
@@ -326,6 +374,9 @@ export class MovieSection {
     const track = document.createElement("div");
     track.className = "lp-movie-tag-track";
 
+    // トラックのマウスドラッグ操作を有効化
+    const getHasDragged = this.setupTrackDragging(track);
+
     // 1. 「すべてのタグ」
     const isAllActive = selectedTagSet.size === 0;
 
@@ -346,6 +397,7 @@ export class MovieSection {
     allTrackItem.type = "button";
     allTrackItem.textContent = "すべてのタグ";
     allTrackItem.onclick = () => {
+      if (getHasDragged()) return;
       onClearTags();
     };
     track.appendChild(allTrackItem);
@@ -374,6 +426,7 @@ export class MovieSection {
       trackItem.type = "button";
       trackItem.textContent = `#${tag.tagName}`;
       trackItem.onclick = () => {
+        if (getHasDragged()) return;
         onToggleTag(tagId);
       };
       track.appendChild(trackItem);
