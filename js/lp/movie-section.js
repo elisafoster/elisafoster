@@ -171,6 +171,9 @@ export class MovieSection {
    * =========================================================================
    */
   renderCategoryMode(contentArea) {
+    if (!contentArea) return;
+    contentArea.innerHTML = "";
+
     if (this.categories.length === 0) {
       contentArea.innerHTML = '<p class="lp-movie-empty-msg">カテゴリーが設定されていません</p>';
       return;
@@ -348,6 +351,9 @@ export class MovieSection {
    * =========================================================================
    */
   renderListMode(contentArea) {
+    if (!contentArea) return;
+    contentArea.innerHTML = "";
+
     const listWrap = document.createElement("div");
     listWrap.className = "lp-movie-list-wrap";
 
