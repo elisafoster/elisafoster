@@ -331,12 +331,7 @@ export class GallerySection {
     wrapper.appendChild(img);
     card.appendChild(wrapper);
 
-    if (item.name) {
-      const caption = document.createElement("div");
-      caption.className = "lp-gallery-caption";
-      caption.textContent = item.name;
-      card.appendChild(caption);
-    }
+    // タイトルは非表示（画像のみ表示。altおよび拡大モーダルプレビュー用には保持）
 
     card.onclick = (e) => {
       if (checkDragged && checkDragged()) {
