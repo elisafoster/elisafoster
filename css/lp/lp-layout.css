@@ -207,6 +207,7 @@
 
 /* 下地帯バーコンテナ (全幅) */
 .lp-section-bar-container {
+  --bar-height: 44px;
   position: relative;
   width: 100%;
   display: flex;
@@ -219,9 +220,9 @@
   left: 0;
   bottom: 0;
   width: 100%;
-  height: 44px;
+  height: var(--bar-height);
   display: flex;
-  align-items: center;
+  align-items: stretch; /* 左側の帯と右側SVGが常に100%同じ高さで完全に同期 */
   pointer-events: none;
   z-index: 0;
   /* 同色背景でも同化しない立体感のあるシャドー */
@@ -239,8 +240,9 @@
 }
 
 .lp-section-bar-deco {
-  width: 116px;
+  display: block;
   height: 100%;
+  width: calc(var(--bar-height) * 2.708);
   color: rgba(255, 255, 255, 0.78);
   flex-shrink: 0;
 }
@@ -253,7 +255,7 @@
   display: flex;
   align-items: baseline;
   gap: 20px;
-  padding: 0 130px 4px 16px;
+  padding: 0 calc(var(--bar-height) * 2.708 + 12px) 4px 16px;
 }
 
 /* セクション名フォント（今の1.5倍・画面幅に応じて可変・下地ラインより上部が少しはみ出る） */
@@ -283,13 +285,8 @@
     margin-bottom: 28px;
   }
 
-  /* スマホ時の下地バー高さ */
-  .lp-section-bar-bg {
-    height: 48px;
-  }
-
-  .lp-section-bar-deco {
-    width: 96px;
+  .lp-section-bar-container {
+    --bar-height: 48px;
   }
 
   /* 縦並びに行間を詰め、下地バー(48px)の範囲内に収める */
@@ -297,7 +294,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 3px;
-    padding: 0 96px 4px 12px;
+    padding: 0 calc(var(--bar-height) * 2.708 * 0.7) 4px 12px;
   }
 
   .lp-section-title {

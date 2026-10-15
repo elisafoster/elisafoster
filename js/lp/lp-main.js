@@ -257,8 +257,8 @@ class LpApp {
         barBg.setAttribute("aria-hidden", "true");
         barBg.innerHTML = `
           <div class="lp-section-bar-fill"></div>
-          <svg class="lp-section-bar-deco" viewBox="0 0 130 48" fill="currentColor">
-            <polygon points="0,0 0,48 53,48" />
+          <svg class="lp-section-bar-deco" viewBox="0 0 130 48" preserveAspectRatio="none" fill="currentColor">
+            <polygon points="-1,0 -1,48 53,48" />
             <polygon points="5,0 37,0 90,48 58,48" />
             <polygon points="42,0 59,0 112,48 95,48" />
             <polygon points="64,0 73,0 126,48 117,48" />
