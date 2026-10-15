@@ -22,7 +22,8 @@
 }
 
 .app-modal-container {
-  background: #ffffff;
+  background: var(--theme-sub-bg, #ffffff);
+  color: var(--theme-card-text-color, var(--color-text-main));
   border-radius: var(--radius-lg);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
@@ -101,21 +102,22 @@
 .app-modal-title {
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--color-text-main);
+  color: inherit;
 }
 
 .app-modal-close-btn {
-  color: var(--color-text-muted);
+  color: inherit;
+  opacity: 0.7;
   font-size: 1.5rem;
   line-height: 1;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 
 .app-modal-close-btn:hover {
-  background: #f1f5f9;
-  color: var(--color-text-main);
+  background: rgba(128, 128, 128, 0.15);
+  opacity: 1;
 }
 
 .app-modal-body {
@@ -131,7 +133,7 @@
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid var(--color-border);
-  background: #f8fafc;
+  background: var(--theme-sub-bg, #f8fafc);
 }
 
 /* 画像プレビュー用モーダル */

@@ -168,7 +168,7 @@
 }
 
 .lp-notice-window .lp-notice-item {
-  background: #ffffff;
+  background: var(--theme-sub-bg, #ffffff);
   color: #1e293b;
   border-radius: var(--radius-md, 14px);
   padding: 20px 24px;

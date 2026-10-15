@@ -1,101 +1,533 @@
 /* ==========================================================================
    Schedule Section CSS
+   - タグフィルター
+   - 週ナビゲーションバー（前の週 / 今週 / 次の週 / 期間表示）
+   - 曜日タブ（月〜日の7日間、土日色分け、件数バッジ）
+   - 選択日のスケジュール一覧パネル
+   - スケジュール個別カード（themeConfig.sub_bg_color 参照、タップで詳細ダイアログ）
+   - 詳細ダイアログ内のコンテンツスタイリング
    ========================================================================== */
+
+.lp-schedule-container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* --------------------------------------------------------------------------
+   1. タグフィルター
+   -------------------------------------------------------------------------- */
 .lp-schedule-tags {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 28px;
+  gap: 10px;
+  margin-bottom: 24px;
 }
 
 .lp-schedule-tag-btn {
-  padding: 6px 16px;
-  border-radius: var(--radius-full);
-  font-size: 0.85rem;
-  font-weight: 600;
-  background: #ffffff;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
+  padding: 8px 22px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.88rem;
+  font-weight: 700;
+  background: var(--theme-card-bg, #0f172a);
+  color: var(--theme-card-text-color, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
   transition: all var(--transition-fast);
+  user-select: none;
 }
 
-.lp-schedule-tag-btn:hover,
+.lp-schedule-tag-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
 .lp-schedule-tag-btn.is-active {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, #d946ef 0%, #ec4899 50%, #f43f5e 100%);
   color: #ffffff;
-  border-color: var(--color-primary);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.5), 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
-.lp-schedule-card {
-  flex: 0 0 320px;
-  background: var(--theme-card-bg, #ffffff);
-  color: var(--theme-card-text-color, #1e293b);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
+/* --------------------------------------------------------------------------
+   全体コンテナ
+   -------------------------------------------------------------------------- */
+.lp-schedule-box {
   display: flex;
   flex-direction: column;
-  transition: transform var(--transition-normal);
-  border: 1px solid var(--color-border);
-}
-
-@media (max-width: 640px) {
-  .lp-schedule-card {
-    flex: 0 0 280px;
-  }
-}
-
-.lp-schedule-card:hover {
-  transform: translateY(-4px);
-}
-
-.lp-schedule-thumb {
+  gap: 14px;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  background: #f1f5f9;
 }
 
-.lp-schedule-content {
-  padding: 20px;
+/* --------------------------------------------------------------------------
+   2. 週ナビゲーションバー
+   -------------------------------------------------------------------------- */
+.lp-schedule-nav-bar {
+  background: var(--theme-card-bg, #0f172a);
+  color: var(--theme-card-text-color, #ffffff);
+  border-radius: var(--radius-lg, 14px);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: var(--shadow-card, 0 4px 16px rgba(0, 0, 0, 0.1));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lp-schedule-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lp-schedule-nav-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--theme-card-text-color, #ffffff);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 14px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.lp-schedule-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.lp-schedule-nav-btn.lp-nav-today-btn.is-active {
+  color: #00bcd4;
+  border-color: rgba(0, 188, 212, 0.5);
+  background: rgba(0, 188, 212, 0.12);
+}
+
+.lp-schedule-week-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.lp-schedule-cal-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   3. 曜日タブ (7日間)
+   -------------------------------------------------------------------------- */
+.lp-schedule-week-tabs {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.lp-schedule-day-tab {
+  background: var(--theme-card-bg, #0f172a);
+  color: var(--theme-card-text-color, #ffffff);
+  border-radius: var(--radius-lg, 14px);
+  padding: 14px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-shadow: var(--shadow-card, 0 4px 16px rgba(0, 0, 0, 0.08));
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.lp-schedule-day-tab:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.lp-schedule-day-tab.is-active {
+  border-color: #00bcd4;
+  box-shadow: 0 0 16px rgba(0, 188, 212, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.lp-schedule-day-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.lp-schedule-day-tab.is-sat .lp-schedule-day-name {
+  color: #38bdf8;
+  opacity: 1;
+}
+
+.lp-schedule-day-tab.is-sun .lp-schedule-day-name {
+  color: #f43f5e;
+  opacity: 1;
+}
+
+.lp-schedule-day-number {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.lp-schedule-day-tab.is-active .lp-schedule-day-number {
+  color: #00bcd4;
+}
+
+.lp-schedule-day-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+}
+
+.lp-schedule-day-badge.has-events {
+  color: #f43f5e;
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   4. 選択された日のスケジュール一覧パネル
+   -------------------------------------------------------------------------- */
+.lp-schedule-day-panel {
+  background: var(--theme-card-bg, #0f172a);
+  color: var(--theme-card-text-color, #ffffff);
+  border-radius: var(--radius-lg, 16px);
+  padding: 24px;
+  box-shadow: var(--shadow-card, 0 4px 20px rgba(0, 0, 0, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lp-schedule-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lp-schedule-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-schedule-panel-bar {
+  width: 4px;
+  height: 22px;
+  background: #00bcd4;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.lp-schedule-panel-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0;
+  color: #00bcd4;
+}
+
+.lp-schedule-panel-subtitle {
+  color: var(--theme-card-text-color, #ffffff);
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-left: 4px;
+}
+
+.lp-schedule-panel-count {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+.lp-schedule-item-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.lp-schedule-empty-msg {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 16px;
+  opacity: 0.7;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   5. スケジュール個別カード
+   - 背景色: themeConfig.sub_bg_color を参照
+   -------------------------------------------------------------------------- */
+.lp-schedule-item-card {
+  background: var(--theme-sub-bg, #ffffff);
+  color: var(--theme-card-text-color, #1e293b);
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1;
+  position: relative;
+  outline: none;
 }
 
-.lp-schedule-header {
+.lp-schedule-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-color: rgba(0, 188, 212, 0.4);
+}
+
+.lp-schedule-item-card:focus-visible {
+  border-color: #00bcd4;
+  box-shadow: 0 0 0 3px rgba(0, 188, 212, 0.35);
+}
+
+.lp-schedule-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.lp-schedule-datetime {
-  font-size: 0.95rem;
+.lp-schedule-card-time {
+  font-size: 0.88rem;
   font-weight: 700;
-  color: var(--color-primary);
+  color: #00bcd4;
   letter-spacing: 0.02em;
 }
 
-.lp-schedule-title {
-  font-size: 1.1rem;
+.lp-schedule-card-tag {
+  font-size: 0.75rem;
   font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.25);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  white-space: nowrap;
+}
+
+.lp-schedule-card-title {
+  font-size: 1.05rem;
+  font-weight: 800;
   line-height: 1.4;
-  color: var(--theme-card-text-color, #0f172a);
+  margin: 0;
+  color: inherit;
+  word-break: break-word;
 }
 
-.lp-schedule-detail {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  flex: 1;
+.lp-schedule-card-more {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #00bcd4;
+  margin-top: auto;
+  padding-top: 4px;
 }
 
-.lp-schedule-link-btn {
-  margin-top: 10px;
+.lp-schedule-arrow {
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+
+.lp-schedule-item-card:hover .lp-schedule-arrow {
+  transform: translateX(4px);
+}
+
+/* --------------------------------------------------------------------------
+   6. 詳細ダイアログ (モーダル内部)
+   - モーダル自体の背景は modal.css 内で var(--theme-sub-bg) に設定
+   -------------------------------------------------------------------------- */
+.lp-schedule-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--theme-card-text-color, #1e293b);
+}
+
+.lp-schedule-modal-img-wrap {
   width: 100%;
+  max-height: 320px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+.lp-schedule-modal-img {
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
+  transition: transform var(--transition-fast);
+}
+
+.lp-schedule-modal-img-wrap:hover .lp-schedule-modal-img {
+  transform: scale(1.02);
+}
+
+.lp-schedule-modal-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lp-schedule-modal-datetime {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #00bcd4;
+}
+
+.lp-schedule-modal-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 0;
+  word-break: break-word;
+}
+
+.lp-schedule-modal-detail {
+  font-size: 0.95rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.92;
+}
+
+.lp-schedule-modal-link-wrap {
+  margin-top: 8px;
+}
+
+.lp-schedule-modal-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: var(--color-primary, #3b82f6);
+  color: #ffffff;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.lp-schedule-modal-link-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.lp-schedule-ext-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   7. スマホ・レスポンシブ対応
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .lp-schedule-tags {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .lp-schedule-tag-btn {
+    padding: 6px 16px;
+    font-size: 0.82rem;
+  }
+
+  .lp-schedule-nav-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .lp-schedule-nav-btns {
+    justify-content: center;
+  }
+
+  .lp-schedule-week-range {
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+
+  .lp-schedule-week-tabs {
+    gap: 4px;
+  }
+
+  .lp-schedule-day-tab {
+    padding: 10px 2px;
+    border-radius: 10px;
+  }
+
+  .lp-schedule-day-name {
+    font-size: 0.72rem;
+  }
+
+  .lp-schedule-day-number {
+    font-size: 1.15rem;
+  }
+
+  .lp-schedule-day-badge {
+    font-size: 0.65rem;
+    min-height: 14px;
+  }
+
+  .lp-schedule-day-panel {
+    padding: 18px 14px;
+    border-radius: 14px;
+  }
+
+  .lp-schedule-panel-title {
+    font-size: 1.1rem;
+  }
+
+  .lp-schedule-item-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 

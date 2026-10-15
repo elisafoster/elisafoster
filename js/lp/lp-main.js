@@ -83,6 +83,9 @@ class LpApp {
     if (tc.section_title_color) {
       root.style.setProperty("--theme-section-title-color", tc.section_title_color);
     }
+    if (tc.sub_bg_color) {
+      root.style.setProperty("--theme-sub-bg", tc.sub_bg_color);
+    }
 
     // 最背面背景画像 (画面横幅100%フィット)
     const pageBgLayer = document.getElementById("lp-page-bg-layer");
