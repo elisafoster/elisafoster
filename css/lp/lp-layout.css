@@ -191,22 +191,23 @@
   z-index: 4; /* 立ち絵(3) より前面、サムネイル/クレジット/プロフィールカード(10) より背面に配置 */
 }
 
-/* 共通セクションヘッダー (左詰め・下地帯＋上部はみ出しフォント・レスポンシブ配置) */
+/* --------------------------------------------------------------------------
+   共通セクションヘッダー
+   - PC時: [ セクション名　セクション説明 /// ] の下地帯バー内インライン配置
+   - スマホ時: [ セクション名 /// ] の下にセクション説明を縦並び配置
+   -------------------------------------------------------------------------- */
 .lp-section-header {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 20px;
   text-align: left;
   margin-bottom: 40px;
 }
 
-/* 下地付きセクション名コンテナ */
-.lp-section-title-wrap {
+/* 下地帯バーコンテナ */
+.lp-section-bar-container {
   position: relative;
   display: inline-flex;
-  align-items: flex-end;
-  padding: 0 76px 2px 14px;
+  align-items: baseline;
+  gap: 16px;
+  padding: 0 88px 2px 14px;
   min-height: 44px;
 }
 
@@ -250,31 +251,40 @@
   line-height: 1;
   color: var(--theme-section-title-color, #1e293b);
   margin: 0;
+  white-space: nowrap;
 }
 
-/* セクション説明（フォントサイズは小さく、セクション名と横並び） */
+/* セクション説明（フォントサイズは小さく） */
 .lp-section-desc {
   position: relative;
   z-index: 1;
   font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--color-text-muted, #475569);
+  font-weight: 600;
+  color: var(--color-text-muted, #334155);
   margin: 0;
   line-height: 1.5;
 }
 
-/* スマホ・縦長画面（768px以下）：縦並び配置 */
+/* PC画面時: インライン表示、スタック非表示 */
+.lp-desc-inline {
+  display: block;
+  white-space: nowrap;
+}
+
+.lp-desc-stacked {
+  display: none;
+}
+
+/* スマホ・縦長画面（768px以下）：インライン非表示、スタック表示（セクション名の下に縦並び） */
 @media (max-width: 768px) {
   .lp-section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
     margin-bottom: 28px;
   }
 
-  .lp-section-title-wrap {
-    padding: 0 64px 2px 10px;
+  .lp-section-bar-container {
+    padding: 0 72px 2px 10px;
     min-height: 36px;
+    gap: 0;
   }
 
   .lp-section-bar-bg {
@@ -289,8 +299,17 @@
     font-size: 1.75rem;
   }
 
-  .lp-section-desc {
+  /* PC用インライン説明を非表示、スマホ用縦並び説明を表示 */
+  .lp-desc-inline {
+    display: none;
+  }
+
+  .lp-desc-stacked {
+    display: block;
+    margin-top: 8px;
     font-size: 0.85rem;
+    color: var(--color-text-muted, #475569);
+    padding-left: 4px;
   }
 }
 

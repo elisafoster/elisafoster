@@ -247,9 +247,9 @@ class LpApp {
         const headerEl = document.createElement("div");
         headerEl.className = "lp-section-header";
 
-        // 下地付きセクション名ラップ
-        const titleWrap = document.createElement("div");
-        titleWrap.className = "lp-section-title-wrap";
+        // 下地付きセクション名バーコンテナ
+        const barContainer = document.createElement("div");
+        barContainer.className = "lp-section-bar-container";
 
         // 下地バー (白半透明帯 + 右端スラッシュ&ストライプSVG装飾)
         const barBg = document.createElement("div");
@@ -264,20 +264,30 @@ class LpApp {
             <polygon points="49,0 56,0 96,36 89,36" />
           </svg>
         `;
-        titleWrap.appendChild(barBg);
+        barContainer.appendChild(barBg);
 
+        // セクション名 (タイトル)
         const titleEl = document.createElement("h2");
         titleEl.className = "lp-section-title";
         titleEl.textContent = sec.sectionName;
-        titleWrap.appendChild(titleEl);
+        barContainer.appendChild(titleEl);
 
-        headerEl.appendChild(titleWrap);
-
+        // セクション説明（PC画面時: 下地バー内にインライン配置）
         if (sec.comment) {
-          const descEl = document.createElement("p");
-          descEl.className = "lp-section-desc";
-          descEl.textContent = sec.comment;
-          headerEl.appendChild(descEl);
+          const descInline = document.createElement("p");
+          descInline.className = "lp-section-desc lp-desc-inline";
+          descInline.textContent = sec.comment;
+          barContainer.appendChild(descInline);
+        }
+
+        headerEl.appendChild(barContainer);
+
+        // セクション説明（スマホ画面時: 下地バーの下に縦並び配置）
+        if (sec.comment) {
+          const descStacked = document.createElement("p");
+          descStacked.className = "lp-section-desc lp-desc-stacked";
+          descStacked.textContent = sec.comment;
+          headerEl.appendChild(descStacked);
         }
 
         contentLayer.appendChild(headerEl);
