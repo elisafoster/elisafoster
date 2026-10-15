@@ -35,6 +35,10 @@ themeConfig:
       type: string
       description: "セクション見出し文字色 (HEX)"
 
+    sub_bg_color:
+      type: string
+      description: "サブ背景色 (HEX)"
+
     background:
       type: image
       label: "背景画像"
