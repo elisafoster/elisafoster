@@ -247,10 +247,31 @@ class LpApp {
         const headerEl = document.createElement("div");
         headerEl.className = "lp-section-header";
 
+        // 下地付きセクション名ラップ
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "lp-section-title-wrap";
+
+        // 下地バー (白半透明帯 + 右端スラッシュ&ストライプSVG装飾)
+        const barBg = document.createElement("div");
+        barBg.className = "lp-section-bar-bg";
+        barBg.setAttribute("aria-hidden", "true");
+        barBg.innerHTML = `
+          <div class="lp-section-bar-fill"></div>
+          <svg class="lp-section-bar-deco" viewBox="0 0 100 36" fill="currentColor">
+            <polygon points="0,0 0,36 40,36" />
+            <polygon points="4,0 28,0 68,36 44,36" />
+            <polygon points="32,0 45,0 85,36 72,36" />
+            <polygon points="49,0 56,0 96,36 89,36" />
+          </svg>
+        `;
+        titleWrap.appendChild(barBg);
+
         const titleEl = document.createElement("h2");
         titleEl.className = "lp-section-title";
         titleEl.textContent = sec.sectionName;
-        headerEl.appendChild(titleEl);
+        titleWrap.appendChild(titleEl);
+
+        headerEl.appendChild(titleWrap);
 
         if (sec.comment) {
           const descEl = document.createElement("p");
