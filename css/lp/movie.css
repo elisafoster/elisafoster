@@ -382,66 +382,229 @@
   gap: 24px;
 }
 
-/* 一覧用のカテゴリー切り替えタブ */
-.lp-movie-list-categories {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
+/* --------------------------------------------------------------------------
+   カテゴリーバー & タグバー共通スタイル (添付画像準拠)
+   - カテゴリーバー: カプセル状背景、選択中黒ピル、非選択下線テキスト
+   - タグバー: 独立ピル型チップ、複数選択可能（ブルーグレー背景）
+   - 横スクロール発生時: 一番左に選択プルダウン開閉ボタン（黒ピル）を表示
+   -------------------------------------------------------------------------- */
+
+/* ドロップダウン開閉ボタンコンテナ */
+.lp-movie-dropdown-container {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  z-index: 20;
 }
 
-.lp-movie-list-cat-btn {
-  padding: 8px 20px;
+.lp-movie-dropdown-container.is-hidden {
+  display: none !important;
+}
+
+.lp-movie-dropdown-btn {
+  background: #000000;
+  color: #ffffff;
+  border: none;
   border-radius: var(--radius-full, 9999px);
-  font-size: 0.95rem;
+  padding: 6px 14px;
+  font-size: 0.85rem;
   font-weight: 700;
-  background: #ffffff;
-  color: var(--color-text-muted, #64748b);
-  border: 1px solid var(--color-border, #e2e8f0);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
   transition: all var(--transition-fast, 0.2s ease);
 }
 
-.lp-movie-list-cat-btn:hover {
-  border-color: var(--color-primary, #3b82f6);
-  color: var(--color-primary, #3b82f6);
+.lp-movie-dropdown-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
 }
 
-.lp-movie-list-cat-btn.is-active {
-  background: var(--color-primary, #3b82f6);
-  color: #ffffff;
-  border-color: var(--color-primary, #3b82f6);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+.lp-dropdown-icon {
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
-/* 一覧用の動的タグフィルター */
-.lp-movie-list-filters {
+.lp-dropdown-arrow {
+  font-size: 0.7rem;
+  margin-left: 2px;
+  transition: transform var(--transition-fast, 0.2s ease);
+}
+
+/* プルダウンメニュー (浮動ウィンドウ) */
+.lp-movie-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  min-width: 200px;
+  max-width: 300px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--color-border, #e2e8f0);
+  padding: 8px;
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.lp-movie-list-tag-btn {
-  padding: 5px 14px;
+.lp-movie-dropdown-menu.is-hidden {
+  display: none !important;
+}
+
+.lp-movie-dropdown-item {
+  padding: 8px 12px;
   border-radius: var(--radius-sm, 6px);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
+  color: var(--color-text-main, #1e293b);
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.15s ease;
+}
+
+.lp-movie-dropdown-item:hover {
   background: #f1f5f9;
-  color: var(--color-text-muted, #64748b);
+}
+
+.lp-movie-dropdown-item.is-active {
+  background: #000000;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.lp-dropdown-check {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-left: 8px;
+}
+
+/* 1. カテゴリーバー */
+.lp-movie-cat-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+}
+
+.lp-movie-cat-track-container {
+  background: #f1f5f9;
+  border-radius: var(--radius-full, 9999px);
+  padding: 4px;
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.lp-movie-cat-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 4px;
+}
+
+.lp-movie-cat-track::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-movie-cat-item {
   border: none;
   cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--color-text-muted, #475569);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: #cbd5e1;
+  border-radius: var(--radius-full, 9999px);
   transition: all var(--transition-fast, 0.2s ease);
+  flex-shrink: 0;
 }
 
-.lp-movie-list-tag-btn:hover {
+.lp-movie-cat-item:hover {
+  color: var(--color-text-main, #0f172a);
+  text-decoration-color: #94a3b8;
+}
+
+.lp-movie-cat-item.is-active {
+  background: #000000;
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 2. タグバー (複数選択可能) */
+.lp-movie-tag-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+}
+
+.lp-movie-tag-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+  max-width: 100%;
+}
+
+.lp-movie-tag-track::-webkit-scrollbar {
+  display: none;
+}
+
+.lp-movie-tag-item {
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: var(--radius-full, 9999px);
+  background: #f1f5f9;
+  color: var(--color-text-muted, #475569);
+  transition: all var(--transition-fast, 0.2s ease);
+  flex-shrink: 0;
+}
+
+.lp-movie-tag-item:hover {
   background: #e2e8f0;
   color: var(--color-text-main, #1e293b);
 }
 
-.lp-movie-list-tag-btn.is-active {
-  background: var(--color-text-main, #0f172a);
+/* 選択されたタグ (複数選択可、添付画像準拠のブルーグレー) */
+.lp-movie-tag-item.is-active {
+  background: #8b9bb4;
   color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(139, 155, 180, 0.4);
 }
 
 /* 3列3行グリッド (全カードの高さ・比率を統一) */

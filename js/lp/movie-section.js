@@ -1,7 +1,11 @@
 /**
  * Movie Section Component (ANTIGRAVITY.md 規約準拠)
- * - カテゴリー別表示（デフォルト）: 各カテゴリーごとに1行スライド（左右矢印・ドラッグ・スワイプ対応）、wide/tall 比率対応、カテゴリー内動画に存在するタグのみ表示
- * - 一覧表示: 3列3行（最大9件/ページ）のグリッド + ページネーション、カテゴリー選択時はそのカテゴリー内の動画に存在するタグのみ表示
+ * - カテゴリー別表示（デフォルト）: カテゴリー毎の1行スライド（左右矢印・ドラッグ・スワイプ対応）、wide/tall 比率対応
+ * - 一覧表示: 3列3行（最大9件/ページ）のグリッド + ページネーション、縦長動画の均一サイズ（contain）配置
+ * - カテゴリーバー & タグバー（添付画像デザイン準拠）:
+ *   ・カテゴリーバー: カプセル状背景、選択中黒ピル、非選択下線
+ *   ・タグバー: 独立ピル型チップ、複数選択可能（ブルーグレー背景）
+ *   ・横スクロール発生時: 一番左にプルダウン開閉ボタン（「☰ カテゴリ ▼」「# タグ ▼」）を表示
  * - サムネイル自動取得: YouTube / YouTube Shorts / TikTok（未設定時の自動フォールバックと非同期差し替え）
  * - 動画再生モーダル: YouTube Shorts / TikTok の縦長 embed 再生および外部リンク対応
  */
@@ -31,12 +35,12 @@ export class MovieSection {
     // 表示モード: デフォルトは「カテゴリー表示」
     this.viewMode = "category"; // "category" または "list"
 
-    // カテゴリー表示モード用: 各カテゴリーの選択中タグ { [catId]: "ALL" | tagId }
-    this.categoryTagFilters = {};
+    // カテゴリー表示モード用: 各カテゴリーの選択中タグSet { [catId]: Set<string> }
+    this.categoryTagSets = {};
 
     // 一覧表示モード用: カテゴリー・タグ・ページ管理
     this.listSelectedCategoryId = "ALL";
-    this.listSelectedTagId = "ALL";
+    this.listSelectedTagSet = new Set(); // 複数選択タグ Set
     this.listCurrentPage = 1;
     this.itemsPerPage = 9; // 3列3行 = 最大9件
   }
@@ -139,6 +143,7 @@ export class MovieSection {
   }
 
   renderContent(contentArea) {
+    if (!contentArea) return;
     contentArea.innerHTML = "";
 
     if (this.viewMode === "category") {
@@ -163,11 +168,235 @@ export class MovieSection {
   }
 
   /**
+   * プルダウン開閉および外部クリック制御ヘルパー
+   */
+  setupDropdown(container, btn, menu) {
+    const arrow = btn.querySelector(".lp-dropdown-arrow");
+    const toggle = (forceState) => {
+      const isCurrentlyOpen = !menu.classList.contains("is-hidden");
+      const shouldOpen = forceState !== undefined ? forceState : !isCurrentlyOpen;
+      if (shouldOpen) {
+        menu.classList.remove("is-hidden");
+        btn.setAttribute("aria-expanded", "true");
+        if (arrow) arrow.textContent = "▲";
+      } else {
+        menu.classList.add("is-hidden");
+        btn.setAttribute("aria-expanded", "false");
+        if (arrow) arrow.textContent = "▼";
+      }
+    };
+
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggle();
+    };
+
+    const onDocClick = (e) => {
+      if (!container.contains(e.target)) {
+        toggle(false);
+      }
+    };
+
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }
+
+  /**
+   * 横スクロール発生検知ヘルパー（横幅が溢れた場合のみプルダウン開閉ボタンを表示）
+   */
+  setupOverflowDetection(track, dropdownContainer) {
+    const check = () => {
+      if (!track || !dropdownContainer) return;
+      const hasOverflow = track.scrollWidth > track.clientWidth + 2;
+      dropdownContainer.classList.toggle("is-hidden", !hasOverflow);
+    };
+
+    requestAnimationFrame(check);
+    setTimeout(check, 80);
+
+    const observer = new ResizeObserver(() => check());
+    observer.observe(track);
+    if (track.parentElement) observer.observe(track.parentElement);
+
+    window.addEventListener("resize", check, { passive: true });
+  }
+
+  /**
+   * カテゴリー選択バーの構築（添付画像デザイン: カプセル背景、選択中黒ピル、非選択下線、オーバーフロー時プルダウン）
+   */
+  createCategoryBar({ categories, selectedId, onSelect }) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "lp-movie-cat-wrapper";
+
+    // ドロップダウン開閉コンテナ
+    const dropdownContainer = document.createElement("div");
+    dropdownContainer.className = "lp-movie-dropdown-container lp-cat-dropdown is-hidden";
+
+    const dropdownBtn = document.createElement("button");
+    dropdownBtn.className = "lp-movie-dropdown-btn";
+    dropdownBtn.type = "button";
+    dropdownBtn.setAttribute("aria-expanded", "false");
+    dropdownBtn.innerHTML = `
+      <span class="lp-dropdown-icon">☰</span>
+      <span>カテゴリ</span>
+      <span class="lp-dropdown-arrow">▼</span>
+    `;
+
+    const dropdownMenu = document.createElement("div");
+    dropdownMenu.className = "lp-movie-dropdown-menu is-hidden";
+
+    // カプセル状トラック
+    const trackContainer = document.createElement("div");
+    trackContainer.className = "lp-movie-cat-track-container";
+
+    const track = document.createElement("div");
+    track.className = "lp-movie-cat-track";
+
+    const allCatList = [
+      { id: "ALL", name: "すべて" },
+      ...categories.map((c) => ({ id: String(c.id), name: c.categoryName })),
+    ];
+
+    allCatList.forEach((item) => {
+      const isSelected = selectedId === item.id;
+
+      // ドロップダウン内アイテム
+      const dropItem = document.createElement("button");
+      dropItem.className = `lp-movie-dropdown-item ${isSelected ? "is-active" : ""}`;
+      dropItem.type = "button";
+      dropItem.innerHTML = `
+        <span>${item.name}</span>
+        ${isSelected ? '<span class="lp-dropdown-check">✓</span>' : ""}
+      `;
+      dropItem.onclick = () => {
+        dropdownMenu.classList.add("is-hidden");
+        const arrow = dropdownBtn.querySelector(".lp-dropdown-arrow");
+        if (arrow) arrow.textContent = "▼";
+        onSelect(item.id);
+      };
+      dropdownMenu.appendChild(dropItem);
+
+      // トラック内ボタン
+      const catItem = document.createElement("button");
+      catItem.className = `lp-movie-cat-item ${isSelected ? "is-active" : ""}`;
+      catItem.type = "button";
+      catItem.textContent = item.name;
+      catItem.onclick = () => onSelect(item.id);
+      track.appendChild(catItem);
+    });
+
+    dropdownContainer.appendChild(dropdownBtn);
+    dropdownContainer.appendChild(dropdownMenu);
+    trackContainer.appendChild(track);
+
+    wrapper.appendChild(dropdownContainer);
+    wrapper.appendChild(trackContainer);
+
+    this.setupDropdown(dropdownContainer, dropdownBtn, dropdownMenu);
+    this.setupOverflowDetection(track, dropdownContainer);
+
+    return wrapper;
+  }
+
+  /**
+   * タグ選択バーの構築（添付画像デザイン: 独立ピル型チップ、複数選択可能、オーバーフロー時プルダウン）
+   */
+  createTagBar({ tags, selectedTagSet, onToggleTag, onClearTags }) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "lp-movie-tag-wrapper";
+
+    // ドロップダウン開閉コンテナ
+    const dropdownContainer = document.createElement("div");
+    dropdownContainer.className = "lp-movie-dropdown-container lp-tag-dropdown is-hidden";
+
+    const dropdownBtn = document.createElement("button");
+    dropdownBtn.className = "lp-movie-dropdown-btn";
+    dropdownBtn.type = "button";
+    dropdownBtn.setAttribute("aria-expanded", "false");
+    dropdownBtn.innerHTML = `
+      <span class="lp-dropdown-icon">#</span>
+      <span>タグ</span>
+      <span class="lp-dropdown-arrow">▼</span>
+    `;
+
+    const dropdownMenu = document.createElement("div");
+    dropdownMenu.className = "lp-movie-dropdown-menu is-hidden";
+
+    // トラック
+    const track = document.createElement("div");
+    track.className = "lp-movie-tag-track";
+
+    // 1. 「すべてのタグ」
+    const isAllActive = selectedTagSet.size === 0;
+
+    const allDropItem = document.createElement("button");
+    allDropItem.className = `lp-movie-dropdown-item ${isAllActive ? "is-active" : ""}`;
+    allDropItem.type = "button";
+    allDropItem.innerHTML = `
+      <span>すべてのタグ</span>
+      ${isAllActive ? '<span class="lp-dropdown-check">✓</span>' : ""}
+    `;
+    allDropItem.onclick = () => {
+      onClearTags();
+    };
+    dropdownMenu.appendChild(allDropItem);
+
+    const allTrackItem = document.createElement("button");
+    allTrackItem.className = `lp-movie-tag-item ${isAllActive ? "is-active" : ""}`;
+    allTrackItem.type = "button";
+    allTrackItem.textContent = "すべてのタグ";
+    allTrackItem.onclick = () => {
+      onClearTags();
+    };
+    track.appendChild(allTrackItem);
+
+    // 2. 各タグアイテム
+    tags.forEach((tag) => {
+      const tagId = String(tag.id);
+      const isSelected = selectedTagSet.has(tagId);
+
+      // ドロップダウン内アイテム
+      const dropItem = document.createElement("button");
+      dropItem.className = `lp-movie-dropdown-item ${isSelected ? "is-active" : ""}`;
+      dropItem.type = "button";
+      dropItem.innerHTML = `
+        <span>#${tag.tagName}</span>
+        ${isSelected ? '<span class="lp-dropdown-check">✓</span>' : ""}
+      `;
+      dropItem.onclick = () => {
+        onToggleTag(tagId);
+      };
+      dropdownMenu.appendChild(dropItem);
+
+      // トラック内チップ
+      const trackItem = document.createElement("button");
+      trackItem.className = `lp-movie-tag-item ${isSelected ? "is-active" : ""}`;
+      trackItem.type = "button";
+      trackItem.textContent = `#${tag.tagName}`;
+      trackItem.onclick = () => {
+        onToggleTag(tagId);
+      };
+      track.appendChild(trackItem);
+    });
+
+    dropdownContainer.appendChild(dropdownBtn);
+    dropdownContainer.appendChild(dropdownMenu);
+
+    wrapper.appendChild(dropdownContainer);
+    wrapper.appendChild(track);
+
+    this.setupDropdown(dropdownContainer, dropdownBtn, dropdownMenu);
+    this.setupOverflowDetection(track, dropdownContainer);
+
+    return wrapper;
+  }
+
+  /**
    * =========================================================================
    * ① カテゴリー別表示モード (デフォルト)
    * - 全体カテゴリータブは非表示
    * - カテゴリー毎に1行スライド（wide/tall アスペクト比対応）
-   * - タグ表示は各カテゴリーごとに、そのカテゴリーの動画に紐づくタグのみ表示
+   * - タグ表示は各カテゴリーごとに、そのカテゴリーの動画に紐づくタグのみ表示（複数選択対応）
    * =========================================================================
    */
   renderCategoryMode(contentArea) {
@@ -189,12 +418,10 @@ export class MovieSection {
       if (catMovies.length === 0) return;
       renderedCount++;
 
-      const isTall = cat.aspectRatio === "tall";
-
       const groupEl = document.createElement("div");
       groupEl.className = "lp-movie-category-group";
 
-      // カテゴリーヘッダー (見出し + そのカテゴリーの動画タグ)
+      // カテゴリーヘッダー (見出し + その直下にタグフィルターチップ)
       const headerEl = document.createElement("div");
       headerEl.className = "lp-movie-category-header";
 
@@ -216,42 +443,32 @@ export class MovieSection {
       // カテゴリーに設定されている動画のタグのみを抽出
       const availableTags = this.getTagsForMovies(catMovies);
 
-      // 初期化
-      if (!this.categoryTagFilters[catId]) {
-        this.categoryTagFilters[catId] = "ALL";
+      // カテゴリー別タグ選択Setの初期化
+      if (!this.categoryTagSets[catId]) {
+        this.categoryTagSets[catId] = new Set();
       }
 
-      // タグが存在する場合のみタグフィルターバーを表示
+      // タグが存在する場合のみタグ選択バー（複数選択対応・添付画像デザイン）を直下に配置
       if (availableTags.length > 0) {
-        const tagBar = document.createElement("div");
-        tagBar.className = "lp-movie-category-tags";
-
-        const allBtn = document.createElement("button");
-        allBtn.className = `lp-movie-category-tag-btn ${this.categoryTagFilters[catId] === "ALL" ? "is-active" : ""}`;
-        allBtn.type = "button";
-        allBtn.textContent = "すべて";
-        allBtn.onclick = () => {
-          this.categoryTagFilters[catId] = "ALL";
-          this.refreshCategorySlider(sliderContainer, cat, catMovies);
-          this.updateCategoryTagButtons(tagBar, catId);
-        };
-        tagBar.appendChild(allBtn);
-
-        availableTags.forEach((tag) => {
-          const tId = String(tag.id);
-          const btn = document.createElement("button");
-          btn.className = `lp-movie-category-tag-btn ${this.categoryTagFilters[catId] === tId ? "is-active" : ""}`;
-          btn.type = "button";
-          btn.textContent = `#${tag.tagName}`;
-          btn.onclick = () => {
-            this.categoryTagFilters[catId] = tId;
+        const tagBarWrapper = this.createTagBar({
+          tags: availableTags,
+          selectedTagSet: this.categoryTagSets[catId],
+          onToggleTag: (tagId) => {
+            if (this.categoryTagSets[catId].has(tagId)) {
+              this.categoryTagSets[catId].delete(tagId);
+            } else {
+              this.categoryTagSets[catId].add(tagId);
+            }
             this.refreshCategorySlider(sliderContainer, cat, catMovies);
-            this.updateCategoryTagButtons(tagBar, catId);
-          };
-          tagBar.appendChild(btn);
+            this.renderCategoryMode(contentArea);
+          },
+          onClearTags: () => {
+            this.categoryTagSets[catId].clear();
+            this.refreshCategorySlider(sliderContainer, cat, catMovies);
+            this.renderCategoryMode(contentArea);
+          },
         });
-
-        headerEl.appendChild(tagBar);
+        headerEl.appendChild(tagBarWrapper);
       }
 
       groupEl.appendChild(headerEl);
@@ -270,22 +487,6 @@ export class MovieSection {
     }
   }
 
-  updateCategoryTagButtons(tagBar, catId) {
-    const activeVal = this.categoryTagFilters[catId] || "ALL";
-    const buttons = tagBar.querySelectorAll(".lp-movie-category-tag-btn");
-    buttons.forEach((btn, idx) => {
-      if (idx === 0) {
-        btn.classList.toggle("is-active", activeVal === "ALL");
-      } else {
-        const text = btn.textContent.replace(/^#/, "");
-        const tag = this.tags.find((t) => t.tagName === text);
-        if (tag) {
-          btn.classList.toggle("is-active", activeVal === String(tag.id));
-        }
-      }
-    });
-  }
-
   /**
    * カテゴリー別スライダーのトラック再構築
    */
@@ -293,17 +494,17 @@ export class MovieSection {
     container.innerHTML = "";
 
     const catId = String(category.id);
-    const selectedTag = this.categoryTagFilters[catId] || "ALL";
+    const selectedTagSet = this.categoryTagSets[catId] || new Set();
     const isTall = category.aspectRatio === "tall";
 
-    const filtered = selectedTag === "ALL"
+    const filtered = selectedTagSet.size === 0
       ? categoryMovies
-      : categoryMovies.filter((m) => String(m.movieTag_id) === selectedTag);
+      : categoryMovies.filter((m) => selectedTagSet.has(String(m.movieTag_id)));
 
     if (filtered.length === 0) {
       const empty = document.createElement("p");
       empty.className = "lp-movie-empty-msg";
-      empty.textContent = "このタグに該当する動画はありません";
+      empty.textContent = "選択されたタグに該当する動画はありません";
       container.appendChild(empty);
       return;
     }
@@ -345,9 +546,9 @@ export class MovieSection {
   /**
    * =========================================================================
    * ② 一覧表示モード
-   * - カテゴリータブを表示（すべて＋各カテゴリー）
-   * - カテゴリータブ選択時は、選択カテゴリーの動画に紐づくタグのみを表示
-   * - 3列3行（最大9件/ページ）のグリッド + ページネーション
+   * - カテゴリーバー（添付画像準拠）
+   * - タグバー（添付画像準拠、複数選択対応）
+   * - 3列3行（最大9件/ページ）のグリッド + ページネーション、縦長動画は均一配置
    * =========================================================================
    */
   renderListMode(contentArea) {
@@ -357,37 +558,30 @@ export class MovieSection {
     const listWrap = document.createElement("div");
     listWrap.className = "lp-movie-list-wrap";
 
-    // 1. カテゴリー切り替えタブ
-    const catBar = document.createElement("div");
-    catBar.className = "lp-movie-list-categories";
+    // 1. カテゴリー選択バー (添付画像デザイン準拠)
+    const catBar = this.createCategoryBar({
+      categories: this.categories,
+      selectedId: this.listSelectedCategoryId,
+      onSelect: (catId) => {
+        this.listSelectedCategoryId = catId;
+        // 選択中タグの整合性チェック
+        const newTargetMovies = catId === "ALL"
+          ? this.movies
+          : this.movies.filter((m) => String(m.movieCategory_id) === catId);
+        const availableTags = this.getTagsForMovies(newTargetMovies);
+        const availableTagIds = new Set(availableTags.map((t) => String(t.id)));
 
-    const allCatBtn = document.createElement("button");
-    allCatBtn.className = `lp-movie-list-cat-btn ${this.listSelectedCategoryId === "ALL" ? "is-active" : ""}`;
-    allCatBtn.type = "button";
-    allCatBtn.textContent = "すべて";
-    allCatBtn.onclick = () => {
-      this.listSelectedCategoryId = "ALL";
-      this.listSelectedTagId = "ALL";
-      this.listCurrentPage = 1;
-      this.renderListMode(contentArea);
-    };
-    catBar.appendChild(allCatBtn);
+        // 新しいカテゴリーに存在しないタグを選択Setから除外
+        this.listSelectedTagSet.forEach((tId) => {
+          if (!availableTagIds.has(tId)) {
+            this.listSelectedTagSet.delete(tId);
+          }
+        });
 
-    this.categories.forEach((cat) => {
-      const cId = String(cat.id);
-      const btn = document.createElement("button");
-      btn.className = `lp-movie-list-cat-btn ${this.listSelectedCategoryId === cId ? "is-active" : ""}`;
-      btn.type = "button";
-      btn.textContent = cat.categoryName;
-      btn.onclick = () => {
-        this.listSelectedCategoryId = cId;
-        this.listSelectedTagId = "ALL";
         this.listCurrentPage = 1;
         this.renderListMode(contentArea);
-      };
-      catBar.appendChild(btn);
+      },
     });
-
     listWrap.appendChild(catBar);
 
     // 2. 選択中カテゴリーの動画に紐づくタグのみを抽出
@@ -397,42 +591,25 @@ export class MovieSection {
 
     const availableTags = this.getTagsForMovies(targetMoviesForTags);
 
-    // もし現在選択中のタグが抽出タグに含まれていなければ "ALL" にリセット
-    if (this.listSelectedTagId !== "ALL" && !availableTags.some((t) => String(t.id) === this.listSelectedTagId)) {
-      this.listSelectedTagId = "ALL";
-    }
-
     if (availableTags.length > 0) {
-      const tagBar = document.createElement("div");
-      tagBar.className = "lp-movie-list-filters";
-
-      const allTagBtn = document.createElement("button");
-      allTagBtn.className = `lp-movie-list-tag-btn ${this.listSelectedTagId === "ALL" ? "is-active" : ""}`;
-      allTagBtn.type = "button";
-      allTagBtn.textContent = "全タグ";
-      allTagBtn.onclick = () => {
-        this.listSelectedTagId = "ALL";
-        this.listCurrentPage = 1;
-        this.renderListItems(gridContainer, paginationContainer);
-        this.updateListTagButtons(tagBar);
-      };
-      tagBar.appendChild(allTagBtn);
-
-      availableTags.forEach((tag) => {
-        const tId = String(tag.id);
-        const btn = document.createElement("button");
-        btn.className = `lp-movie-list-tag-btn ${this.listSelectedTagId === tId ? "is-active" : ""}`;
-        btn.type = "button";
-        btn.textContent = `#${tag.tagName}`;
-        btn.onclick = () => {
-          this.listSelectedTagId = tId;
+      const tagBar = this.createTagBar({
+        tags: availableTags,
+        selectedTagSet: this.listSelectedTagSet,
+        onToggleTag: (tagId) => {
+          if (this.listSelectedTagSet.has(tagId)) {
+            this.listSelectedTagSet.delete(tagId);
+          } else {
+            this.listSelectedTagSet.add(tagId);
+          }
           this.listCurrentPage = 1;
-          this.renderListItems(gridContainer, paginationContainer);
-          this.updateListTagButtons(tagBar);
-        };
-        tagBar.appendChild(btn);
+          this.renderListMode(contentArea);
+        },
+        onClearTags: () => {
+          this.listSelectedTagSet.clear();
+          this.listCurrentPage = 1;
+          this.renderListMode(contentArea);
+        },
       });
-
       listWrap.appendChild(tagBar);
     }
 
@@ -452,21 +629,6 @@ export class MovieSection {
     this.renderListItems(gridContainer, paginationContainer);
   }
 
-  updateListTagButtons(tagBar) {
-    const buttons = tagBar.querySelectorAll(".lp-movie-list-tag-btn");
-    buttons.forEach((btn, idx) => {
-      if (idx === 0) {
-        btn.classList.toggle("is-active", this.listSelectedTagId === "ALL");
-      } else {
-        const text = btn.textContent.replace(/^#/, "");
-        const tag = this.tags.find((t) => t.tagName === text);
-        if (tag) {
-          btn.classList.toggle("is-active", this.listSelectedTagId === String(tag.id));
-        }
-      }
-    });
-  }
-
   /**
    * 一覧表示のアイテム描画（3列3行 = 最大9件 + ページネーション）
    */
@@ -478,8 +640,8 @@ export class MovieSection {
     if (this.listSelectedCategoryId !== "ALL") {
       filtered = filtered.filter((m) => String(m.movieCategory_id) === this.listSelectedCategoryId);
     }
-    if (this.listSelectedTagId !== "ALL") {
-      filtered = filtered.filter((m) => String(m.movieTag_id) === this.listSelectedTagId);
+    if (this.listSelectedTagSet.size > 0) {
+      filtered = filtered.filter((m) => this.listSelectedTagSet.has(String(m.movieTag_id)));
     }
 
     if (filtered.length === 0) {
@@ -498,7 +660,10 @@ export class MovieSection {
 
     pageItems.forEach((movie) => {
       const cat = this.categories.find((c) => String(c.id) === String(movie.movieCategory_id));
-      const card = this.createMovieCard(movie, cat, { isSlide: false });
+      const card = this.createMovieCard(movie, cat, {
+        isSlide: false,
+        showCategoryBadge: true, // 一覧表示ではカテゴリバッジを表示
+      });
       gridContainer.appendChild(card);
     });
 
