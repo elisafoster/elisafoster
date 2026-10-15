@@ -13,15 +13,15 @@
   overflow-x: hidden;
 }
 
-/* ページ全体背景レイヤー (横幅100%フィット) */
+/* ページ全体背景レイヤー (サイト中央フィット & 水平・垂直センター揃え) */
 .lp-page-bg-layer {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   z-index: var(--z-background);
   background-repeat: no-repeat;
-  background-position: center top;
+  background-position: center center;
   background-size: cover;
   pointer-events: none;
 }
