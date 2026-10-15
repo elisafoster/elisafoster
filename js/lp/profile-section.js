@@ -28,12 +28,14 @@ function getYouTubeInfo(url) {
 }
 
 export class ProfileSection {
-  constructor(container, profileData, visualList, defaultPageBackground = "") {
+  constructor(container, profileData, visualList, defaultPageBackground = "", sectionConfig = null) {
     this.container = container;
     this.profile = profileData || {};
     this.visuals = Array.isArray(visualList) ? visualList : [];
     this.currentVisualIndex = 0;
     this.defaultPageBackground = defaultPageBackground || "";
+    this.sectionConfig = sectionConfig || {};
+    this.sectionType = this.sectionConfig.sectionType || "standing";
 
     if (!this.defaultPageBackground && typeof document !== "undefined") {
       const pageBg = document.getElementById("lp-page-bg-layer");
@@ -48,7 +50,7 @@ export class ProfileSection {
     this.container.innerHTML = "";
 
     const grid = document.createElement("div");
-    grid.className = "lp-profile-grid";
+    grid.className = `lp-profile-grid lp-profile-type-${this.sectionType}`;
 
     // 現在選択中のビジュアル
     const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0] || null;

@@ -50,7 +50,7 @@ export class CrudController {
           await this.renderThemeConfigTab();
           break;
         case "section":
-          await this.renderTableListTab("section", "セクション設定管理", ["id", "item", "headerName", "sectionName", "isFeatured", "priority"]);
+          await this.renderTableListTab("section", "セクション設定管理", ["id", "item", "headerName", "sectionName", "sectionType", "isFeatured", "priority"]);
           break;
         case "whitelist":
           await this.renderTableListTab("whitelist", "アカウントwhitelist管理", ["id", "name", "mail", "role"]);
@@ -256,6 +256,20 @@ export class CrudController {
         textarea.name = key;
         textarea.value = val;
         group.appendChild(textarea);
+      } else if (key === "sectionType") {
+        const select = document.createElement("select");
+        select.className = "admin-form-input";
+        select.name = key;
+        const optBanner = document.createElement("option");
+        optBanner.value = "banner";
+        optBanner.textContent = "バナー形式 (banner)";
+        const optStanding = document.createElement("option");
+        optStanding.value = "standing";
+        optStanding.textContent = "立ち絵形式 (standing)";
+        select.appendChild(optBanner);
+        select.appendChild(optStanding);
+        select.value = val || "banner";
+        group.appendChild(select);
       } else {
         const input = document.createElement("input");
         input.className = "admin-form-input";

@@ -198,6 +198,64 @@ class LpApp {
   }
 
   /**
+   * セクションの種別キー（"PROFILE", "EVENT", "NOTICE", "SCHEDULE", "GALLERY", "MOVIE", "SHOP", "LINK"）を解決
+   * D1でヘッダー項目名やセクション名が変更されても確実にコンポーネントを特定できるように多重判定
+   */
+  resolveSectionKey(sec) {
+    if (!sec) return "";
+
+    // 1. 固定ID判定（標準セクションID）
+    const idMap = {
+      1: "PROFILE",
+      2: "EVENT",
+      3: "NOTICE",
+      4: "SCHEDULE",
+      5: "GALLERY",
+      6: "MOVIE",
+      7: "SHOP",
+      8: "LINK",
+    };
+    if (sec.id && idMap[sec.id]) {
+      return idMap[sec.id];
+    }
+
+    // 2. item（設定項目名）による判定
+    const item = String(sec.item || "").trim();
+    if (item.includes("プロフィール")) return "PROFILE";
+    if (item.includes("イベント")) return "EVENT";
+    if (item.includes("お知らせ")) return "NOTICE";
+    if (item.includes("スケジュール")) return "SCHEDULE";
+    if (item.includes("画像") || item.includes("ギャラリー")) return "GALLERY";
+    if (item.includes("動画") || item.includes("ムービー")) return "MOVIE";
+    if (item.includes("ショップ") || item.includes("グッズ")) return "SHOP";
+    if (item.includes("リンク")) return "LINK";
+
+    // 3. sectionName（ページ内セクション名: GALLERY, GALLERYS, MOVIES, SHOPS, LINKS 等）による判定
+    const sName = String(sec.sectionName || "").trim().toUpperCase();
+    if (sName.startsWith("PROFILE")) return "PROFILE";
+    if (sName.startsWith("EVENT")) return "EVENT";
+    if (sName.startsWith("NOTICE")) return "NOTICE";
+    if (sName.startsWith("SCHEDULE")) return "SCHEDULE";
+    if (sName.startsWith("GALLERY")) return "GALLERY";
+    if (sName.startsWith("MOVIE")) return "MOVIE";
+    if (sName.startsWith("SHOP")) return "SHOP";
+    if (sName.startsWith("LINK")) return "LINK";
+
+    // 4. headerName（ヘッダー項目名: 基本, 告知, 予定, PROFILE 等）による判定
+    const hName = String(sec.headerName || "").trim().toUpperCase();
+    if (hName === "PROFILE" || hName === "基本") return "PROFILE";
+    if (hName === "EVENT" || hName === "告知" || hName === "イベント") return "EVENT";
+    if (hName === "NOTICE" || hName === "お知らせ") return "NOTICE";
+    if (hName === "SCHEDULE" || hName === "予定" || hName === "スケジュール") return "SCHEDULE";
+    if (hName.startsWith("GALLERY") || hName === "画像") return "GALLERY";
+    if (hName.startsWith("MOVIE") || hName === "動画") return "MOVIE";
+    if (hName.startsWith("SHOP") || hName === "グッズ" || hName === "ショップ") return "SHOP";
+    if (hName.startsWith("LINK") || hName === "リンク") return "LINK";
+
+    return "";
+  }
+
+  /**
    * 4層背景レイヤー構造による各セクションの構築
    */
   buildSections() {
@@ -208,13 +266,14 @@ class LpApp {
     this.sections.forEach((sec) => {
       const sectionEl = document.createElement("section");
       sectionEl.id = `section-${sec.id}`;
-      const isProfile = (sec.headerName || "").toUpperCase() === "PROFILE" || sec.id === 1;
+      const sectionKey = this.resolveSectionKey(sec);
+      const isProfile = sectionKey === "PROFILE" || sec.id === 1;
       const hasTopLine = Boolean(sec.topLine && String(sec.topLine).trim());
       const hasOutLine = Boolean(sec.outLine && String(sec.outLine).trim());
 
       const classList = [
         "lp-section",
-        `lp-section-${sec.headerName?.toLowerCase() || sec.id}`,
+        sectionKey ? `lp-section-${sectionKey.toLowerCase()}` : `lp-section-${sec.id}`,
         isProfile ? "lp-section-profile" : "",
         hasTopLine ? "has-topline" : "",
         hasOutLine ? "has-outline" : "",
@@ -309,17 +368,17 @@ class LpApp {
   }
 
   /**
-   * セクションID / ヘッダー名に応じたコンポーネントの初期化
+   * セクション種別に応じたコンポーネントの初期化
    */
   mountComponent(sec, container) {
-    const key = (sec.headerName || "").toUpperCase();
+    const key = this.resolveSectionKey(sec);
 
     switch (key) {
       case "PROFILE":
         const defaultBg = this.themeConfig?.background
           ? api.resolveAssetUrl(this.themeConfig.background, "config")
           : "";
-        new ProfileSection(container, this.allData.profile, this.allData.visual, defaultBg).render();
+        new ProfileSection(container, this.allData.profile, this.allData.visual, defaultBg, sec).render();
         break;
       case "EVENT":
         new EventSection(container, this.allData.event).render();
@@ -349,7 +408,7 @@ class LpApp {
         new LinkSection(container, this.allData.linkList).render();
         break;
       default:
-        console.warn(`未対応のセクション: ${key}`);
+        console.warn(`未対応のセクション: id=${sec.id}, item=${sec.item}, headerName=${sec.headerName}, sectionName=${sec.sectionName}`);
         break;
     }
   }
