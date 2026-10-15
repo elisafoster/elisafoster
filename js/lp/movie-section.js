@@ -326,7 +326,11 @@ export class MovieSection {
     const getHasDragged = this.setupSliderInteractions(track, prevBtn, nextBtn, isTall);
 
     filtered.forEach((movie) => {
-      const card = this.createMovieCard(movie, category, { isSlide: true, getHasDragged });
+      const card = this.createMovieCard(movie, category, {
+        isSlide: true,
+        showCategoryBadge: false, // カテゴリー別表示ではカテゴリ名バッジは非表示（タグのみ）
+        getHasDragged,
+      });
       track.appendChild(card);
     });
 
@@ -557,19 +561,25 @@ export class MovieSection {
    * カード要素生成（wide / tall 対応、サムネイル自動取得）
    * =========================================================================
    */
-  createMovieCard(movie, category, { isSlide = false, getHasDragged = null } = {}) {
-    const isTall = category?.aspectRatio === "tall";
+  createMovieCard(movie, category, { isSlide = false, showCategoryBadge = true, getHasDragged = null } = {}) {
+    const isCategoryTall = category?.aspectRatio === "tall";
+
+    // スライドモード時はカテゴリー設定に従い縦長/横長を切り替え
+    // 一覧モード時は全カード横長（16:9）で統一し、縦長動画は中央 contain レターボックス配置
+    const isSlideTall = isSlide && isCategoryTall;
+    const isContainedTall = !isSlide && isCategoryTall;
 
     const card = document.createElement("div");
     card.className = [
       "lp-movie-card",
       isSlide ? "is-slide-item" : "",
-      isTall ? "is-tall" : "is-wide",
+      isSlideTall ? "is-tall" : "is-wide",
+      isContainedTall ? "is-contained-tall" : "",
     ].filter(Boolean).join(" ");
 
     // サムネイルラッパー
     const thumbWrapper = document.createElement("div");
-    thumbWrapper.className = `lp-movie-thumb-wrapper ${isTall ? "is-tall" : "is-wide"}`;
+    thumbWrapper.className = `lp-movie-thumb-wrapper ${isSlideTall ? "is-tall" : "is-wide"}`;
 
     const thumbImg = document.createElement("img");
     thumbImg.className = "lp-movie-thumb-img";
@@ -589,9 +599,14 @@ export class MovieSection {
     // クリックで動画再生モーダルを表示
     thumbWrapper.onclick = () => {
       if (typeof getHasDragged === "function" && getHasDragged()) return;
+
+      const cached = tiktokOembedCache.get(movie.movieUrl);
+      const videoId = (cached && typeof cached === "object" && cached.videoId) || null;
+
       Modal.openVideo(movie.movieUrl, category?.categoryName || "動画再生", {
-        isTall,
+        isTall: isCategoryTall,
         aspectRatio: category?.aspectRatio || "wide",
+        videoId,
       });
     };
 
@@ -604,7 +619,9 @@ export class MovieSection {
     const tagsList = document.createElement("div");
     tagsList.className = "lp-movie-tags-list";
 
-    if (category) {
+    // カテゴリー別表示ではカテゴリバッジは非表示（タグのみ表示）
+    // 一覧表示時のみカテゴリバッジを表示
+    if (showCategoryBadge && category) {
       const catBadge = document.createElement("span");
       catBadge.className = "app-badge app-badge-primary";
       catBadge.textContent = category.categoryName;
@@ -661,27 +678,55 @@ export class MovieSection {
       // 初期状態として美しい TikTok ブランドポスターを設定
       imgEl.src = TIKTOK_PLACEHOLDER_SVG;
 
+      // 既知の短縮URLマップによる videoId 事前解決
+      let knownVideoId = null;
+      const KNOWN_TIKTOK_SHORT_MAP = {
+        "ZSbqgvf8n": "7692026651252755713",
+      };
+      const shortMatch = url.match(/vt\.tiktok\.com\/([a-zA-Z0-9]+)/);
+      if (shortMatch && KNOWN_TIKTOK_SHORT_MAP[shortMatch[1]]) {
+        knownVideoId = KNOWN_TIKTOK_SHORT_MAP[shortMatch[1]];
+      }
+
       // キャッシュにあれば即時適用
       if (tiktokOembedCache.has(url)) {
-        const cachedThumb = tiktokOembedCache.get(url);
-        if (cachedThumb) imgEl.src = cachedThumb;
+        const cached = tiktokOembedCache.get(url);
+        if (cached && typeof cached === "object" && cached.thumbnail) {
+          imgEl.src = cached.thumbnail;
+        } else if (typeof cached === "string") {
+          imgEl.src = cached;
+        }
         return;
       }
 
-      // 非同期で TikTok oEmbed API からサムネイル取得を試みる
+      // 非同期で TikTok oEmbed API からサムネイルおよび videoId 取得を試みる
       fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`)
-        .then((res) => {
-          if (!res.ok) throw new Error("oEmbed request failed");
-          return res.json();
-        })
+        .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data && data.thumbnail_url) {
-            tiktokOembedCache.set(url, data.thumbnail_url);
-            imgEl.src = data.thumbnail_url;
+          if (data) {
+            const thumbUrl = data.thumbnail_url || null;
+            const videoId = data.embed_product_id || knownVideoId;
+            tiktokOembedCache.set(url, {
+              thumbnail: thumbUrl,
+              videoId: videoId,
+            });
+            if (thumbUrl) {
+              imgEl.src = thumbUrl;
+            }
+          } else if (knownVideoId) {
+            tiktokOembedCache.set(url, {
+              thumbnail: null,
+              videoId: knownVideoId,
+            });
           }
         })
         .catch(() => {
-          // 取得失敗時はプレースホルダーのまま維持
+          if (knownVideoId) {
+            tiktokOembedCache.set(url, {
+              thumbnail: null,
+              videoId: knownVideoId,
+            });
+          }
         });
       return;
     }

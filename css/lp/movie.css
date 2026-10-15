@@ -76,15 +76,14 @@
   margin-bottom: 0;
 }
 
-/* カテゴリーヘッダー (見出し + そのカテゴリーのタグフィルター) */
+/* カテゴリーヘッダー (見出し + その直下にタグフィルターチップ) */
 .lp-movie-category-header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
   border-bottom: 2px solid var(--color-border, #e2e8f0);
-  padding-bottom: 12px;
+  padding-bottom: 14px;
 }
 
 .lp-movie-category-title-wrap {
@@ -445,12 +444,30 @@
   color: #ffffff;
 }
 
-/* 3列3行グリッド */
+/* 3列3行グリッド (全カードの高さ・比率を統一) */
 .lp-movie-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.lp-movie-grid .lp-movie-card {
+  width: 100%;
+  height: 100%;
+}
+
+/* 一覧表示ではすべてのカードのサムネイル枠を 16:9 に統一 */
+.lp-movie-grid .lp-movie-thumb-wrapper {
+  aspect-ratio: 16 / 9 !important;
+  max-height: none !important;
+  background: #000000;
+}
+
+/* 縦長動画（Shorts/TikTok）は4枚目参考画像のように左右黒帯レターボックスで中央フィット */
+.lp-movie-grid .lp-movie-card.is-contained-tall .lp-movie-thumb-img {
+  object-fit: contain !important;
+  background: #000000;
 }
 
 @media (max-width: 900px) {

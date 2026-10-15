@@ -150,12 +150,43 @@ class ModalService {
       if (urlStr.includes("tiktok.com")) {
         isTikTok = true;
         isTall = true;
-        const ttVideoMatch = urlStr.match(/\/video\/(\d+)/);
-        if (ttVideoMatch && ttVideoMatch[1]) {
-          embedUrl = `https://www.tiktok.com/player/v1/${ttVideoMatch[1]}?autoplay=1`;
+
+        let videoId = options.videoId || null;
+
+        // URLから直接 /video/{ID} を抽出
+        if (!videoId) {
+          const ttVideoMatch = urlStr.match(/\/video\/(\d+)/);
+          if (ttVideoMatch && ttVideoMatch[1]) {
+            videoId = ttVideoMatch[1];
+          }
+        }
+
+        // 既知の短縮URLマップによる即時解決フォールバック
+        if (!videoId) {
+          const KNOWN_TIKTOK_SHORT_MAP = {
+            "ZSbqgvf8n": "7692026651252755713",
+          };
+          const shortMatch = urlStr.match(/vt\.tiktok\.com\/([a-zA-Z0-9]+)/);
+          if (shortMatch && KNOWN_TIKTOK_SHORT_MAP[shortMatch[1]]) {
+            videoId = KNOWN_TIKTOK_SHORT_MAP[shortMatch[1]];
+          }
+        }
+
+        if (videoId) {
+          embedUrl = `https://www.tiktok.com/player/v1/${videoId}?autoplay=1`;
         } else {
-          // 短縮URLの場合などは embed/v2 または直接プレイヤー
-          embedUrl = `https://www.tiktok.com/embed/v2/${encodeURIComponent(urlStr)}`;
+          // 不正なURLをiframeに渡すと overload-protect triggered になるため、空にしておき非同期で解決
+          embedUrl = "about:blank";
+          fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(urlStr)}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data && data.embed_product_id && iframe) {
+                iframe.src = `https://www.tiktok.com/player/v1/${data.embed_product_id}?autoplay=1`;
+              }
+            })
+            .catch(() => {
+              // 取得失敗時は外部リンクボタンから閲覧可能
+            });
         }
       }
     } catch (e) {
