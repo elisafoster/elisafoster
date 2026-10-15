@@ -43,6 +43,53 @@
   max-width: 900px;
 }
 
+.app-modal-container-tall {
+  max-width: 440px;
+}
+
+/* 動画ラッパー */
+.app-modal-video-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.app-modal-video-wrapper.is-tall {
+  aspect-ratio: 9 / 16;
+  max-height: 75vh;
+  margin: 0 auto;
+}
+
+.app-modal-video-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.app-modal-video-external-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: #f1f5f9;
+  transition: all var(--transition-fast);
+}
+
+.app-modal-video-external-btn:hover {
+  background: #e2e8f0;
+  color: var(--color-text-main);
+}
+
 .app-modal-header {
   display: flex;
   align-items: center;

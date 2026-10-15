@@ -11,14 +11,21 @@ class ModalService {
   /**
    * 汎用モーダル表示
    */
-  open({ title, content, footer, isLarge = false, onClose = null }) {
+  open({ title, content, footer, isLarge = false, isTall = false, onClose = null }) {
     this.close();
 
     const backdrop = document.createElement("div");
     backdrop.className = "app-modal-backdrop";
 
+    const containerClasses = ["app-modal-container"];
+    if (isTall) {
+      containerClasses.push("app-modal-container-tall");
+    } else if (isLarge) {
+      containerClasses.push("app-modal-container-lg");
+    }
+
     const container = document.createElement("div");
-    container.className = `app-modal-container ${isLarge ? "app-modal-container-lg" : ""}`;
+    container.className = containerClasses.join(" ");
 
     // ヘッダー
     const header = document.createElement("div");
@@ -115,45 +122,81 @@ class ModalService {
   }
 
   /**
-   * YouTube / 動画再生モーダル
+   * YouTube / Shorts / TikTok / 汎用動画再生モーダル
    */
-  openVideo(videoUrl, title = "動画再生") {
-    // YouTube埋め込みURLの解析
+  openVideo(videoUrl, title = "動画再生", options = {}) {
     let embedUrl = videoUrl;
+    let isTall = Boolean(options.isTall || options.aspectRatio === "tall");
+    let isTikTok = false;
+
     try {
-      const url = new URL(videoUrl);
-      if (url.hostname.includes("youtube.com") && url.searchParams.get("v")) {
-        embedUrl = `https://www.youtube.com/embed/${url.searchParams.get("v")}?autoplay=1`;
-      } else if (url.hostname.includes("youtu.be")) {
-        const id = url.pathname.slice(1);
-        embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1`;
+      const urlStr = String(videoUrl || "");
+
+      // 1. YouTube Shorts 判定
+      const ytShortsMatch = urlStr.match(/youtube\.com\/shorts\/([\w-]{11})/);
+      if (ytShortsMatch && ytShortsMatch[1]) {
+        embedUrl = `https://www.youtube.com/embed/${ytShortsMatch[1]}?autoplay=1`;
+        isTall = true;
+      }
+      // 2. 通常 YouTube (youtu.be, watch?v=, embed/)
+      else {
+        const ytMatch = urlStr.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/);
+        if (ytMatch && ytMatch[1]) {
+          embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+        }
+      }
+
+      // 3. TikTok 判定
+      if (urlStr.includes("tiktok.com")) {
+        isTikTok = true;
+        isTall = true;
+        const ttVideoMatch = urlStr.match(/\/video\/(\d+)/);
+        if (ttVideoMatch && ttVideoMatch[1]) {
+          embedUrl = `https://www.tiktok.com/player/v1/${ttVideoMatch[1]}?autoplay=1`;
+        } else {
+          // 短縮URLの場合などは embed/v2 または直接プレイヤー
+          embedUrl = `https://www.tiktok.com/embed/v2/${encodeURIComponent(urlStr)}`;
+        }
       }
     } catch (e) {
-      // そのまま
+      console.warn("動画URLのパースエラー:", e);
     }
 
-    const content = document.createElement("div");
-    content.style.position = "relative";
-    content.style.paddingTop = "56.25%"; // 16:9
-    content.style.width = "100%";
+    const wrapper = document.createElement("div");
+    wrapper.className = `app-modal-video-wrapper ${isTall ? "is-tall" : ""}`;
 
     const iframe = document.createElement("iframe");
     iframe.src = embedUrl;
-    iframe.style.position = "absolute";
-    iframe.style.top = "0";
-    iframe.style.left = "0";
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    iframe.style.border = "none";
-    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+    iframe.className = "app-modal-video-iframe";
+    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
     iframe.allowFullscreen = true;
+    wrapper.appendChild(iframe);
 
-    content.appendChild(iframe);
+    // 元動画サイトへの外部リンクボタン付きフッター
+    const footer = document.createElement("div");
+    footer.className = "app-modal-video-footer";
+
+    const extLink = document.createElement("a");
+    extLink.className = "app-modal-video-external-btn";
+    extLink.href = videoUrl;
+    extLink.target = "_blank";
+    extLink.rel = "noopener noreferrer";
+    extLink.innerHTML = `
+      <span>${isTikTok ? "TikTokで見る" : "元動画を開く"}</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+    `;
+    footer.appendChild(extLink);
 
     this.open({
       title,
-      content,
-      isLarge: true,
+      content: wrapper,
+      footer,
+      isLarge: !isTall,
+      isTall,
     });
   }
 
