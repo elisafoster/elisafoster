@@ -39,6 +39,27 @@ export class GallerySection {
     switcher.setAttribute("role", "tablist");
     switcher.setAttribute("aria-label", "表示形式切り替え");
 
+    // スライドボタン
+    const slideBtn = document.createElement("button");
+    slideBtn.className = `lp-gallery-view-btn ${this.viewMode === "slide" ? "is-active" : ""}`;
+    slideBtn.type = "button";
+    slideBtn.setAttribute("role", "tab");
+    slideBtn.setAttribute("aria-selected", this.viewMode === "slide" ? "true" : "false");
+    slideBtn.innerHTML = `
+      <svg class="lp-view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="10" rx="2"></rect>
+        <polyline points="12 17 12 7"></polyline>
+        <polyline points="7 12 17 12"></polyline>
+      </svg>
+      <span>スライド</span>
+    `;
+    slideBtn.onclick = () => {
+      if (this.viewMode === "slide") return;
+      this.viewMode = "slide";
+      this.renderContent(contentArea);
+      this.updateSwitcherState(gridBtn, slideBtn);
+    };
+
     // 一覧ボタン
     const gridBtn = document.createElement("button");
     gridBtn.className = `lp-gallery-view-btn ${this.viewMode === "grid" ? "is-active" : ""}`;
@@ -61,29 +82,8 @@ export class GallerySection {
       this.updateSwitcherState(gridBtn, slideBtn);
     };
 
-    // スライドボタン
-    const slideBtn = document.createElement("button");
-    slideBtn.className = `lp-gallery-view-btn ${this.viewMode === "slide" ? "is-active" : ""}`;
-    slideBtn.type = "button";
-    slideBtn.setAttribute("role", "tab");
-    slideBtn.setAttribute("aria-selected", this.viewMode === "slide" ? "true" : "false");
-    slideBtn.innerHTML = `
-      <svg class="lp-view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="7" width="20" height="10" rx="2"></rect>
-        <polyline points="12 17 12 7"></polyline>
-        <polyline points="7 12 17 12"></polyline>
-      </svg>
-      <span>スライド</span>
-    `;
-    slideBtn.onclick = () => {
-      if (this.viewMode === "slide") return;
-      this.viewMode = "slide";
-      this.renderContent(contentArea);
-      this.updateSwitcherState(gridBtn, slideBtn);
-    };
-
-    switcher.appendChild(gridBtn);
     switcher.appendChild(slideBtn);
+    switcher.appendChild(gridBtn);
     headerBar.appendChild(switcher);
     mainWrapper.appendChild(headerBar);
 
