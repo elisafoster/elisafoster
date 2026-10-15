@@ -135,6 +135,21 @@ section:
       # 容量制限
       validation:
         maxSizeBytes: 2097152 # 2MB (2 * 1024 * 1024)
+
+    sectionType:
+      type: string
+      label: "セクションタイプ"
+      description: "セクションの表示形式を選択してください（プロフィール専用）"
+      required: false
+      default: "banner"
+      conditions:
+      ui:
+        widget: "select"
+        options:
+          - value: "banner"
+            label: "バナー形式"
+          - value: "standing"
+            label: "立ち絵形式"
     
     isFeatured:
       type: boolean
