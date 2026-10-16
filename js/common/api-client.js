@@ -56,20 +56,23 @@ class ApiClient {
       loader.id = "app-global-loader";
       loader.style.cssText = `
         position: fixed;
-        top: 16px;
-        right: 16px;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 9999;
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(4px);
-        padding: 8px 16px;
+        background: rgba(30, 41, 59, 0.92);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        padding: 7px 16px;
         border-radius: 9999px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 600;
-        color: #1e293b;
+        color: #f8fafc;
         pointer-events: none;
         transition: opacity 0.2s ease;
       `;
@@ -78,11 +81,21 @@ class ApiClient {
     }
     loader.style.opacity = "1";
     loader.style.display = "flex";
+
+    // 安全タイマー（万一非同期例外でhideLoadingが漏れても最大10秒で安全に解除）
+    if (this._loadingSafetyTimer) clearTimeout(this._loadingSafetyTimer);
+    this._loadingSafetyTimer = setTimeout(() => {
+      this.resetLoading();
+    }, 10000);
   }
 
   hideLoading() {
     this.loadingCount = Math.max(0, this.loadingCount - 1);
     if (this.loadingCount === 0) {
+      if (this._loadingSafetyTimer) {
+        clearTimeout(this._loadingSafetyTimer);
+        this._loadingSafetyTimer = null;
+      }
       const loader = document.getElementById("app-global-loader");
       if (loader) {
         loader.style.opacity = "0";
@@ -92,6 +105,24 @@ class ApiClient {
           }
         }, 200);
       }
+    }
+  }
+
+  /**
+   * ローディング状態の強制リセット
+   */
+  resetLoading() {
+    this.loadingCount = 0;
+    if (this._loadingSafetyTimer) {
+      clearTimeout(this._loadingSafetyTimer);
+      this._loadingSafetyTimer = null;
+    }
+    const loader = document.getElementById("app-global-loader");
+    if (loader) {
+      loader.style.opacity = "0";
+      setTimeout(() => {
+        if (loader) loader.style.display = "none";
+      }, 200);
     }
   }
 

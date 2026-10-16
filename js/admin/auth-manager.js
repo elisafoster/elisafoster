@@ -24,17 +24,20 @@ export class AuthManager {
       loginBtn.onclick = () => this.handleGoogleLogin();
     }
 
-    // ログアウトボタンのバインド
-    const logoutBtn = document.getElementById("admin-logout-btn");
-    if (logoutBtn) {
-      logoutBtn.onclick = () => this.handleLogout();
-    }
+    // ログアウトボタンのバインド（トップバー & サイドバー両対応）
+    const bindLogout = (id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.onclick = () => this.handleLogout();
+    };
+    bindLogout("admin-logout-btn");
+    bindLogout("admin-sidebar-logout-btn");
 
     // 認証状態の監視
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         await this.verifyWhitelist(user);
       } else {
+        api.resetLoading();
         this.fallbackToLogin();
       }
     });
@@ -47,11 +50,12 @@ export class AuthManager {
     this.clearLoginError();
     try {
       api.showLoading();
-      const result = await signInWithPopup(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
       // onAuthStateChanged がトリガーされ verifyWhitelist が実行される
     } catch (error) {
       console.error("[Login Error]:", error);
       this.showLoginError("ログインに失敗しました: " + (error.message || ""));
+    } finally {
       api.hideLoading();
     }
   }
@@ -65,7 +69,6 @@ export class AuthManager {
     const email = firebaseUser.email;
 
     try {
-      api.showLoading();
       // 1. Worker API (/api/auth/check) ホワイトリスト判定
       const checkRes = await api.checkAuth(email);
 
@@ -81,6 +84,7 @@ export class AuthManager {
         api.setUserEmail(email);
         this.renderUserInfo();
         this.onAuthorized(this.currentUser);
+        api.resetLoading(); // 認可完了時点で確実にローディングを解除
         Toast.success(`ようこそ、${this.currentUser.displayName} さん`);
       } else {
         throw new Error("未登録のアカウントです");
@@ -91,11 +95,12 @@ export class AuthManager {
       await signOut(auth);
       api.setUserEmail(null);
       this.currentUser = null;
+      api.resetLoading();
       this.fallbackToLogin("アクセス権限がありません。許可されたGmailアカウントでログインしてください。");
       Toast.error("アクセス権限がありません（未登録アカウント）");
     } finally {
       this.isChecking = false;
-      api.hideLoading();
+      api.resetLoading();
     }
   }
 
@@ -104,6 +109,7 @@ export class AuthManager {
    */
   async handleLogout() {
     try {
+      api.showLoading();
       await signOut(auth);
       api.setUserEmail(null);
       this.currentUser = null;
@@ -111,6 +117,8 @@ export class AuthManager {
       Toast.info("ログアウトしました");
     } catch (err) {
       console.error("[Logout Error]:", err);
+    } finally {
+      api.resetLoading();
     }
   }
 

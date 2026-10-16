@@ -150,6 +150,18 @@
         </div>
       </div>
 
+      <!-- サイドバー ログアウト -->
+      <div class="admin-sidebar-logout-wrap">
+        <button id="admin-sidebar-logout-btn" class="admin-sidebar-logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="admin-logout-icon">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>ログアウト</span>
+        </button>
+      </div>
+
       <!-- ステータス表示 (Cloudflare Deployment & GitHub リポジトリ容量) -->
       <div class="admin-sidebar-status">
         <div class="admin-status-item">
@@ -181,7 +193,14 @@
             <span id="admin-user-email" class="admin-user-email">admin@example.com</span>
             <span id="admin-user-role" class="admin-user-role-badge">owner</span>
           </div>
-          <button id="admin-logout-btn" class="app-btn app-btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;">ログアウト</button>
+          <button id="admin-logout-btn" class="admin-logout-btn" aria-label="ログアウト">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="admin-logout-icon">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span class="admin-logout-text">ログアウト</span>
+          </button>
         </div>
       </header>
 
