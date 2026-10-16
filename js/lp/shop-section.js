@@ -2,7 +2,7 @@
  * Shop Section Component
  * shop & shopTag テーブルのデータ描画
  * - PC: 4列3行 (1ページ最大12件) + ページネーション
- * - スマホ等の縦長画面: 2列3行 (1ページ最大6件) + ページネーション
+ * - スマホ等の縦長画面: 1列6件 表形式 (1ページ最大6件) + ページネーション
  * - 各カードには「🛒 購入はこちら」ボタンを1つのみ配置
  * - タップで商品情報＋購入プラットフォーム遷移ボタン付きダイアログを表示
  */
@@ -252,6 +252,7 @@ export class ShopSection {
     const buyBtn = document.createElement("button");
     buyBtn.type = "button";
     buyBtn.className = "lp-shop-buy-trigger-btn";
+    buyBtn.setAttribute("aria-label", `${item.name || "グッズ"}を購入する`);
     buyBtn.innerHTML = `
       <svg class="lp-shop-cart-icon" viewBox="0 0 24 24" fill="currentColor">
         <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
