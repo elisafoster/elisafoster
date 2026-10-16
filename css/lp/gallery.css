@@ -36,7 +36,9 @@
 .lp-gallery-view-switcher {
   display: inline-flex;
   align-items: center;
-  background: rgba(226, 232, 240, 0.6);
+  background: rgba(226, 232, 240, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   padding: 4px;
   border-radius: var(--radius-full, 9999px);
   gap: 4px;
