@@ -307,6 +307,9 @@
 /* 共通カード（themeConfig スタイル適用） */
 .lp-card {
   background: var(--theme-card-bg, #ffffff);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #1e293b);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);

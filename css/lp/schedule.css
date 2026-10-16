@@ -31,6 +31,9 @@
   font-size: 0.88rem;
   font-weight: 700;
   background: var(--theme-card-bg, #0f172a);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #ffffff);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -66,6 +69,9 @@
    -------------------------------------------------------------------------- */
 .lp-schedule-nav-bar {
   background: var(--theme-card-bg, #0f172a);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #ffffff);
   border-radius: var(--radius-lg, 14px);
   padding: 12px 20px;
@@ -134,6 +140,9 @@
 
 .lp-schedule-day-tab {
   background: var(--theme-card-bg, #0f172a);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #ffffff);
   border-radius: var(--radius-lg, 14px);
   padding: 14px 6px;
@@ -205,6 +214,9 @@
    -------------------------------------------------------------------------- */
 .lp-schedule-day-panel {
   background: var(--theme-card-bg, #0f172a);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #ffffff);
   border-radius: var(--radius-lg, 16px);
   padding: 24px;
@@ -281,6 +293,9 @@
    -------------------------------------------------------------------------- */
 .lp-schedule-item-card {
   background: var(--theme-sub-bg, #ffffff);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #1e293b);
   border-radius: 12px;
   padding: 16px 18px;

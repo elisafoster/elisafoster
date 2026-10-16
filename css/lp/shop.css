@@ -82,6 +82,8 @@
   border-radius: var(--radius-lg, 16px);
   overflow: hidden;
   background: var(--theme-card-bg, #ffffff);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
   color: var(--theme-card-text-color, #1e293b);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(226, 232, 240, 0.9);

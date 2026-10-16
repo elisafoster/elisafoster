@@ -264,6 +264,8 @@
   border-radius: var(--radius-lg, 12px);
   overflow: hidden;
   background: var(--theme-card-bg, #ffffff);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
   color: var(--theme-card-text-color, #1e293b);
   box-shadow: var(--shadow-card, 0 4px 12px rgba(0, 0, 0, 0.08));
   transition: transform var(--transition-normal, 0.25s ease), box-shadow var(--transition-normal, 0.25s ease);

@@ -139,6 +139,9 @@
    -------------------------------------------------------------------------- */
 .lp-profile-theme-card {
   background: var(--theme-card-bg, #ffffff);
+  background-repeat: no-repeat;
+  background-clip: padding-box;
+  overflow: hidden;
   color: var(--theme-card-text-color, #1e293b);
   border-radius: var(--radius-md, 16px);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
