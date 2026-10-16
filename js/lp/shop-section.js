@@ -2,7 +2,7 @@
  * Shop Section Component
  * shop & shopTag テーブルのデータ描画
  * - PC: 4列3行 (1ページ最大12件) + ページネーション
- * - スマホ等の縦長画面: 1列6件 表形式 (1ページ最大6件) + ページネーション
+ * - スマホ等の縦長画面: 1列5件 表形式 (1ページ最大5件) + ページネーション
  * - 各カードには「🛒 購入はこちら」ボタンを1つのみ配置
  * - タップで商品情報＋購入プラットフォーム遷移ボタン付きダイアログを表示
  */
@@ -18,7 +18,7 @@ export class ShopSection {
     this.selectedTagId = "ALL";
     this.currentPage = 1;
 
-    // 画面幅に応じた1ページあたりの表示件数を算出 (PC: 12件, スマホ: 6件)
+    // 画面幅に応じた1ページあたりの表示件数を算出 (PC: 12件, スマホ: 5件)
     this.itemsPerPage = this.computeItemsPerPage();
 
     // リサイズ監視（ブレークポイントを跨いだ際に再描画）
@@ -26,9 +26,9 @@ export class ShopSection {
   }
 
   computeItemsPerPage() {
-    // 768px以下をスマホ・縦長画面とし、2列×3行 = 6件
+    // 768px以下をスマホ・縦長画面とし、表形式 1ページ5件
     // 769px以上をPCとし、4列×3行 = 12件
-    return window.innerWidth <= 768 ? 6 : 12;
+    return window.innerWidth <= 768 ? 5 : 12;
   }
 
   setupResizeListener() {
