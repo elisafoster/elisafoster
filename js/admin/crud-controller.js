@@ -377,56 +377,63 @@ export class CrudController {
     form.style.flexDirection = "column";
     form.style.gap = "20px";
 
-    // 日付フォーマット変換ヘルパー
-    const formatBirthdayForInput = (val) => {
-      if (!val) return "";
+    // ドラム式ピッカー用ヘルパー
+    const parseBirthdayParts = (val) => {
+      if (!val) return { month: "", day: "" };
       const str = String(val).trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
       const m = str.match(/^(\d{1,2})月(\d{1,2})日?$/);
       if (m) {
-        return `2000-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+        return { month: m[1].padStart(2, "0"), day: m[2].padStart(2, "0") };
       }
-      const mYear = str.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
-      if (mYear) {
-        return `${mYear[1]}-${mYear[2].padStart(2, "0")}-${mYear[3].padStart(2, "0")}`;
+      const mIso = str.match(/^\d{4}-(\d{2})-(\d{2})$/);
+      if (mIso) {
+        return { month: mIso[1], day: mIso[2] };
       }
-      return "";
+      return { month: "", day: "" };
     };
 
-    const formatBirthdayForSave = (val) => {
-      if (!val) return null;
+    const parseStreamingParts = (val) => {
+      if (!val) return { year: "", month: "", day: "" };
       const str = String(val).trim();
-      const m = str.match(/^\d{4}-(\d{2})-(\d{2})$/);
-      if (m) {
-        return `${m[1]}月${m[2]}日`;
-      }
-      return str;
-    };
-
-    const formatStreamingForInput = (val) => {
-      if (!val) return "";
-      const str = String(val).trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
       const m = str.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
       if (m) {
-        return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+        return { year: m[1], month: m[2].padStart(2, "0"), day: m[3].padStart(2, "0") };
+      }
+      const mIso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (mIso) {
+        return { year: mIso[1], month: mIso[2], day: mIso[3] };
       }
       const mSlash = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
       if (mSlash) {
-        return `${mSlash[1]}-${mSlash[2].padStart(2, "0")}-${mSlash[3].padStart(2, "0")}`;
+        return { year: mSlash[1], month: mSlash[2].padStart(2, "0"), day: mSlash[3].padStart(2, "0") };
       }
-      return "";
+      return { year: "", month: "", day: "" };
     };
 
-    const formatStreamingForSave = (val) => {
-      if (!val) return null;
-      const str = String(val).trim();
-      const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (m) {
-        return `${m[1]}年${m[2]}月${m[3]}日`;
-      }
-      return str;
+    const getDaysInMonth = (year, month) => {
+      if (!month) return 31;
+      const y = year ? Number(year) : 2024;
+      return new Date(y, Number(month), 0).getDate();
     };
+
+    const updateDayOptions = (daySelect, maxDays, currentSelectedDay) => {
+      const currentVal = currentSelectedDay !== undefined ? currentSelectedDay : daySelect.value;
+      daySelect.innerHTML = '<option value="">日</option>';
+      for (let d = 1; d <= maxDays; d++) {
+        const dStr = String(d).padStart(2, "0");
+        const opt = document.createElement("option");
+        opt.value = dStr;
+        opt.textContent = `${dStr}日`;
+        if (dStr === currentVal) opt.selected = true;
+        daySelect.appendChild(opt);
+      }
+    };
+
+    const bParts = parseBirthdayParts(profile?.birthday);
+    const bMaxDays = getDaysInMonth(null, bParts.month);
+
+    const sParts = parseStreamingParts(profile?.streaming);
+    const sMaxDays = getDaysInMonth(sParts.year, sParts.month);
 
     // YouTube動画ID抽出ヘルパー
     const extractYouTubeId = (url) => {
@@ -511,8 +518,23 @@ export class CrudController {
             <!-- 1行目: 誕生日｜年齢｜身長 -->
             <div class="admin-grid-3">
               <div class="admin-form-group">
-                <label class="admin-form-label">誕生日</label>
-                <input class="admin-form-input" type="date" name="birthday" value="${formatBirthdayForInput(profile?.birthday)}" />
+                <label class="admin-form-label">誕生日 (MM月DD日)</label>
+                <div style="display: flex; gap: 8px;">
+                  <select class="admin-form-input" id="profile-birthday-month" style="flex: 1;">
+                    <option value="">月</option>
+                    ${Array.from({ length: 12 }, (_, i) => {
+                      const m = String(i + 1).padStart(2, "0");
+                      return `<option value="${m}" ${bParts.month === m ? "selected" : ""}>${m}月</option>`;
+                    }).join("")}
+                  </select>
+                  <select class="admin-form-input" id="profile-birthday-day" style="flex: 1;">
+                    <option value="">日</option>
+                    ${Array.from({ length: bMaxDays }, (_, i) => {
+                      const d = String(i + 1).padStart(2, "0");
+                      return `<option value="${d}" ${bParts.day === d ? "selected" : ""}>${d}日</option>`;
+                    }).join("")}
+                  </select>
+                </div>
               </div>
               <div class="admin-form-group">
                 <label class="admin-form-label">年齢</label>
@@ -527,8 +549,30 @@ export class CrudController {
             <!-- 2行目: 活動開始日｜ファンネーム -->
             <div class="admin-grid-2">
               <div class="admin-form-group" style="margin-bottom: 0;">
-                <label class="admin-form-label">活動開始日</label>
-                <input class="admin-form-input" type="date" name="streaming" value="${formatStreamingForInput(profile?.streaming)}" />
+                <label class="admin-form-label">活動開始日 (YYYY年MM月DD日)</label>
+                <div style="display: flex; gap: 8px;">
+                  <select class="admin-form-input" id="profile-streaming-year" style="flex: 1.2;">
+                    <option value="">年</option>
+                    ${Array.from({ length: 36 }, (_, i) => {
+                      const y = String(2000 + i);
+                      return `<option value="${y}" ${sParts.year === y ? "selected" : ""}>${y}年</option>`;
+                    }).join("")}
+                  </select>
+                  <select class="admin-form-input" id="profile-streaming-month" style="flex: 1;">
+                    <option value="">月</option>
+                    ${Array.from({ length: 12 }, (_, i) => {
+                      const m = String(i + 1).padStart(2, "0");
+                      return `<option value="${m}" ${sParts.month === m ? "selected" : ""}>${m}月</option>`;
+                    }).join("")}
+                  </select>
+                  <select class="admin-form-input" id="profile-streaming-day" style="flex: 1;">
+                    <option value="">日</option>
+                    ${Array.from({ length: sMaxDays }, (_, i) => {
+                      const d = String(i + 1).padStart(2, "0");
+                      return `<option value="${d}" ${sParts.day === d ? "selected" : ""}>${d}日</option>`;
+                    }).join("")}
+                  </select>
+                </div>
               </div>
               <div class="admin-form-group" style="margin-bottom: 0;">
                 <label class="admin-form-label">ファンネーム</label>
@@ -636,6 +680,29 @@ export class CrudController {
       });
     });
 
+    // 誕生日の月変更時に日の選択肢を動的更新
+    const bMonthSelect = form.querySelector("#profile-birthday-month");
+    const bDaySelect = form.querySelector("#profile-birthday-day");
+    if (bMonthSelect && bDaySelect) {
+      bMonthSelect.addEventListener("change", () => {
+        const days = getDaysInMonth(null, bMonthSelect.value);
+        updateDayOptions(bDaySelect, days);
+      });
+    }
+
+    // 活動開始日の年・月変更時に日の選択肢を動的更新
+    const sYearSelect = form.querySelector("#profile-streaming-year");
+    const sMonthSelect = form.querySelector("#profile-streaming-month");
+    const sDaySelect = form.querySelector("#profile-streaming-day");
+    if (sYearSelect && sMonthSelect && sDaySelect) {
+      const handleStreamingChange = () => {
+        const days = getDaysInMonth(sYearSelect.value, sMonthSelect.value);
+        updateDayOptions(sDaySelect, days);
+      };
+      sYearSelect.addEventListener("change", handleStreamingChange);
+      sMonthSelect.addEventListener("change", handleStreamingChange);
+    }
+
     // フォーム送信処理
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -650,12 +717,23 @@ export class CrudController {
       payload.age = payload.age ? Number(payload.age) : null;
       payload.height = payload.height ? Number(payload.height) : null;
 
-      // 日付の整形（ピッカー値 YYYY-MM-DD からスキーマ仕様の日本語フォーマットへ）
-      if (payload.birthday) {
-        payload.birthday = formatBirthdayForSave(payload.birthday);
+      // 誕生日の整形 (MM月DD日)
+      const bMonthEl = document.getElementById("profile-birthday-month");
+      const bDayEl = document.getElementById("profile-birthday-day");
+      if (bMonthEl?.value && bDayEl?.value) {
+        payload.birthday = `${bMonthEl.value}月${bDayEl.value}日`;
+      } else if (!bMonthEl?.value && !bDayEl?.value) {
+        payload.birthday = null;
       }
-      if (payload.streaming) {
-        payload.streaming = formatStreamingForSave(payload.streaming);
+
+      // 活動開始日の整形 (YYYY年MM月DD日)
+      const sYearEl = document.getElementById("profile-streaming-year");
+      const sMonthEl = document.getElementById("profile-streaming-month");
+      const sDayEl = document.getElementById("profile-streaming-day");
+      if (sYearEl?.value && sMonthEl?.value && sDayEl?.value) {
+        payload.streaming = `${sYearEl.value}年${sMonthEl.value}月${sDayEl.value}日`;
+      } else if (!sYearEl?.value && !sMonthEl?.value && !sDayEl?.value) {
+        payload.streaming = null;
       }
 
       // platforms 配列の整形
