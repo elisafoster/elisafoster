@@ -381,3 +381,108 @@
   opacity: 0.6;
 }
 
+/* ==========================================================================
+   一体型ドラムロールピッカー (iOS風 Wheel Date Picker)
+   ========================================================================== */
+.drum-picker-wrapper {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background: #090d16;
+  border: 1px solid #334155;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+  display: flex;
+}
+
+.drum-picker-wrapper:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.drum-picker-columns {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.drum-picker-col {
+  flex: 1;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  cursor: grab;
+}
+
+.drum-picker-col:active {
+  cursor: grabbing;
+}
+
+.drum-picker-col::-webkit-scrollbar {
+  display: none;
+}
+
+.drum-picker-spacer {
+  height: 60px; /* (160 - 40) / 2 */
+  flex-shrink: 0;
+}
+
+.drum-picker-item {
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: color 0.12s ease, font-size 0.12s ease, font-weight 0.12s ease;
+  white-space: nowrap;
+}
+
+.drum-picker-item.is-selected {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+/* 中央の選択行ハイライトバー (全カラムを貫通) */
+.drum-picker-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 上下の立体フェードマスク */
+.drum-picker-mask {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(9, 13, 22, 0.95) 0%,
+    rgba(9, 13, 22, 0.5) 24%,
+    rgba(9, 13, 22, 0) 38%,
+    rgba(9, 13, 22, 0) 62%,
+    rgba(9, 13, 22, 0.5) 76%,
+    rgba(9, 13, 22, 0.95) 100%
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+

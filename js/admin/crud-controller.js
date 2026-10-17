@@ -8,6 +8,177 @@ import { Modal } from "../common/modal.js";
 import { Toast } from "../common/toast.js";
 import { RichTextEditor } from "./richtext-editor.js";
 
+/**
+ * 一体型ドラムロールピッカークラス (iOS風 Wheel Date Picker)
+ */
+class DrumRollPicker {
+  constructor({ container, columns, initialValues = {}, onChange }) {
+    this.container = container;
+    this.columnsConfig = columns; // [{ key, items: [{ value, label }] }, ...]
+    this.onChange = onChange;
+    this.values = { ...initialValues };
+    this.colElements = {};
+    this.itemHeight = 40;
+    this.render();
+  }
+
+  render() {
+    this.container.innerHTML = "";
+    this.container.className = "drum-picker-wrapper";
+
+    const highlight = document.createElement("div");
+    highlight.className = "drum-picker-highlight";
+    this.container.appendChild(highlight);
+
+    const mask = document.createElement("div");
+    mask.className = "drum-picker-mask";
+    this.container.appendChild(mask);
+
+    const colsWrap = document.createElement("div");
+    colsWrap.className = "drum-picker-columns";
+
+    this.columnsConfig.forEach((colCfg) => {
+      const colEl = document.createElement("div");
+      colEl.className = "drum-picker-col";
+      colEl.dataset.key = colCfg.key;
+      this.colElements[colCfg.key] = colEl;
+
+      this.populateColumn(colCfg.key, colCfg.items, this.values[colCfg.key]);
+      this.attachEvents(colEl, colCfg.key);
+
+      colsWrap.appendChild(colEl);
+    });
+
+    this.container.appendChild(colsWrap);
+
+    // 初期スクロール位置を反映
+    requestAnimationFrame(() => {
+      this.columnsConfig.forEach((colCfg) => {
+        this.scrollToValue(colCfg.key, this.values[colCfg.key], false);
+      });
+    });
+  }
+
+  populateColumn(key, items, selectedValue) {
+    const colEl = this.colElements[key];
+    if (!colEl) return;
+    colEl.innerHTML = "";
+
+    const topSpacer = document.createElement("div");
+    topSpacer.className = "drum-picker-spacer";
+    colEl.appendChild(topSpacer);
+
+    items.forEach((item) => {
+      const itemEl = document.createElement("div");
+      itemEl.className = "drum-picker-item";
+      itemEl.dataset.value = item.value;
+      itemEl.textContent = item.label;
+      if (item.value === selectedValue) {
+        itemEl.classList.add("is-selected");
+      }
+      itemEl.addEventListener("click", () => {
+        this.scrollToValue(key, item.value, true);
+      });
+      colEl.appendChild(itemEl);
+    });
+
+    const bottomSpacer = document.createElement("div");
+    bottomSpacer.className = "drum-picker-spacer";
+    colEl.appendChild(bottomSpacer);
+  }
+
+  attachEvents(colEl, key) {
+    let scrollTimeout = null;
+
+    const handleScroll = () => {
+      const scrollTop = colEl.scrollTop;
+      const index = Math.round(scrollTop / this.itemHeight);
+      const items = colEl.querySelectorAll(".drum-picker-item");
+
+      items.forEach((it, idx) => {
+        if (idx === index) {
+          it.classList.add("is-selected");
+        } else {
+          it.classList.remove("is-selected");
+        }
+      });
+
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const activeItem = items[index];
+        if (activeItem) {
+          const newVal = activeItem.dataset.value;
+          if (this.values[key] !== newVal) {
+            this.values[key] = newVal;
+            if (this.onChange) this.onChange(key, newVal, this.values);
+          }
+        }
+      }, 60);
+    };
+
+    colEl.addEventListener("scroll", handleScroll, { passive: true });
+
+    // PCマウスドラッグ対応
+    let isDown = false;
+    let startY = 0;
+    let initialScroll = 0;
+
+    colEl.addEventListener("mousedown", (e) => {
+      isDown = true;
+      startY = e.pageY;
+      initialScroll = colEl.scrollTop;
+    });
+
+    const onMouseUp = () => { isDown = false; };
+    const onMouseMove = (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const deltaY = e.pageY - startY;
+      colEl.scrollTop = initialScroll - deltaY;
+    };
+
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("mousemove", onMouseMove);
+  }
+
+  scrollToValue(key, val, smooth = true) {
+    const colEl = this.colElements[key];
+    if (!colEl) return;
+    const items = Array.from(colEl.querySelectorAll(".drum-picker-item"));
+    let targetIdx = items.findIndex((it) => it.dataset.value === String(val));
+    if (targetIdx === -1) targetIdx = 0;
+
+    const targetTop = targetIdx * this.itemHeight;
+    if (smooth) {
+      colEl.scrollTo({ top: targetTop, behavior: "smooth" });
+    } else {
+      colEl.scrollTop = targetTop;
+    }
+
+    items.forEach((it, idx) => {
+      if (idx === targetIdx) it.classList.add("is-selected");
+      else it.classList.remove("is-selected");
+    });
+    this.values[key] = items[targetIdx]?.dataset.value || "";
+  }
+
+  getValue(key) {
+    return this.values[key];
+  }
+
+  updateColumnItems(key, newItems, preserveValue = true) {
+    const currentVal = this.values[key];
+    let selectedVal = preserveValue ? currentVal : newItems[0]?.value;
+    const exists = newItems.some((it) => it.value === selectedVal);
+    if (!exists) {
+      selectedVal = newItems[newItems.length - 1]?.value || "";
+    }
+    this.values[key] = selectedVal;
+    this.populateColumn(key, newItems, selectedVal);
+    this.scrollToValue(key, selectedVal, false);
+  }
+}
+
 export class CrudController {
   constructor(contentArea) {
     this.container = contentArea;
@@ -379,7 +550,7 @@ export class CrudController {
 
     // ドラム式ピッカー用ヘルパー
     const parseBirthdayParts = (val) => {
-      if (!val) return { month: "", day: "" };
+      if (!val) return { month: "01", day: "01" };
       const str = String(val).trim();
       const m = str.match(/^(\d{1,2})月(\d{1,2})日?$/);
       if (m) {
@@ -389,11 +560,11 @@ export class CrudController {
       if (mIso) {
         return { month: mIso[1], day: mIso[2] };
       }
-      return { month: "", day: "" };
+      return { month: "01", day: "01" };
     };
 
     const parseStreamingParts = (val) => {
-      if (!val) return { year: "", month: "", day: "" };
+      if (!val) return { year: "2000", month: "01", day: "01" };
       const str = String(val).trim();
       const m = str.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
       if (m) {
@@ -407,7 +578,7 @@ export class CrudController {
       if (mSlash) {
         return { year: mSlash[1], month: mSlash[2].padStart(2, "0"), day: mSlash[3].padStart(2, "0") };
       }
-      return { year: "", month: "", day: "" };
+      return { year: "2000", month: "01", day: "01" };
     };
 
     const getDaysInMonth = (year, month) => {
@@ -416,24 +587,26 @@ export class CrudController {
       return new Date(y, Number(month), 0).getDate();
     };
 
-    const updateDayOptions = (daySelect, maxDays, currentSelectedDay) => {
-      const currentVal = currentSelectedDay !== undefined ? currentSelectedDay : daySelect.value;
-      daySelect.innerHTML = '<option value="">日</option>';
-      for (let d = 1; d <= maxDays; d++) {
-        const dStr = String(d).padStart(2, "0");
-        const opt = document.createElement("option");
-        opt.value = dStr;
-        opt.textContent = `${dStr}日`;
-        if (dStr === currentVal) opt.selected = true;
-        daySelect.appendChild(opt);
-      }
+    const generateDayItems = (year, month) => {
+      const days = getDaysInMonth(year, month);
+      return Array.from({ length: days }, (_, i) => {
+        const dStr = String(i + 1).padStart(2, "0");
+        return { value: dStr, label: `${i + 1}日` };
+      });
     };
 
-    const bParts = parseBirthdayParts(profile?.birthday);
-    const bMaxDays = getDaysInMonth(null, bParts.month);
+    const monthItems = Array.from({ length: 12 }, (_, i) => {
+      const mStr = String(i + 1).padStart(2, "0");
+      return { value: mStr, label: `${i + 1}月` };
+    });
 
+    const yearItems = Array.from({ length: 36 }, (_, i) => {
+      const yStr = String(2000 + i);
+      return { value: yStr, label: `${yStr}年` };
+    });
+
+    const bParts = parseBirthdayParts(profile?.birthday);
     const sParts = parseStreamingParts(profile?.streaming);
-    const sMaxDays = getDaysInMonth(sParts.year, sParts.month);
 
     // YouTube動画ID抽出ヘルパー
     const extractYouTubeId = (url) => {
@@ -516,25 +689,10 @@ export class CrudController {
           </summary>
           <div class="admin-profile-accordion-body">
             <!-- 1行目: 誕生日｜年齢｜身長 -->
-            <div class="admin-grid-3">
+            <div class="admin-grid-3" style="align-items: start;">
               <div class="admin-form-group">
-                <label class="admin-form-label">誕生日 (MM月DD日)</label>
-                <div style="display: flex; gap: 8px;">
-                  <select class="admin-form-input" id="profile-birthday-month" style="flex: 1;">
-                    <option value="">月</option>
-                    ${Array.from({ length: 12 }, (_, i) => {
-                      const m = String(i + 1).padStart(2, "0");
-                      return `<option value="${m}" ${bParts.month === m ? "selected" : ""}>${m}月</option>`;
-                    }).join("")}
-                  </select>
-                  <select class="admin-form-input" id="profile-birthday-day" style="flex: 1;">
-                    <option value="">日</option>
-                    ${Array.from({ length: bMaxDays }, (_, i) => {
-                      const d = String(i + 1).padStart(2, "0");
-                      return `<option value="${d}" ${bParts.day === d ? "selected" : ""}>${d}日</option>`;
-                    }).join("")}
-                  </select>
-                </div>
+                <label class="admin-form-label">誕生日</label>
+                <div id="profile-birthday-drum-mount"></div>
               </div>
               <div class="admin-form-group">
                 <label class="admin-form-label">年齢</label>
@@ -547,32 +705,10 @@ export class CrudController {
             </div>
 
             <!-- 2行目: 活動開始日｜ファンネーム -->
-            <div class="admin-grid-2">
+            <div class="admin-grid-2" style="align-items: start; margin-top: 12px;">
               <div class="admin-form-group" style="margin-bottom: 0;">
-                <label class="admin-form-label">活動開始日 (YYYY年MM月DD日)</label>
-                <div style="display: flex; gap: 8px;">
-                  <select class="admin-form-input" id="profile-streaming-year" style="flex: 1.2;">
-                    <option value="">年</option>
-                    ${Array.from({ length: 36 }, (_, i) => {
-                      const y = String(2000 + i);
-                      return `<option value="${y}" ${sParts.year === y ? "selected" : ""}>${y}年</option>`;
-                    }).join("")}
-                  </select>
-                  <select class="admin-form-input" id="profile-streaming-month" style="flex: 1;">
-                    <option value="">月</option>
-                    ${Array.from({ length: 12 }, (_, i) => {
-                      const m = String(i + 1).padStart(2, "0");
-                      return `<option value="${m}" ${sParts.month === m ? "selected" : ""}>${m}月</option>`;
-                    }).join("")}
-                  </select>
-                  <select class="admin-form-input" id="profile-streaming-day" style="flex: 1;">
-                    <option value="">日</option>
-                    ${Array.from({ length: sMaxDays }, (_, i) => {
-                      const d = String(i + 1).padStart(2, "0");
-                      return `<option value="${d}" ${sParts.day === d ? "selected" : ""}>${d}日</option>`;
-                    }).join("")}
-                  </select>
-                </div>
+                <label class="admin-form-label">活動開始日</label>
+                <div id="profile-streaming-drum-mount"></div>
               </div>
               <div class="admin-form-group" style="margin-bottom: 0;">
                 <label class="admin-form-label">ファンネーム</label>
@@ -680,27 +816,50 @@ export class CrudController {
       });
     });
 
-    // 誕生日の月変更時に日の選択肢を動的更新
-    const bMonthSelect = form.querySelector("#profile-birthday-month");
-    const bDaySelect = form.querySelector("#profile-birthday-day");
-    if (bMonthSelect && bDaySelect) {
-      bMonthSelect.addEventListener("change", () => {
-        const days = getDaysInMonth(null, bMonthSelect.value);
-        updateDayOptions(bDaySelect, days);
+    // 誕生日のドラムロールマウント
+    const birthdayMount = form.querySelector("#profile-birthday-drum-mount");
+    let birthdayPicker = null;
+    if (birthdayMount) {
+      birthdayPicker = new DrumRollPicker({
+        container: birthdayMount,
+        columns: [
+          { key: "month", items: monthItems },
+          { key: "day", items: generateDayItems(null, bParts.month) }
+        ],
+        initialValues: {
+          month: bParts.month,
+          day: bParts.day
+        },
+        onChange: (key, newVal, vals) => {
+          if (key === "month") {
+            birthdayPicker.updateColumnItems("day", generateDayItems(null, newVal));
+          }
+        }
       });
     }
 
-    // 活動開始日の年・月変更時に日の選択肢を動的更新
-    const sYearSelect = form.querySelector("#profile-streaming-year");
-    const sMonthSelect = form.querySelector("#profile-streaming-month");
-    const sDaySelect = form.querySelector("#profile-streaming-day");
-    if (sYearSelect && sMonthSelect && sDaySelect) {
-      const handleStreamingChange = () => {
-        const days = getDaysInMonth(sYearSelect.value, sMonthSelect.value);
-        updateDayOptions(sDaySelect, days);
-      };
-      sYearSelect.addEventListener("change", handleStreamingChange);
-      sMonthSelect.addEventListener("change", handleStreamingChange);
+    // 活動開始日のドラムロールマウント
+    const streamingMount = form.querySelector("#profile-streaming-drum-mount");
+    let streamingPicker = null;
+    if (streamingMount) {
+      streamingPicker = new DrumRollPicker({
+        container: streamingMount,
+        columns: [
+          { key: "year", items: yearItems },
+          { key: "month", items: monthItems },
+          { key: "day", items: generateDayItems(sParts.year, sParts.month) }
+        ],
+        initialValues: {
+          year: sParts.year,
+          month: sParts.month,
+          day: sParts.day
+        },
+        onChange: (key, newVal, vals) => {
+          if (key === "year" || key === "month") {
+            streamingPicker.updateColumnItems("day", generateDayItems(vals.year, vals.month));
+          }
+        }
+      });
     }
 
     // フォーム送信処理
@@ -718,22 +877,18 @@ export class CrudController {
       payload.height = payload.height ? Number(payload.height) : null;
 
       // 誕生日の整形 (MM月DD日)
-      const bMonthEl = document.getElementById("profile-birthday-month");
-      const bDayEl = document.getElementById("profile-birthday-day");
-      if (bMonthEl?.value && bDayEl?.value) {
-        payload.birthday = `${bMonthEl.value}月${bDayEl.value}日`;
-      } else if (!bMonthEl?.value && !bDayEl?.value) {
-        payload.birthday = null;
+      if (birthdayPicker) {
+        const m = birthdayPicker.getValue("month");
+        const d = birthdayPicker.getValue("day");
+        payload.birthday = (m && d) ? `${m}月${d}日` : null;
       }
 
       // 活動開始日の整形 (YYYY年MM月DD日)
-      const sYearEl = document.getElementById("profile-streaming-year");
-      const sMonthEl = document.getElementById("profile-streaming-month");
-      const sDayEl = document.getElementById("profile-streaming-day");
-      if (sYearEl?.value && sMonthEl?.value && sDayEl?.value) {
-        payload.streaming = `${sYearEl.value}年${sMonthEl.value}月${sDayEl.value}日`;
-      } else if (!sYearEl?.value && !sMonthEl?.value && !sDayEl?.value) {
-        payload.streaming = null;
+      if (streamingPicker) {
+        const y = streamingPicker.getValue("year");
+        const m = streamingPicker.getValue("month");
+        const d = streamingPicker.getValue("day");
+        payload.streaming = (y && m && d) ? `${y}年${m}月${d}日` : null;
       }
 
       // platforms 配列の整形
