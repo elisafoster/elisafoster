@@ -377,6 +377,57 @@ export class CrudController {
     form.style.flexDirection = "column";
     form.style.gap = "20px";
 
+    // 日付フォーマット変換ヘルパー
+    const formatBirthdayForInput = (val) => {
+      if (!val) return "";
+      const str = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const m = str.match(/^(\d{1,2})月(\d{1,2})日?$/);
+      if (m) {
+        return `2000-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+      }
+      const mYear = str.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
+      if (mYear) {
+        return `${mYear[1]}-${mYear[2].padStart(2, "0")}-${mYear[3].padStart(2, "0")}`;
+      }
+      return "";
+    };
+
+    const formatBirthdayForSave = (val) => {
+      if (!val) return null;
+      const str = String(val).trim();
+      const m = str.match(/^\d{4}-(\d{2})-(\d{2})$/);
+      if (m) {
+        return `${m[1]}月${m[2]}日`;
+      }
+      return str;
+    };
+
+    const formatStreamingForInput = (val) => {
+      if (!val) return "";
+      const str = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const m = str.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
+      if (m) {
+        return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+      }
+      const mSlash = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+      if (mSlash) {
+        return `${mSlash[1]}-${mSlash[2].padStart(2, "0")}-${mSlash[3].padStart(2, "0")}`;
+      }
+      return "";
+    };
+
+    const formatStreamingForSave = (val) => {
+      if (!val) return null;
+      const str = String(val).trim();
+      const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) {
+        return `${m[1]}年${m[2]}月${m[3]}日`;
+      }
+      return str;
+    };
+
     // YouTube動画ID抽出ヘルパー
     const extractYouTubeId = (url) => {
       if (!url || typeof url !== "string") return null;
@@ -461,7 +512,7 @@ export class CrudController {
             <div class="admin-grid-3">
               <div class="admin-form-group">
                 <label class="admin-form-label">誕生日</label>
-                <input class="admin-form-input" name="birthday" value="${profile?.birthday || ""}" placeholder="01月01日" />
+                <input class="admin-form-input" type="date" name="birthday" value="${formatBirthdayForInput(profile?.birthday)}" />
               </div>
               <div class="admin-form-group">
                 <label class="admin-form-label">年齢</label>
@@ -477,7 +528,7 @@ export class CrudController {
             <div class="admin-grid-2">
               <div class="admin-form-group" style="margin-bottom: 0;">
                 <label class="admin-form-label">活動開始日</label>
-                <input class="admin-form-input" name="streaming" value="${profile?.streaming || ""}" placeholder="2024年01月01日" />
+                <input class="admin-form-input" type="date" name="streaming" value="${formatStreamingForInput(profile?.streaming)}" />
               </div>
               <div class="admin-form-group" style="margin-bottom: 0;">
                 <label class="admin-form-label">ファンネーム</label>
@@ -598,6 +649,14 @@ export class CrudController {
       // 数値変換
       payload.age = payload.age ? Number(payload.age) : null;
       payload.height = payload.height ? Number(payload.height) : null;
+
+      // 日付の整形（ピッカー値 YYYY-MM-DD からスキーマ仕様の日本語フォーマットへ）
+      if (payload.birthday) {
+        payload.birthday = formatBirthdayForSave(payload.birthday);
+      }
+      if (payload.streaming) {
+        payload.streaming = formatStreamingForSave(payload.streaming);
+      }
 
       // platforms 配列の整形
       const updatedPlatforms = [];

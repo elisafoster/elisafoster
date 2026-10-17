@@ -120,10 +120,23 @@ export class ProfileSection {
     const twoColCards = document.createElement("div");
     twoColCards.className = "lp-profile-two-cards-grid";
 
+    const formatDisplayBirthday = (val) => {
+      if (!val) return "";
+      const m = String(val).match(/^\d{4}-(\d{2})-(\d{2})$/);
+      if (m) return `${m[1]}月${m[2]}日`;
+      return val;
+    };
+    const formatDisplayStreaming = (val) => {
+      if (!val) return "";
+      const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return `${m[1]}年${m[2]}月${m[3]}日`;
+      return val;
+    };
+
     // ⑤ PROFILE SPECS
     const specs = [
-      { icon: "🎂", label: "誕生日", value: this.profile.birthday },
-      { icon: "🚀", label: "活動開始日", value: this.profile.streaming },
+      { icon: "🎂", label: "誕生日", value: formatDisplayBirthday(this.profile.birthday) },
+      { icon: "🚀", label: "活動開始日", value: formatDisplayStreaming(this.profile.streaming) },
       { icon: "✨", label: "年齢", value: this.profile.age ? `${this.profile.age} 歳` : null },
       { icon: "📏", label: "身長", value: this.profile.height ? `${this.profile.height} cm` : null },
       { icon: "💫", label: "ファンネーム", value: this.profile.fanName },
