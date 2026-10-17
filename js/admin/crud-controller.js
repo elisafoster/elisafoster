@@ -361,12 +361,17 @@ export class CrudController {
       <div class="admin-card-header">
         <div class="admin-card-title-group">
           <h2 class="admin-card-title">基本プロフィール設定</h2>
-          <p class="admin-card-desc">プロフィール各項目の設定 (profile テーブル id=1)</p>
+        </div>
+        <div class="admin-card-actions">
+          <button type="submit" form="admin-profile-form" class="app-btn app-btn-primary" style="padding: 8px 18px; font-size: 0.88rem; font-weight: 700;">
+            プロフィール情報を更新
+          </button>
         </div>
       </div>
     `;
 
     const form = document.createElement("form");
+    form.id = "admin-profile-form";
     form.style.padding = "24px";
     form.style.display = "flex";
     form.style.flexDirection = "column";
@@ -504,9 +509,9 @@ export class CrudController {
               </div>
             </div>
 
-            <!-- 2行目: 追加プラットフォームURL（platformsカラムの3枠を横並び） -->
+            <!-- 2行目: 追加プラットフォームURL -->
             <div class="admin-form-group" style="margin-bottom: 0;">
-              <label class="admin-form-label">追加プラットフォームURL (platformsカラム・3枠横並び)</label>
+              <label class="admin-form-label">追加プラットフォームURL</label>
               <div class="admin-grid-3">
                 ${[0, 1, 2].map((i) => `
                   <div class="admin-subcard">
@@ -538,9 +543,9 @@ export class CrudController {
             <span class="admin-profile-accordion-arrow">▼</span>
           </summary>
           <div class="admin-profile-accordion-body">
-            <!-- 紹介動画（movesカラムの3枠を横並び）/プレビュー ※URL入力欄とプレビューで2段表示 -->
+            <!-- 紹介動画/プレビュー ※URL入力欄とプレビューで2段表示 -->
             <div class="admin-form-group" style="margin-bottom: 0;">
-              <label class="admin-form-label">紹介動画（movesカラム・3枠横並び）</label>
+              <label class="admin-form-label">紹介動画</label>
               <div class="admin-grid-3">
                 ${[0, 1, 2].map((i) => `
                   <div class="admin-subcard">
@@ -566,13 +571,6 @@ export class CrudController {
           </div>
         </details>
 
-      </div>
-
-      <!-- 更新ボタン -->
-      <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-        <button type="submit" class="app-btn app-btn-primary" style="padding: 12px 28px; font-size: 0.95rem; font-weight: 700;">
-          プロフィール情報を更新
-        </button>
       </div>
     `;
 
