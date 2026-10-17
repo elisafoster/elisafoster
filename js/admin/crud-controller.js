@@ -25,6 +25,18 @@ export class CrudController {
         case "profile":
           await this.renderProfileTab();
           break;
+        case "visual":
+          await this.renderTableListTab("visual", "立ち絵・衣装一覧 (visual テーブル)", [
+            "id",
+            "costumeName",
+            "visual",
+            "defoemed",
+            "costumeThumbnail",
+            "outLine",
+            "topLine",
+            "priority"
+          ]);
+          break;
         case "event":
           await this.renderTableListTab("event", "イベントバナー管理", ["id", "banner", "link", "start_at", "end_at"]);
           break;
@@ -328,13 +340,20 @@ export class CrudController {
   }
 
   /**
-   * 2. プロフィール管理タブ (profile & visual)
+   * 2. プロフィール管理タブ (アコーディオン開閉 & カスタムグリッド配置)
    */
   async renderProfileTab() {
-    const [profile, visuals] = await Promise.all([
-      api.getTable("profile", 1),
-      api.getTable("visual"),
-    ]);
+    const profile = await api.getTable("profile", 1);
+
+    // 配列データの正規化
+    let platforms = Array.isArray(profile?.platforms) ? profile.platforms : [];
+    if (typeof platforms === "string") {
+      try { platforms = JSON.parse(platforms); } catch (e) { platforms = []; }
+    }
+    let moves = Array.isArray(profile?.moves) ? profile.moves : [];
+    if (typeof moves === "string") {
+      try { moves = JSON.parse(moves); } catch (e) { moves = []; }
+    }
 
     const card = document.createElement("div");
     card.className = "admin-card";
@@ -342,107 +361,277 @@ export class CrudController {
       <div class="admin-card-header">
         <div class="admin-card-title-group">
           <h2 class="admin-card-title">基本プロフィール設定</h2>
-          <p class="admin-card-desc">profile テーブル (id=1)</p>
+          <p class="admin-card-desc">プロフィール各項目の設定 (profile テーブル id=1)</p>
         </div>
       </div>
     `;
 
     const form = document.createElement("form");
     form.style.padding = "24px";
+    form.style.display = "flex";
+    form.style.flexDirection = "column";
+    form.style.gap = "20px";
+
+    // YouTube動画ID抽出ヘルパー
+    const extractYouTubeId = (url) => {
+      if (!url || typeof url !== "string") return null;
+      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
+      return match ? match[1] : null;
+    };
+
+    // プレビュー生成ヘルパー
+    const renderPreviewHtml = (url) => {
+      const videoId = extractYouTubeId(url);
+      if (videoId) {
+        return `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" class="admin-video-preview-iframe" allowfullscreen loading="lazy"></iframe>`;
+      }
+      return `
+        <div class="admin-video-preview-empty">
+          <span class="admin-video-preview-empty-icon">🎬</span>
+          <span>動画URLを入力するとプレビューが表示されます</span>
+        </div>
+      `;
+    };
+
     form.innerHTML = `
-      <div class="admin-form-group">
-        <label class="admin-form-label">名前</label>
-        <input class="admin-form-input" name="name" value="${profile?.name || ""}" required />
+      <div class="admin-profile-accordion-list">
+        
+        <!-- # 基本プロフィール -->
+        <details class="admin-profile-accordion" open>
+          <summary class="admin-profile-accordion-summary">
+            <div class="admin-profile-accordion-title">
+              <span class="admin-profile-accordion-icon">👤</span>
+              <span>基本プロフィール</span>
+            </div>
+            <span class="admin-profile-accordion-arrow">▼</span>
+          </summary>
+          <div class="admin-profile-accordion-body">
+            <!-- 1行目: 名前｜ふりがな｜ローマ字 -->
+            <div class="admin-grid-3">
+              <div class="admin-form-group">
+                <label class="admin-form-label">名前 <span class="admin-form-label-required">*必須</span></label>
+                <input class="admin-form-input" name="name" value="${profile?.name || ""}" required placeholder="名前" />
+              </div>
+              <div class="admin-form-group">
+                <label class="admin-form-label">ふりがな</label>
+                <input class="admin-form-input" name="pronunciation" value="${profile?.pronunciation || ""}" placeholder="ふりがな" />
+              </div>
+              <div class="admin-form-group">
+                <label class="admin-form-label">ローマ字</label>
+                <input class="admin-form-input" name="romanization" value="${profile?.romanization || ""}" placeholder="ROMAJI" />
+              </div>
+            </div>
+
+            <!-- 2行目: ニックネーム｜キャッチフレーズ -->
+            <div class="admin-grid-2">
+              <div class="admin-form-group">
+                <label class="admin-form-label">ニックネーム</label>
+                <input class="admin-form-input" name="nickname" value="${profile?.nickname || ""}" placeholder="ニックネーム" />
+              </div>
+              <div class="admin-form-group">
+                <label class="admin-form-label">キャッチフレーズ</label>
+                <input class="admin-form-input" name="comment" value="${profile?.comment || ""}" placeholder="キャッチフレーズ" />
+              </div>
+            </div>
+
+            <!-- 3行目: 自己紹介文 -->
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">自己紹介文</label>
+              <textarea class="admin-form-textarea" name="message" rows="4" placeholder="自己紹介文を入力してください">${profile?.message || ""}</textarea>
+            </div>
+          </div>
+        </details>
+
+        <!-- # ステータス -->
+        <details class="admin-profile-accordion" open>
+          <summary class="admin-profile-accordion-summary">
+            <div class="admin-profile-accordion-title">
+              <span class="admin-profile-accordion-icon">📊</span>
+              <span>ステータス</span>
+            </div>
+            <span class="admin-profile-accordion-arrow">▼</span>
+          </summary>
+          <div class="admin-profile-accordion-body">
+            <!-- 1行目: 誕生日｜年齢｜身長 -->
+            <div class="admin-grid-3">
+              <div class="admin-form-group">
+                <label class="admin-form-label">誕生日</label>
+                <input class="admin-form-input" name="birthday" value="${profile?.birthday || ""}" placeholder="01月01日" />
+              </div>
+              <div class="admin-form-group">
+                <label class="admin-form-label">年齢</label>
+                <input class="admin-form-input" type="number" name="age" value="${profile?.age ?? ""}" placeholder="年齢 (数値)" />
+              </div>
+              <div class="admin-form-group">
+                <label class="admin-form-label">身長 (cm)</label>
+                <input class="admin-form-input" type="number" step="0.1" name="height" value="${profile?.height ?? ""}" placeholder="身長 (数値)" />
+              </div>
+            </div>
+
+            <!-- 2行目: 活動開始日｜ファンネーム -->
+            <div class="admin-grid-2">
+              <div class="admin-form-group" style="margin-bottom: 0;">
+                <label class="admin-form-label">活動開始日</label>
+                <input class="admin-form-input" name="streaming" value="${profile?.streaming || ""}" placeholder="2024年01月01日" />
+              </div>
+              <div class="admin-form-group" style="margin-bottom: 0;">
+                <label class="admin-form-label">ファンネーム</label>
+                <input class="admin-form-input" name="fanName" value="${profile?.fanName || ""}" placeholder="ファンネーム" />
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- # 活動プラットフォーム -->
+        <details class="admin-profile-accordion" open>
+          <summary class="admin-profile-accordion-summary">
+            <div class="admin-profile-accordion-title">
+              <span class="admin-profile-accordion-icon">🌐</span>
+              <span>活動プラットフォーム</span>
+            </div>
+            <span class="admin-profile-accordion-arrow">▼</span>
+          </summary>
+          <div class="admin-profile-accordion-body">
+            <!-- 1行目: YouTubeチャンネル｜𝕏 (旧Twitter) -->
+            <div class="admin-grid-2">
+              <div class="admin-form-group">
+                <label class="admin-form-label">YouTubeチャンネルURL</label>
+                <input class="admin-form-input" name="youtubeUrl" value="${profile?.youtubeUrl || ""}" placeholder="https://www.youtube.com/@..." />
+              </div>
+              <div class="admin-form-group">
+                <label class="admin-form-label">𝕏 (旧Twitter) URL</label>
+                <input class="admin-form-input" name="xUrl" value="${profile?.xUrl || ""}" placeholder="https://x.com/..." />
+              </div>
+            </div>
+
+            <!-- 2行目: 追加プラットフォームURL（platformsカラムの3枠を横並び） -->
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">追加プラットフォームURL (platformsカラム・3枠横並び)</label>
+              <div class="admin-grid-3">
+                ${[0, 1, 2].map((i) => `
+                  <div class="admin-subcard">
+                    <div class="admin-subcard-header">
+                      <span>枠 ${i + 1}</span>
+                    </div>
+                    <div>
+                      <span class="admin-form-sublabel">名称 (例: TikTok, Twitch)</span>
+                      <input class="admin-form-input" id="platform-name-${i}" value="${platforms[i]?.name || ""}" placeholder="プラットフォーム名" />
+                    </div>
+                    <div>
+                      <span class="admin-form-sublabel">URL (https://...)</span>
+                      <input class="admin-form-input" id="platform-link-${i}" value="${platforms[i]?.link || ""}" placeholder="https://..." />
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- # 紹介動画 -->
+        <details class="admin-profile-accordion" open>
+          <summary class="admin-profile-accordion-summary">
+            <div class="admin-profile-accordion-title">
+              <span class="admin-profile-accordion-icon">🎬</span>
+              <span>紹介動画</span>
+            </div>
+            <span class="admin-profile-accordion-arrow">▼</span>
+          </summary>
+          <div class="admin-profile-accordion-body">
+            <!-- 紹介動画（movesカラムの3枠を横並び）/プレビュー ※URL入力欄とプレビューで2段表示 -->
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">紹介動画（movesカラム・3枠横並び）</label>
+              <div class="admin-grid-3">
+                ${[0, 1, 2].map((i) => `
+                  <div class="admin-subcard">
+                    <div class="admin-subcard-header">
+                      <span>動画枠 ${i + 1}</span>
+                    </div>
+                    <!-- 1段目: URL入力欄 -->
+                    <div>
+                      <span class="admin-form-sublabel">YouTube動画URL</span>
+                      <input class="admin-form-input admin-move-input" data-index="${i}" id="move-url-${i}" value="${moves[i] || ""}" placeholder="https://www.youtube.com/watch?v=..." />
+                    </div>
+                    <!-- 2段目: プレビュー -->
+                    <div>
+                      <span class="admin-form-sublabel">プレビュー</span>
+                      <div class="admin-video-preview-wrap" id="move-preview-${i}">
+                        ${renderPreviewHtml(moves[i] || "")}
+                      </div>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        </details>
+
       </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">名前(ふりがな)</label>
-        <input class="admin-form-input" name="pronunciation" value="${profile?.pronunciation || ""}" />
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">名前(ローマ字)</label>
-        <input class="admin-form-input" name="romanization" value="${profile?.romanization || ""}" />
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">ニックネーム</label>
-        <input class="admin-form-input" name="nickname" value="${profile?.nickname || ""}" />
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">キャッチフレーズ</label>
-        <input class="admin-form-input" name="comment" value="${profile?.comment || ""}" />
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">自己紹介文</label>
-        <textarea class="admin-form-textarea" name="message">${profile?.message || ""}</textarea>
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <div class="admin-form-group">
-          <label class="admin-form-label">誕生日</label>
-          <input class="admin-form-input" name="birthday" value="${profile?.birthday || ""}" placeholder="01月01日" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">活動開始日</label>
-          <input class="admin-form-input" name="streaming" value="${profile?.streaming || ""}" placeholder="2024年01月01日" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">年齢</label>
-          <input class="admin-form-input" type="number" name="age" value="${profile?.age || ""}" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">身長 (cm)</label>
-          <input class="admin-form-input" type="number" name="height" value="${profile?.height || ""}" />
-        </div>
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">ファンネーム</label>
-        <input class="admin-form-input" name="fanName" value="${profile?.fanName || ""}" />
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">YouTubeチャンネルURL</label>
-        <input class="admin-form-input" name="youtubeUrl" value="${profile?.youtubeUrl || ""}" />
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">𝕏 (旧Twitter) URL</label>
-        <input class="admin-form-input" name="xUrl" value="${profile?.xUrl || ""}" />
-      </div>
-      <div style="margin-top: 20px;">
-        <button type="submit" class="app-btn app-btn-primary">プロフィール情報を更新</button>
+
+      <!-- 更新ボタン -->
+      <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+        <button type="submit" class="app-btn app-btn-primary" style="padding: 12px 28px; font-size: 0.95rem; font-weight: 700;">
+          プロフィール情報を更新
+        </button>
       </div>
     `;
 
+    // 紹介動画のリアルタイムプレビューバインド
+    form.querySelectorAll(".admin-move-input").forEach((input) => {
+      input.addEventListener("input", () => {
+        const idx = input.getAttribute("data-index");
+        const previewEl = document.getElementById(`move-preview-${idx}`);
+        if (previewEl) {
+          previewEl.innerHTML = renderPreviewHtml(input.value.trim());
+        }
+      });
+    });
+
+    // フォーム送信処理
     form.onsubmit = async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
       const payload = { ...profile };
+
       for (const [k, v] of formData.entries()) {
         payload[k] = v;
       }
+
+      // 数値変換
+      payload.age = payload.age ? Number(payload.age) : null;
+      payload.height = payload.height ? Number(payload.height) : null;
+
+      // platforms 配列の整形
+      const updatedPlatforms = [];
+      for (let i = 0; i < 3; i++) {
+        const nameEl = document.getElementById(`platform-name-${i}`);
+        const linkEl = document.getElementById(`platform-link-${i}`);
+        const name = nameEl ? nameEl.value.trim() : "";
+        const link = linkEl ? linkEl.value.trim() : "";
+        if (link) {
+          updatedPlatforms.push({ name: name || null, link });
+        }
+      }
+      payload.platforms = updatedPlatforms;
+
+      // moves 配列の整形
+      const updatedMoves = [];
+      for (let i = 0; i < 3; i++) {
+        const moveEl = document.getElementById(`move-url-${i}`);
+        const url = moveEl ? moveEl.value.trim() : "";
+        if (url) {
+          updatedMoves.push(url);
+        }
+      }
+      payload.moves = updatedMoves;
+
       await api.saveTable("profile", payload, 1);
     };
 
     card.appendChild(form);
 
-    // 立ち絵（visual）管理一覧エリアの併設
-    const visualSection = document.createElement("div");
-    visualSection.style.marginTop = "32px";
-    visualSection.innerHTML = `
-      <div class="admin-card">
-        <div class="admin-card-header">
-          <div class="admin-card-title-group">
-            <h3 class="admin-card-title">立ち絵・衣装一覧 (visual テーブル)</h3>
-            <p class="admin-card-desc">立ち絵・デフォルメ・サムネイルの切り替え設定</p>
-          </div>
-          <button id="btn-add-visual" class="app-btn app-btn-primary">+ 衣装・立ち絵を追加</button>
-        </div>
-      </div>
-    `;
-
     this.container.innerHTML = "";
     this.container.appendChild(card);
-    this.container.appendChild(visualSection);
-
-    document.getElementById("btn-add-visual").onclick = () => {
-      this.openEditModal("visual", null);
-    };
   }
 
   /**
