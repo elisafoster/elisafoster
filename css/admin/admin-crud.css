@@ -486,3 +486,71 @@
   z-index: 3;
 }
 
+/* ドロップダウン型ドラムロール用 */
+.drum-picker-dropdown-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.drum-picker-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.drum-picker-trigger {
+  cursor: pointer !important;
+  padding-right: 36px !important;
+}
+
+.drum-picker-trigger-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 0.95rem;
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
+.drum-picker-dropdown-wrapper:hover .drum-picker-trigger-icon {
+  opacity: 1;
+}
+
+.drum-picker-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  min-width: 260px;
+  max-width: 340px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: drumPopoverFadeIn 0.15s ease forwards;
+}
+
+@keyframes drumPopoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drum-picker-popover-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+}
+

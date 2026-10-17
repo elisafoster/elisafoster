@@ -689,10 +689,30 @@ export class CrudController {
           </summary>
           <div class="admin-profile-accordion-body">
             <!-- 1行目: 誕生日｜年齢｜身長 -->
-            <div class="admin-grid-3" style="align-items: start;">
+            <div class="admin-grid-3">
               <div class="admin-form-group">
                 <label class="admin-form-label">誕生日</label>
-                <div id="profile-birthday-drum-mount"></div>
+                <div class="drum-picker-dropdown-wrapper" id="profile-birthday-wrapper">
+                  <div class="drum-picker-input-wrap">
+                    <input
+                      type="text"
+                      class="admin-form-input drum-picker-trigger"
+                      id="profile-birthday-input"
+                      name="birthday"
+                      value="${profile?.birthday || ""}"
+                      placeholder="月日を選択"
+                      readonly
+                    />
+                    <span class="drum-picker-trigger-icon">📅</span>
+                  </div>
+                  <!-- プルダウンポップオーバー -->
+                  <div class="drum-picker-popover" id="profile-birthday-popover" style="display: none;">
+                    <div class="drum-picker-mount" id="profile-birthday-drum-mount"></div>
+                    <div class="drum-picker-popover-footer">
+                      <button type="button" class="app-btn app-btn-secondary" id="profile-birthday-close-btn" style="padding: 4px 14px; font-size: 0.8rem;">完了</button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="admin-form-group">
                 <label class="admin-form-label">年齢</label>
@@ -705,10 +725,30 @@ export class CrudController {
             </div>
 
             <!-- 2行目: 活動開始日｜ファンネーム -->
-            <div class="admin-grid-2" style="align-items: start; margin-top: 12px;">
+            <div class="admin-grid-2">
               <div class="admin-form-group" style="margin-bottom: 0;">
                 <label class="admin-form-label">活動開始日</label>
-                <div id="profile-streaming-drum-mount"></div>
+                <div class="drum-picker-dropdown-wrapper" id="profile-streaming-wrapper">
+                  <div class="drum-picker-input-wrap">
+                    <input
+                      type="text"
+                      class="admin-form-input drum-picker-trigger"
+                      id="profile-streaming-input"
+                      name="streaming"
+                      value="${profile?.streaming || ""}"
+                      placeholder="年月日を選択"
+                      readonly
+                    />
+                    <span class="drum-picker-trigger-icon">📅</span>
+                  </div>
+                  <!-- プルダウンポップオーバー -->
+                  <div class="drum-picker-popover" id="profile-streaming-popover" style="display: none;">
+                    <div class="drum-picker-mount" id="profile-streaming-drum-mount"></div>
+                    <div class="drum-picker-popover-footer">
+                      <button type="button" class="app-btn app-btn-secondary" id="profile-streaming-close-btn" style="padding: 4px 14px; font-size: 0.8rem;">完了</button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="admin-form-group" style="margin-bottom: 0;">
                 <label class="admin-form-label">ファンネーム</label>
@@ -816,9 +856,13 @@ export class CrudController {
       });
     });
 
-    // 誕生日のドラムロールマウント
+    // 誕生日のドラムロールマウント & ポップオーバー制御
+    const birthdayInput = form.querySelector("#profile-birthday-input");
+    const birthdayPopover = form.querySelector("#profile-birthday-popover");
+    const birthdayCloseBtn = form.querySelector("#profile-birthday-close-btn");
     const birthdayMount = form.querySelector("#profile-birthday-drum-mount");
     let birthdayPicker = null;
+
     if (birthdayMount) {
       birthdayPicker = new DrumRollPicker({
         container: birthdayMount,
@@ -834,13 +878,20 @@ export class CrudController {
           if (key === "month") {
             birthdayPicker.updateColumnItems("day", generateDayItems(null, newVal));
           }
+          if (birthdayInput) {
+            birthdayInput.value = `${vals.month}月${vals.day}日`;
+          }
         }
       });
     }
 
-    // 活動開始日のドラムロールマウント
+    // 活動開始日のドラムロールマウント & ポップオーバー制御
+    const streamingInput = form.querySelector("#profile-streaming-input");
+    const streamingPopover = form.querySelector("#profile-streaming-popover");
+    const streamingCloseBtn = form.querySelector("#profile-streaming-close-btn");
     const streamingMount = form.querySelector("#profile-streaming-drum-mount");
     let streamingPicker = null;
+
     if (streamingMount) {
       streamingPicker = new DrumRollPicker({
         container: streamingMount,
@@ -858,9 +909,69 @@ export class CrudController {
           if (key === "year" || key === "month") {
             streamingPicker.updateColumnItems("day", generateDayItems(vals.year, vals.month));
           }
+          if (streamingInput) {
+            streamingInput.value = `${vals.year}年${vals.month}月${vals.day}日`;
+          }
         }
       });
     }
+
+    if (birthdayInput && birthdayPopover) {
+      birthdayInput.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (streamingPopover) streamingPopover.style.display = "none";
+        const isOpen = birthdayPopover.style.display !== "none";
+        birthdayPopover.style.display = isOpen ? "none" : "flex";
+        if (!isOpen && birthdayPicker) {
+          const parts = parseBirthdayParts(birthdayInput.value);
+          birthdayPicker.scrollToValue("month", parts.month, false);
+          birthdayPicker.scrollToValue("day", parts.day, false);
+        }
+      });
+
+      if (birthdayCloseBtn) {
+        birthdayCloseBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          birthdayPopover.style.display = "none";
+        });
+      }
+
+      birthdayPopover.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+    }
+
+    if (streamingInput && streamingPopover) {
+      streamingInput.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (birthdayPopover) birthdayPopover.style.display = "none";
+        const isOpen = streamingPopover.style.display !== "none";
+        streamingPopover.style.display = isOpen ? "none" : "flex";
+        if (!isOpen && streamingPicker) {
+          const parts = parseStreamingParts(streamingInput.value);
+          streamingPicker.scrollToValue("year", parts.year, false);
+          streamingPicker.scrollToValue("month", parts.month, false);
+          streamingPicker.scrollToValue("day", parts.day, false);
+        }
+      });
+
+      if (streamingCloseBtn) {
+        streamingCloseBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          streamingPopover.style.display = "none";
+        });
+      }
+
+      streamingPopover.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+    }
+
+    // 画面外クリック時にポップオーバーを閉じる
+    document.addEventListener("click", () => {
+      if (birthdayPopover) birthdayPopover.style.display = "none";
+      if (streamingPopover) streamingPopover.style.display = "none";
+    });
 
     // フォーム送信処理
     form.onsubmit = async (e) => {
@@ -877,18 +988,17 @@ export class CrudController {
       payload.height = payload.height ? Number(payload.height) : null;
 
       // 誕生日の整形 (MM月DD日)
-      if (birthdayPicker) {
-        const m = birthdayPicker.getValue("month");
-        const d = birthdayPicker.getValue("day");
-        payload.birthday = (m && d) ? `${m}月${d}日` : null;
+      if (birthdayInput?.value) {
+        payload.birthday = birthdayInput.value.trim();
+      } else {
+        payload.birthday = null;
       }
 
       // 活動開始日の整形 (YYYY年MM月DD日)
-      if (streamingPicker) {
-        const y = streamingPicker.getValue("year");
-        const m = streamingPicker.getValue("month");
-        const d = streamingPicker.getValue("day");
-        payload.streaming = (y && m && d) ? `${y}年${m}月${d}日` : null;
+      if (streamingInput?.value) {
+        payload.streaming = streamingInput.value.trim();
+      } else {
+        payload.streaming = null;
       }
 
       // platforms 配列の整形
