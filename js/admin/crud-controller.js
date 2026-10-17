@@ -118,6 +118,38 @@ class DrumRollPicker {
 
     colEl.addEventListener("scroll", handleScroll, { passive: true });
 
+    // マウスホイールによるスクロール制御 (1ノッチにつき1項目ずつ移動)
+    let isWheeling = false;
+    colEl.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (Math.abs(e.deltaY) < 1) return;
+        if (isWheeling) return;
+        isWheeling = true;
+
+        const items = colEl.querySelectorAll(".drum-picker-item");
+        const maxIdx = items.length - 1;
+        const currentIdx = Math.round(colEl.scrollTop / this.itemHeight);
+        const dir = e.deltaY > 0 ? 1 : -1;
+        const nextIdx = Math.max(0, Math.min(maxIdx, currentIdx + dir));
+
+        if (nextIdx !== currentIdx) {
+          colEl.scrollTo({
+            top: nextIdx * this.itemHeight,
+            behavior: "smooth",
+          });
+        }
+
+        setTimeout(() => {
+          isWheeling = false;
+        }, 80);
+      },
+      { passive: false }
+    );
+
     // PCマウスドラッグ対応
     let isDown = false;
     let startY = 0;
@@ -916,16 +948,29 @@ export class CrudController {
       });
     }
 
+    const birthdayWrapper = form.querySelector("#profile-birthday-wrapper");
+    const streamingWrapper = form.querySelector("#profile-streaming-wrapper");
+
+    const closeAllPopovers = () => {
+      if (birthdayPopover) birthdayPopover.style.display = "none";
+      if (streamingPopover) streamingPopover.style.display = "none";
+      if (birthdayWrapper) birthdayWrapper.classList.remove("is-open");
+      if (streamingWrapper) streamingWrapper.classList.remove("is-open");
+    };
+
     if (birthdayInput && birthdayPopover) {
       birthdayInput.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (streamingPopover) streamingPopover.style.display = "none";
-        const isOpen = birthdayPopover.style.display !== "none";
-        birthdayPopover.style.display = isOpen ? "none" : "flex";
-        if (!isOpen && birthdayPicker) {
-          const parts = parseBirthdayParts(birthdayInput.value);
-          birthdayPicker.scrollToValue("month", parts.month, false);
-          birthdayPicker.scrollToValue("day", parts.day, false);
+        const willOpen = birthdayPopover.style.display === "none" || !birthdayPopover.style.display;
+        closeAllPopovers();
+        if (willOpen) {
+          birthdayPopover.style.display = "flex";
+          if (birthdayWrapper) birthdayWrapper.classList.add("is-open");
+          if (birthdayPicker) {
+            const parts = parseBirthdayParts(birthdayInput.value);
+            birthdayPicker.scrollToValue("month", parts.month, false);
+            birthdayPicker.scrollToValue("day", parts.day, false);
+          }
         }
       });
 
@@ -933,6 +978,7 @@ export class CrudController {
         birthdayCloseBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           birthdayPopover.style.display = "none";
+          if (birthdayWrapper) birthdayWrapper.classList.remove("is-open");
         });
       }
 
@@ -944,14 +990,17 @@ export class CrudController {
     if (streamingInput && streamingPopover) {
       streamingInput.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (birthdayPopover) birthdayPopover.style.display = "none";
-        const isOpen = streamingPopover.style.display !== "none";
-        streamingPopover.style.display = isOpen ? "none" : "flex";
-        if (!isOpen && streamingPicker) {
-          const parts = parseStreamingParts(streamingInput.value);
-          streamingPicker.scrollToValue("year", parts.year, false);
-          streamingPicker.scrollToValue("month", parts.month, false);
-          streamingPicker.scrollToValue("day", parts.day, false);
+        const willOpen = streamingPopover.style.display === "none" || !streamingPopover.style.display;
+        closeAllPopovers();
+        if (willOpen) {
+          streamingPopover.style.display = "flex";
+          if (streamingWrapper) streamingWrapper.classList.add("is-open");
+          if (streamingPicker) {
+            const parts = parseStreamingParts(streamingInput.value);
+            streamingPicker.scrollToValue("year", parts.year, false);
+            streamingPicker.scrollToValue("month", parts.month, false);
+            streamingPicker.scrollToValue("day", parts.day, false);
+          }
         }
       });
 
@@ -959,6 +1008,7 @@ export class CrudController {
         streamingCloseBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           streamingPopover.style.display = "none";
+          if (streamingWrapper) streamingWrapper.classList.remove("is-open");
         });
       }
 
@@ -969,8 +1019,7 @@ export class CrudController {
 
     // 画面外クリック時にポップオーバーを閉じる
     document.addEventListener("click", () => {
-      if (birthdayPopover) birthdayPopover.style.display = "none";
-      if (streamingPopover) streamingPopover.style.display = "none";
+      closeAllPopovers();
     });
 
     // フォーム送信処理
