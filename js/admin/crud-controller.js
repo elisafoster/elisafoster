@@ -229,16 +229,25 @@ export class CrudController {
           await this.renderProfileTab();
           break;
         case "visual":
-          await this.renderTableListTab("visual", "立ち絵・衣装一覧 (visual テーブル)", [
-            "id",
-            "costumeName",
+          await this.renderTableListTab(
             "visual",
-            "defoemed",
-            "costumeThumbnail",
-            "outLine",
-            "topLine",
-            "priority"
-          ]);
+            "立ち絵・衣装一覧",
+            [
+              { key: "actions", label: "操作", isAction: true },
+              { key: "id", label: "id" },
+              { key: "costumeName", label: "衣装名" },
+              { key: "visual", label: "立ち絵", type: "image", category: "visual/standing" },
+              { key: "defoemed", label: "SD", type: "image", category: "visual/deformed", fallbackKey: "deformed" },
+              { key: "thumbnail", label: "サムネイル", type: "image", category: "visual/thumbnail", fallbackKey: "costumeThumbnail" },
+              { key: "visualBackground", label: "衣装背景", type: "image", category: "visual/background" },
+              { key: "priority", label: "表示順" },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
           break;
         case "event":
           await this.renderTableListTab("event", "イベントバナー管理", ["id", "banner", "link", "start_at", "end_at"]);
@@ -289,9 +298,10 @@ export class CrudController {
   /**
    * 1. 汎用テーブル一覧画面
    */
-  async renderTableListTab(tableName, title, displayColumns) {
+  async renderTableListTab(tableName, title, displayColumns, options = {}) {
     const records = await api.getTable(tableName);
     const rows = Array.isArray(records) ? records : (records ? [records] : []);
+    const { hideDesc = false, showCountBadge = false, verticalActions = false } = options;
 
     const card = document.createElement("div");
     card.className = "admin-card";
@@ -302,14 +312,31 @@ export class CrudController {
 
     const titleGroup = document.createElement("div");
     titleGroup.className = "admin-card-title-group";
+
+    const titleRow = document.createElement("div");
+    titleRow.style.cssText = "display: flex; align-items: center; gap: 12px; flex-wrap: wrap;";
+
     const h2 = document.createElement("h2");
     h2.className = "admin-card-title";
     h2.textContent = title;
-    const desc = document.createElement("p");
-    desc.className = "admin-card-desc";
-    desc.textContent = `テーブル: ${tableName} (${rows.length}件)`;
-    titleGroup.appendChild(h2);
-    titleGroup.appendChild(desc);
+    titleRow.appendChild(h2);
+
+    if (showCountBadge) {
+      const countBadge = document.createElement("span");
+      countBadge.className = "admin-count-badge";
+      countBadge.textContent = `${rows.length}件`;
+      titleRow.appendChild(countBadge);
+    }
+
+    titleGroup.appendChild(titleRow);
+
+    if (!hideDesc) {
+      const desc = document.createElement("p");
+      desc.className = "admin-card-desc";
+      desc.textContent = `テーブル: ${tableName} (${rows.length}件)`;
+      titleGroup.appendChild(desc);
+    }
+
     header.appendChild(titleGroup);
 
     const actions = document.createElement("div");
@@ -323,6 +350,20 @@ export class CrudController {
 
     card.appendChild(header);
 
+    // カラム定義の標準化
+    let normalizedCols = [];
+    const hasCustomActionCol = displayColumns.some(col => typeof col === "object" && col.isAction);
+
+    if (displayColumns.length > 0 && typeof displayColumns[0] === "string") {
+      normalizedCols = displayColumns.map(col => ({ key: col, label: col }));
+      normalizedCols.push({ key: "actions", label: "操作", isAction: true });
+    } else {
+      normalizedCols = displayColumns.map(col => typeof col === "string" ? { key: col, label: col } : col);
+      if (!hasCustomActionCol) {
+        normalizedCols.push({ key: "actions", label: "操作", isAction: true });
+      }
+    }
+
     // テーブル
     const tableContainer = document.createElement("div");
     tableContainer.className = "admin-table-container";
@@ -333,14 +374,11 @@ export class CrudController {
     // THEAD
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
-    displayColumns.forEach((col) => {
+    normalizedCols.forEach((col) => {
       const th = document.createElement("th");
-      th.textContent = col;
+      th.textContent = col.label;
       headerRow.appendChild(th);
     });
-    const thAction = document.createElement("th");
-    thAction.textContent = "操作";
-    headerRow.appendChild(thAction);
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
@@ -349,7 +387,7 @@ export class CrudController {
     if (rows.length === 0) {
       const emptyRow = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = displayColumns.length + 1;
+      td.colSpan = normalizedCols.length;
       td.style.textAlign = "center";
       td.style.color = "#94a3b8";
       td.textContent = "データがありません";
@@ -358,45 +396,56 @@ export class CrudController {
     } else {
       rows.forEach((row) => {
         const tr = document.createElement("tr");
-        displayColumns.forEach((col) => {
-          const td = document.createElement("td");
-          let val = row[col];
 
-          // 画像の場合サムネイル
-          if (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp"))) {
-            td.innerHTML = `<img class="admin-table-thumb" src="${api.resolveAssetUrl(val, tableName)}" alt="" />`;
-          } else if (val === null || val === undefined) {
-            td.innerHTML = '<span style="color:#cbd5e1;">-</span>';
-          } else if (typeof val === "boolean" || col === "isFeatured" || col === "is_active") {
-            td.textContent = (val === 1 || val === true) ? "✓ 表示" : "✕ 非表示";
+        normalizedCols.forEach((colCfg) => {
+          if (colCfg.isAction) {
+            // 操作列
+            const tdAct = document.createElement("td");
+            tdAct.className = `admin-table-actions ${verticalActions ? "is-vertical" : ""}`;
+
+            const editBtn = document.createElement("button");
+            editBtn.className = "app-btn app-btn-secondary";
+            editBtn.style.padding = "4px 10px";
+            editBtn.style.fontSize = "0.8rem";
+            editBtn.textContent = "編集";
+            editBtn.onclick = () => this.openEditModal(tableName, row);
+            tdAct.appendChild(editBtn);
+
+            const delBtn = document.createElement("button");
+            delBtn.className = "app-btn app-btn-danger";
+            delBtn.style.padding = "4px 10px";
+            delBtn.style.fontSize = "0.8rem";
+            delBtn.textContent = "削除";
+            delBtn.onclick = () => this.deleteRecord(tableName, row.id);
+            tdAct.appendChild(delBtn);
+
+            tr.appendChild(tdAct);
           } else {
-            const str = String(val);
-            td.textContent = str.length > 40 ? str.slice(0, 40) + "..." : str;
+            const td = document.createElement("td");
+            let val = row[colCfg.key];
+            if ((val === undefined || val === null || val === "") && colCfg.fallbackKey) {
+              val = row[colCfg.fallbackKey];
+            }
+
+            const isImage = colCfg.type === "image" ||
+              (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp")));
+
+            if (isImage && val) {
+              const category = colCfg.category || tableName;
+              const imgUrl = api.resolveAssetUrl(val, category);
+              td.innerHTML = `<img class="admin-table-thumb" src="${imgUrl}" alt="${colCfg.label}" />`;
+            } else if (val === null || val === undefined || val === "") {
+              td.innerHTML = '<span style="color:#64748b;">-</span>';
+            } else if (typeof val === "boolean" || colCfg.key === "isFeatured" || colCfg.key === "is_active") {
+              td.textContent = (val === 1 || val === true) ? "✓ 表示" : "✕ 非表示";
+            } else {
+              const str = String(val);
+              td.textContent = str.length > 40 ? str.slice(0, 40) + "..." : str;
+            }
+            tr.appendChild(td);
           }
-          tr.appendChild(td);
         });
 
-        // 操作列
-        const tdAct = document.createElement("td");
-        tdAct.className = "admin-table-actions";
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "app-btn app-btn-secondary";
-        editBtn.style.padding = "4px 10px";
-        editBtn.style.fontSize = "0.8rem";
-        editBtn.textContent = "編集";
-        editBtn.onclick = () => this.openEditModal(tableName, row);
-        tdAct.appendChild(editBtn);
-
-        const delBtn = document.createElement("button");
-        delBtn.className = "app-btn app-btn-danger";
-        delBtn.style.padding = "4px 10px";
-        delBtn.style.fontSize = "0.8rem";
-        delBtn.textContent = "削除";
-        delBtn.onclick = () => this.deleteRecord(tableName, row.id);
-        tdAct.appendChild(delBtn);
-
-        tr.appendChild(tdAct);
         tbody.appendChild(tr);
       });
     }
@@ -422,7 +471,11 @@ export class CrudController {
     form.style.gap = "14px";
 
     // レコードの各キーに応じた入力項目自動生成
-    const keys = record ? Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at") : ["name", "priority"];
+    const keys = record
+      ? Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at")
+      : (tableName === "visual"
+          ? ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"]
+          : ["name", "priority"]);
 
     keys.forEach((key) => {
       const group = document.createElement("div");
@@ -443,7 +496,18 @@ export class CrudController {
         input.name = key;
         if (!isNew) input.disabled = true;
         group.appendChild(input);
-      } else if (key.toLowerCase().includes("image") || key === "banner" || key === "topLine" || key === "outLine" || key === "sectionBackground" || key === "visual") {
+      } else if (
+        key.toLowerCase().includes("image") ||
+        key === "banner" ||
+        key === "topLine" ||
+        key === "outLine" ||
+        key === "sectionBackground" ||
+        key === "visual" ||
+        key === "defoemed" ||
+        key === "deformed" ||
+        key === "thumbnail" ||
+        key === "visualBackground"
+      ) {
         const input = document.createElement("input");
         input.className = "admin-form-input";
         input.type = "text";

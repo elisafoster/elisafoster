@@ -79,15 +79,47 @@
   width: 48px;
   height: 48px;
   border-radius: var(--radius-sm);
-  object-fit: cover;
+  object-fit: contain;
   background: #0f172a;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px;
+  box-sizing: border-box;
 }
 
 .admin-table-actions {
   display: flex;
   gap: 8px;
   white-space: nowrap;
+}
+
+.admin-table-actions.is-vertical {
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  min-width: 60px;
+}
+
+.admin-table-actions.is-vertical .app-btn {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  padding: 4px 10px;
+}
+
+/* データ件数チップ */
+.admin-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
 }
 
 /* フォーム要素 */
