@@ -399,26 +399,24 @@ export class CrudController {
 
         normalizedCols.forEach((colCfg) => {
           if (colCfg.isAction) {
-            // 操作列
+            // 操作列 (td 自体は table-cell として vertical-align: middle を維持し、内部 div を flex 化)
             const tdAct = document.createElement("td");
-            tdAct.className = `admin-table-actions ${verticalActions ? "is-vertical" : ""}`;
+            const actWrap = document.createElement("div");
+            actWrap.className = `admin-table-actions ${verticalActions ? "is-vertical" : ""}`;
 
             const editBtn = document.createElement("button");
             editBtn.className = "app-btn app-btn-secondary";
-            editBtn.style.padding = "4px 10px";
-            editBtn.style.fontSize = "0.8rem";
             editBtn.textContent = "編集";
             editBtn.onclick = () => this.openEditModal(tableName, row);
-            tdAct.appendChild(editBtn);
+            actWrap.appendChild(editBtn);
 
             const delBtn = document.createElement("button");
             delBtn.className = "app-btn app-btn-danger";
-            delBtn.style.padding = "4px 10px";
-            delBtn.style.fontSize = "0.8rem";
             delBtn.textContent = "削除";
             delBtn.onclick = () => this.deleteRecord(tableName, row.id);
-            tdAct.appendChild(delBtn);
+            actWrap.appendChild(delBtn);
 
+            tdAct.appendChild(actWrap);
             tr.appendChild(tdAct);
           } else {
             const td = document.createElement("td");
@@ -433,7 +431,20 @@ export class CrudController {
             if (isImage && val) {
               const category = colCfg.category || tableName;
               const imgUrl = api.resolveAssetUrl(val, category);
-              td.innerHTML = `<img class="admin-table-thumb" src="${imgUrl}" alt="${colCfg.label}" />`;
+              const img = document.createElement("img");
+              img.className = "admin-table-thumb";
+              img.src = imgUrl;
+              img.alt = colCfg.label;
+              img.title = `${row.costumeName ? row.costumeName + " - " : ""}${colCfg.label} (クリックで拡大)`;
+              img.onclick = () => {
+                const modalTitle = `${row.costumeName ? row.costumeName + "：" : ""}${colCfg.label}`;
+                this.openImageDetailModal(imgUrl, modalTitle, {
+                  costumeName: row.costumeName,
+                  columnLabel: colCfg.label,
+                  path: val,
+                });
+              };
+              td.appendChild(img);
             } else if (val === null || val === undefined || val === "") {
               td.innerHTML = '<span style="color:#64748b;">-</span>';
             } else if (typeof val === "boolean" || colCfg.key === "isFeatured" || colCfg.key === "is_active") {
@@ -456,6 +467,95 @@ export class CrudController {
 
     this.container.innerHTML = "";
     this.container.appendChild(card);
+  }
+
+  /**
+   * 画像詳細・拡大モーダル
+   */
+  openImageDetailModal(imgSrc, title, meta = {}) {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 4px 0;";
+
+    // 画像表示エリア (背景に透明市松パターン)
+    const imgBox = document.createElement("div");
+    imgBox.style.cssText = `
+      width: 100%;
+      max-height: 65vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #090d16;
+      background-image: 
+        linear-gradient(45deg, #131d2e 25%, transparent 25%), 
+        linear-gradient(-45deg, #131d2e 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #131d2e 75%), 
+        linear-gradient(-45deg, transparent 75%, #131d2e 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+      border-radius: var(--radius-md, 8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+      padding: 16px;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+    `;
+
+    const img = document.createElement("img");
+    img.src = imgSrc;
+    img.alt = title;
+    img.style.cssText = "max-width: 100%; max-height: 58vh; object-fit: contain; border-radius: 4px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);";
+    imgBox.appendChild(img);
+    wrap.appendChild(imgBox);
+
+    // メタ情報
+    const metaBox = document.createElement("div");
+    metaBox.style.cssText = `
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm, 6px);
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    `;
+
+    if (meta.costumeName) {
+      metaBox.innerHTML += `<div><span style="color: #64748b; font-weight: 600;">衣装名:</span> <span style="color: #f8fafc; font-weight: 700; margin-left: 6px;">${meta.costumeName}</span></div>`;
+    }
+    if (meta.columnLabel) {
+      metaBox.innerHTML += `<div><span style="color: #64748b; font-weight: 600;">種別:</span> <span style="color: #60a5fa; font-weight: 600; margin-left: 6px;">${meta.columnLabel}</span></div>`;
+    }
+    if (meta.path) {
+      metaBox.innerHTML += `<div style="grid-column: 1 / -1;"><span style="color: #64748b; font-weight: 600;">ファイル:</span> <code style="color: #38bdf8; margin-left: 6px; word-break: break-all; font-family: monospace;">${meta.path}</code></div>`;
+    }
+    wrap.appendChild(metaBox);
+
+    // フッターボタン
+    const footerWrap = document.createElement("div");
+    footerWrap.style.cssText = "display: flex; justify-content: flex-end; gap: 10px; width: 100%;";
+
+    const openTabBtn = document.createElement("a");
+    openTabBtn.className = "app-btn app-btn-secondary";
+    openTabBtn.href = imgSrc;
+    openTabBtn.target = "_blank";
+    openTabBtn.rel = "noopener noreferrer";
+    openTabBtn.textContent = "新しいタブで開く";
+    footerWrap.appendChild(openTabBtn);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "app-btn app-btn-primary";
+    closeBtn.textContent = "閉じる";
+    closeBtn.onclick = () => Modal.close();
+    footerWrap.appendChild(closeBtn);
+
+    Modal.open({
+      title: title || "画像詳細プレビュー",
+      content: wrap,
+      footer: footerWrap,
+      isLarge: true,
+    });
   }
 
   /**

@@ -76,14 +76,23 @@
 }
 
 .admin-table-thumb {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-sm);
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-sm, 6px);
   object-fit: contain;
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 2px;
+  background: #090d16;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 4px;
   box-sizing: border-box;
+  cursor: zoom-in;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  display: block;
+}
+
+.admin-table-thumb:hover {
+  transform: scale(1.05);
+  border-color: #60a5fa;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .admin-table-actions {
@@ -93,17 +102,21 @@
 }
 
 .admin-table-actions.is-vertical {
+  display: flex;
   flex-direction: column;
   gap: 6px;
   align-items: stretch;
-  min-width: 60px;
+  justify-content: center;
+  min-width: 64px;
+  margin: 0 auto;
 }
 
 .admin-table-actions.is-vertical .app-btn {
   width: 100%;
   justify-content: center;
   text-align: center;
-  padding: 4px 10px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
 }
 
 /* データ件数チップ */
