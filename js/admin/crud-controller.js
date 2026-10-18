@@ -559,9 +559,745 @@ export class CrudController {
   }
 
   /**
+   * 立ち絵・衣装 (visual) 専用の新規・編集モーダル
+   */
+  async openVisualModal(record, restoreState = null) {
+    const isNew = !record;
+
+    // 全visualレコードを取得して自動採番とライブラリ一覧候補を準備
+    let allVisuals = [];
+    try {
+      const res = await api.getTable("visual");
+      allVisuals = Array.isArray(res) ? res : (res ? [res] : []);
+    } catch (e) {
+      allVisuals = [];
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allVisuals.length > 0 ? Math.max(...allVisuals.map((r) => Number(r.id) || 0)) + 1 : 1;
+    const nextPriority = allVisuals.length > 0 ? Math.max(...allVisuals.map((r) => Number(r.priority) || 0)) + 1 : 1;
+
+    // 現在のデータ (復元データがある場合は復元データを最優先)
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      priority: isNew ? nextPriority : (record?.priority ?? 1),
+      costumeName: record?.costumeName || "",
+      visual: record?.visual || "",
+      defoemed: record?.defoemed || record?.deformed || "",
+      thumbnail: record?.thumbnail || record?.costumeThumbnail || "",
+      visualBackground: record?.visualBackground || "",
+      characterDesign: record?.characterDesign || "",
+      illustrator: record?.illustrator || "",
+      live2d: record?.live2d || "",
+      3dModeling: record?.3dModeling || "",
+      ...restoreState,
+    };
+
+    // 各画像フィールドの定義
+    const visualFieldsConfig = {
+      visual: {
+        label: "立ち絵",
+        category: "visual/standing",
+        uploadPath: "assets/visual/standing",
+        defaultLibrary: ["ELISA.png", "sample.png"],
+        accept: ".png",
+        maxSizeBytes: 5242880,
+        maxSizeMB: 5,
+        aspectRatio: "4:3",
+        displayMode: "contain",
+        maxLongEdge: 1280,
+      },
+      defoemed: {
+        label: "SD",
+        category: "visual/deformed",
+        uploadPath: "assets/visual/defoemed",
+        fallbackKey: "deformed",
+        defaultLibrary: ["ELISA_defoemed.png"],
+        accept: ".png",
+        maxSizeBytes: 3145728,
+        maxSizeMB: 3,
+        aspectRatio: "4:3",
+        displayMode: "contain",
+        maxLongEdge: 640,
+      },
+      thumbnail: {
+        label: "サムネイル",
+        category: "visual/thumbnail",
+        uploadPath: "assets/visual/thumbnail",
+        fallbackKey: "costumeThumbnail",
+        defaultLibrary: ["ELISA_thumbnail.png", "sample_thumbnail.png"],
+        accept: ".png",
+        maxSizeBytes: 1048576,
+        maxSizeMB: 1,
+        aspectRatio: "1:1",
+        displayMode: "contain",
+        maxLongEdge: 512,
+      },
+      visualBackground: {
+        label: "衣装背景",
+        category: "visual/background",
+        uploadPath: "assets/visual/background",
+        defaultLibrary: ["sample_visualBackground.jpg"],
+        accept: ".png,.jpg,.jpeg",
+        maxSizeBytes: 5242880,
+        maxSizeMB: 5,
+        aspectRatio: null, // トリミングなし
+        displayMode: "original",
+      },
+    };
+
+    // ライブラリキャッシュの初期化 / 既存ファイル名の集約
+    if (!this.visualLibraryCache) {
+      this.visualLibraryCache = {};
+    }
+
+    Object.keys(visualFieldsConfig).forEach((field) => {
+      if (!this.visualLibraryCache[field]) {
+        const set = new Set(visualFieldsConfig[field].defaultLibrary);
+        allVisuals.forEach((row) => {
+          let val = row[field];
+          if (!val && visualFieldsConfig[field].fallbackKey) {
+            val = row[visualFieldsConfig[field].fallbackKey];
+          }
+          if (
+            val &&
+            typeof val === "string" &&
+            !val.startsWith("http://") &&
+            !val.startsWith("https://") &&
+            !val.startsWith("data:")
+          ) {
+            const fileName = val.split("/").pop();
+            if (fileName) set.add(fileName);
+          }
+        });
+        this.visualLibraryCache[field] = Array.from(set);
+      }
+    });
+
+    // Googleドライブ共有URL自動変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url || typeof url !== "string") return url;
+      const trimmed = url.trim();
+      const mFile = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (mFile && mFile[1]) {
+        return `https://drive.google.com/uc?export=view&id=${mFile[1]}`;
+      }
+      const mId = trimmed.match(/drive\.google\.com\/(?:open|uc)\?(?:[^&]+&)*id=([a-zA-Z0-9_-]+)/);
+      if (mId && mId[1]) {
+        return `https://drive.google.com/uc?export=view&id=${mId[1]}`;
+      }
+      return trimmed;
+    };
+
+    const form = document.createElement("form");
+    form.id = "visual-edit-form";
+    form.className = "admin-visual-modal-form";
+
+    form.innerHTML = `
+      <!-- 基本情報: id ｜ 表示優先度(priority) -->
+      <div class="admin-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">id</label>
+          <input class="admin-form-input" name="id" value="${currentData.id}" readonly style="opacity: 0.85; background: rgba(0,0,0,0.35); cursor: not-allowed;" />
+        </div>
+        <div class="admin-form-group">
+          <label class="admin-form-label">表示優先度 <span class="admin-form-label-required">*必須</span></label>
+          <input class="admin-form-input" type="number" min="1" name="priority" value="${currentData.priority}" required />
+        </div>
+      </div>
+
+      <!-- 衣装名(costumeNameカラム) -->
+      <div class="admin-form-group">
+        <label class="admin-form-label">衣装名</label>
+        <input class="admin-form-input" name="costumeName" value="${currentData.costumeName || ""}" placeholder="衣装名 (例: サンプル衣装)" />
+      </div>
+
+      <!-- # イラスト -->
+      <details class="admin-profile-accordion" open style="margin-top: 4px;">
+        <summary class="admin-profile-accordion-summary">
+          <div class="admin-profile-accordion-title">
+            <span class="admin-profile-accordion-icon">🎨</span>
+            <span>イラスト</span>
+          </div>
+          <span class="admin-profile-accordion-arrow">▼</span>
+        </summary>
+        <div class="admin-profile-accordion-body" style="gap: 16px; padding: 18px 20px;">
+          ${Object.entries(visualFieldsConfig)
+            .map(([field, cfg]) => {
+              const rawVal = currentData[field] || "";
+              const isUrl =
+                rawVal.startsWith("http://") ||
+                rawVal.startsWith("https://") ||
+                rawVal.startsWith("data:");
+              const defaultMode =
+                currentData[`${field}_mode`] || (isUrl ? "url" : "library");
+              const libraryList = this.visualLibraryCache[field] || [];
+              const selectedFileName = !isUrl ? rawVal.split("/").pop() : "";
+
+              return `
+              <div class="admin-visual-field-row" data-field="${field}">
+                <div class="admin-visual-field-input-col">
+                  <div class="admin-visual-field-header">
+                    <span class="admin-form-label" style="margin: 0; font-size: 0.9rem; font-weight: 700;">${cfg.label}</span>
+                    <div class="admin-visual-mode-toggle">
+                      <label class="admin-radio-label">
+                        <input type="radio" name="${field}_mode" value="library" ${
+                          defaultMode === "library" ? "checked" : ""
+                        }> ライブラリ参照
+                      </label>
+                      <label class="admin-radio-label">
+                        <input type="radio" name="${field}_mode" value="url" ${
+                          defaultMode === "url" ? "checked" : ""
+                        }> 直URL指定
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- ライブラリ選択UI -->
+                  <div class="admin-visual-library-wrap" id="library-wrap-${field}" style="${
+                    defaultMode === "library" ? "" : "display: none;"
+                  }">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <select class="admin-form-select admin-visual-file-select" data-field="${field}" style="flex: 1;">
+                        <option value="">-- ファイルを選択 --</option>
+                        ${libraryList
+                          .map(
+                            (fn) =>
+                              `<option value="${fn}" ${
+                                fn === selectedFileName ? "selected" : ""
+                              }>${fn}</option>`
+                          )
+                          .join("")}
+                      </select>
+                      <button type="button" class="app-btn app-btn-secondary admin-visual-upload-trigger" data-field="${field}" style="white-space: nowrap; padding: 8px 14px; font-size: 0.82rem;">
+                        📤 アップロード
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 直URL指定UI -->
+                  <div class="admin-visual-url-wrap" id="url-wrap-${field}" style="${
+                    defaultMode === "url" ? "" : "display: none;"
+                  }">
+                    <input class="admin-form-input admin-visual-url-input" data-field="${field}" value="${
+                      isUrl ? rawVal : ""
+                    }" placeholder="https://drive.google.com/... または 画像URL" />
+                    <span class="admin-form-hint" style="margin-top: 4px; display: block;">Googleドライブの共有URLは自動的に直リンクへ変換されます</span>
+                  </div>
+                </div>
+
+                <!-- プレビュー枠 -->
+                <div class="admin-visual-preview-col">
+                  <div class="admin-visual-preview-box" id="preview-box-${field}">
+                    <span class="admin-visual-preview-empty">未選択</span>
+                  </div>
+                </div>
+              </div>
+            `;
+            })
+            .join("")}
+        </div>
+      </details>
+
+      <!-- # クレジット -->
+      <details class="admin-profile-accordion" open style="margin-top: 4px;">
+        <summary class="admin-profile-accordion-summary">
+          <div class="admin-profile-accordion-title">
+            <span class="admin-profile-accordion-icon">🖋️</span>
+            <span>クレジット</span>
+          </div>
+          <span class="admin-profile-accordion-arrow">▼</span>
+        </summary>
+        <div class="admin-profile-accordion-body" style="gap: 14px; padding: 18px 20px;">
+          <!-- キャラクターデザイン ｜ イラストレーター -->
+          <div class="admin-grid-2">
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">キャラクターデザイン</label>
+              <input class="admin-form-input" name="characterDesign" value="${
+                currentData.characterDesign || ""
+              }" placeholder="キャラクターデザイナー名" />
+            </div>
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">イラストレーター</label>
+              <input class="admin-form-input" name="illustrator" value="${
+                currentData.illustrator || ""
+              }" placeholder="イラストレーター名" />
+            </div>
+          </div>
+
+          <!-- Live2Dモデラー ｜ 3Dモデラー -->
+          <div class="admin-grid-2">
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">Live2Dモデラー</label>
+              <input class="admin-form-input" name="live2d" value="${
+                currentData.live2d || ""
+              }" placeholder="Live2Dモデラー名" />
+            </div>
+            <div class="admin-form-group" style="margin-bottom: 0;">
+              <label class="admin-form-label">3Dモデラー</label>
+              <input class="admin-form-input" name="3dModeling" value="${
+                currentData.3dModeling || ""
+              }" placeholder="3Dモデラー名" />
+            </div>
+          </div>
+        </div>
+      </details>
+    `;
+
+    // プレビュー更新関数
+    const updateFieldPreview = (field) => {
+      const pBox = form.querySelector(`#preview-box-${field}`);
+      if (!pBox) return;
+
+      const mode = form.querySelector(`[name="${field}_mode"]:checked`)?.value || "library";
+      const cfg = visualFieldsConfig[field];
+      let src = "";
+
+      if (mode === "library") {
+        const select = form.querySelector(`.admin-visual-file-select[data-field="${field}"]`);
+        const val = select ? select.value.trim() : "";
+        if (val) {
+          src = api.resolveAssetUrl(val, cfg.category);
+        }
+      } else {
+        const urlInput = form.querySelector(`.admin-visual-url-input[data-field="${field}"]`);
+        let val = urlInput ? urlInput.value.trim() : "";
+        if (val) {
+          const converted = convertGoogleDriveUrl(val);
+          if (converted !== val) {
+            urlInput.value = converted;
+            val = converted;
+          }
+          src = val;
+        }
+      }
+
+      if (src) {
+        pBox.innerHTML = `<img src="${src}" alt="${cfg.label}" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\'>読込失敗</span>'" />`;
+      } else {
+        pBox.innerHTML = '<span class="admin-visual-preview-empty">未選択</span>';
+      }
+    };
+
+    // イベントバインド
+    Object.keys(visualFieldsConfig).forEach((field) => {
+      const modeRadios = form.querySelectorAll(`[name="${field}_mode"]`);
+      const libWrap = form.querySelector(`#library-wrap-${field}`);
+      const urlWrap = form.querySelector(`#url-wrap-${field}`);
+      const select = form.querySelector(`.admin-visual-file-select[data-field="${field}"]`);
+      const urlInput = form.querySelector(`.admin-visual-url-input[data-field="${field}"]`);
+
+      modeRadios.forEach((r) => {
+        r.addEventListener("change", () => {
+          if (r.value === "library") {
+            libWrap.style.display = "";
+            urlWrap.style.display = "none";
+          } else {
+            libWrap.style.display = "none";
+            urlWrap.style.display = "";
+          }
+          updateFieldPreview(field);
+        });
+      });
+
+      if (select) {
+        select.addEventListener("change", () => updateFieldPreview(field));
+      }
+
+      if (urlInput) {
+        urlInput.addEventListener("input", () => updateFieldPreview(field));
+        urlInput.addEventListener("change", () => updateFieldPreview(field));
+      }
+
+      // アップロードボタン押下時
+      const uploadTrigger = form.querySelector(`.admin-visual-upload-trigger[data-field="${field}"]`);
+      if (uploadTrigger) {
+        uploadTrigger.addEventListener("click", () => {
+          const currentState = this.collectVisualFormData(form);
+          this.openVisualUploadModal(field, record, currentState, visualFieldsConfig[field]);
+        });
+      }
+
+      updateFieldPreview(field);
+    });
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規登録する" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const payload = {
+        id: Number(fd.get("id")),
+        priority: Number(fd.get("priority")) || 1,
+        costumeName: fd.get("costumeName")?.toString().trim() || null,
+        characterDesign: fd.get("characterDesign")?.toString().trim() || null,
+        illustrator: fd.get("illustrator")?.toString().trim() || null,
+        live2d: fd.get("live2d")?.toString().trim() || null,
+        3dModeling: fd.get("3dModeling")?.toString().trim() || null,
+      };
+
+      Object.keys(visualFieldsConfig).forEach((field) => {
+        const mode = form.querySelector(`[name="${field}_mode"]:checked`)?.value || "library";
+        if (mode === "library") {
+          const sel = form.querySelector(`.admin-visual-file-select[data-field="${field}"]`);
+          payload[field] = sel?.value?.trim() || null;
+        } else {
+          const urlIn = form.querySelector(`.admin-visual-url-input[data-field="${field}"]`);
+          const rawUrl = urlIn?.value?.trim() || null;
+          payload[field] = rawUrl ? convertGoogleDriveUrl(rawUrl) : null;
+        }
+      });
+
+      try {
+        await api.saveTable("visual", payload, isNew ? null : record.id);
+        Modal.close();
+        await this.loadTab("visual");
+      } catch (e) {
+        // api-clientでトースト通知される
+      }
+    };
+
+    Modal.open({
+      title: isNew ? "立ち絵・衣装の新規追加" : `立ち絵・衣装の編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectVisualFormData(form) {
+    if (!form) return {};
+    const fd = new FormData(form);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+      data[k] = v;
+    }
+    ["visual", "defoemed", "thumbnail", "visualBackground"].forEach((field) => {
+      const mode = form.querySelector(`[name="${field}_mode"]:checked`)?.value || "library";
+      data[`${field}_mode`] = mode;
+      if (mode === "library") {
+        data[field] = form.querySelector(`.admin-visual-file-select[data-field="${field}"]`)?.value || "";
+      } else {
+        data[field] = form.querySelector(`.admin-visual-url-input[data-field="${field}"]`)?.value || "";
+      }
+    });
+    return data;
+  }
+
+  /**
+   * 立ち絵・衣装 画像アップロードモーダル
+   */
+  async openVisualUploadModal(field, currentRecord, savedState, cfg) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedFile = null;
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code>` : ""}</div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone">
+        <input type="file" id="upload-file-input" accept="${cfg.accept}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCから画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage" style="display: none; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <label class="admin-form-label" style="margin: 0;">プレビュー / フィッティング結果</label>
+          <span id="file-size-badge" style="font-size: 0.8rem; color: #60a5fa; font-weight: 600;"></span>
+        </div>
+        <div class="admin-upload-crop-container">
+          <canvas id="crop-canvas" class="admin-upload-crop-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input" placeholder="例: summer_costume" style="flex: 1;" />
+          <span id="upload-ext-label" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.png</span>
+        </div>
+        <span id="upload-name-error" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    // キャンセル時は元のモーダルを復元
+    cancelBtn.onclick = () => {
+      this.openVisualModal(currentRecord, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone");
+    const fileInput = wrap.querySelector("#upload-file-input");
+    const cropStage = wrap.querySelector("#crop-stage");
+    const cropCanvas = wrap.querySelector("#crop-canvas");
+    const sizeBadge = wrap.querySelector("#file-size-badge");
+    const nameInput = wrap.querySelector("#upload-filename-input");
+    const extLabel = wrap.querySelector("#upload-ext-label");
+    const nameError = wrap.querySelector("#upload-name-error");
+
+    dropzone.onclick = () => fileInput.click();
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > cfg.maxSizeBytes) {
+        alert(`ファイルサイズが上限（${cfg.maxSizeMB}MB）を超えています: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+        fileInput.value = "";
+        return;
+      }
+
+      selectedFile = file;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".png";
+      extLabel.textContent = ext;
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!nameInput.value) {
+        nameInput.value = baseName || "costume";
+      }
+
+      sizeBadge.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+      // 画像プレビュー＆トリミング / フィッティング
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          const ctx = cropCanvas.getContext("2d");
+
+          if (cfg.aspectRatio) {
+            const [rw, rh] = cfg.aspectRatio.split(":").map(Number);
+            const targetRatio = rw / rh;
+            const maxEdge = cfg.maxLongEdge || 1024;
+
+            let canvasW, canvasH;
+            if (rw >= rh) {
+              canvasW = maxEdge;
+              canvasH = Math.round(maxEdge / targetRatio);
+            } else {
+              canvasH = maxEdge;
+              canvasW = Math.round(maxEdge * targetRatio);
+            }
+
+            cropCanvas.width = canvasW;
+            cropCanvas.height = canvasH;
+            ctx.clearRect(0, 0, canvasW, canvasH);
+
+            const imgRatio = img.width / img.height;
+            let drawW, drawH, drawX, drawY;
+
+            if (imgRatio > targetRatio) {
+              drawW = canvasW;
+              drawH = canvasW / imgRatio;
+              drawX = 0;
+              drawY = (canvasH - drawH) / 2;
+            } else {
+              drawH = canvasH;
+              drawW = canvasH * imgRatio;
+              drawX = (canvasW - drawW) / 2;
+              drawY = 0;
+            }
+
+            ctx.drawImage(img, drawX, drawY, drawW, drawH);
+          } else {
+            let w = img.width;
+            let h = img.height;
+            const maxDim = 1920;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round(h * (maxDim / w));
+                w = maxDim;
+              } else {
+                w = Math.round(w * (maxDim / h));
+                h = maxDim;
+              }
+            }
+            cropCanvas.width = w;
+            cropCanvas.height = h;
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+          }
+
+          cropStage.style.display = "flex";
+          uploadBtn.disabled = !nameInput.value.trim() || !/^[a-zA-Z0-9_-]+$/.test(nameInput.value.trim());
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    // ファイル名バリデーション
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (val && !isValid) {
+        nameError.style.display = "block";
+        uploadBtn.disabled = true;
+      } else {
+        nameError.style.display = "none";
+        uploadBtn.disabled = !selectedFile || !val;
+      }
+    };
+
+    // アップロードボタン押下
+    uploadBtn.onclick = async () => {
+      const fileNameRaw = nameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      const ext = extLabel.textContent;
+      const fullFileName = `${fileNameRaw}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
+        const dataUrl = cropCanvas.toDataURL(mimeType, 0.9);
+        const base64Data = dataUrl.split(",")[1];
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.visualLibraryCache[field].includes(fullFileName)) {
+            this.visualLibraryCache[field].push(fullFileName);
+          }
+          savedState[field] = fullFileName;
+          savedState[`${field}_mode`] = "library";
+          this.openVisualModal(currentRecord, savedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for visual via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`${fullFileName} を正常にアップロードしました`);
+
+        if (!this.visualLibraryCache[field].includes(fullFileName)) {
+          this.visualLibraryCache[field].push(fullFileName);
+        }
+
+        savedState[field] = fullFileName;
+        savedState[`${field}_mode`] = "library";
+
+        this.openVisualModal(currentRecord, savedState);
+      } catch (err) {
+        console.error("[Upload Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        this.openVisualModal(currentRecord, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
+    if (tableName === "visual") {
+      return this.openVisualModal(record);
+    }
+
     const isNew = !record;
     const currentData = record ? { ...record } : {};
 

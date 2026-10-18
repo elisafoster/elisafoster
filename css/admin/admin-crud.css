@@ -634,3 +634,173 @@
   padding-top: 6px;
 }
 
+/* ==========================================================================
+   立ち絵・衣装 (visual) 新規・編集モーダル & アップロードダイアログ
+   ========================================================================== */
+.admin-visual-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-visual-field-row {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  gap: 16px;
+  align-items: center;
+  background: rgba(11, 20, 38, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 8px);
+  padding: 14px 16px;
+  transition: border-color var(--transition-fast);
+}
+
+.admin-visual-field-row:hover {
+  border-color: rgba(96, 165, 250, 0.25);
+}
+
+@media (max-width: 640px) {
+  .admin-visual-field-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.admin-visual-field-input-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-visual-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-visual-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 4px 10px;
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-radio-label input[type="radio"] {
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.admin-radio-label:hover {
+  color: #f1f5f9;
+}
+
+.admin-visual-preview-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-visual-preview-box {
+  width: 100%;
+  height: 120px;
+  background-color: #090d16;
+  background-image: 
+    linear-gradient(45deg, #131d2e 25%, transparent 25%), 
+    linear-gradient(-45deg, #131d2e 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #131d2e 75%), 
+    linear-gradient(-45deg, transparent 75%, #131d2e 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-sm, 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.admin-visual-preview-box img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.admin-visual-preview-empty {
+  color: #64748b;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 8px;
+}
+
+/* アップロードダイアログ */
+.admin-upload-dialog-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-upload-dropzone {
+  border: 2px dashed rgba(96, 165, 250, 0.4);
+  border-radius: var(--radius-md, 8px);
+  padding: 24px 16px;
+  text-align: center;
+  background: rgba(11, 20, 38, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.admin-upload-dropzone:hover {
+  border-color: #60a5fa;
+  background: rgba(11, 20, 38, 0.75);
+}
+
+.admin-upload-crop-container {
+  width: 100%;
+  max-height: 380px;
+  background-color: #090d16;
+  background-image: 
+    linear-gradient(45deg, #131d2e 25%, transparent 25%), 
+    linear-gradient(-45deg, #131d2e 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #131d2e 75%), 
+    linear-gradient(-45deg, transparent 75%, #131d2e 75%);
+  background-size: 16px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  padding: 12px;
+}
+
+.admin-upload-crop-canvas {
+  max-width: 100%;
+  max-height: 350px;
+  object-fit: contain;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
