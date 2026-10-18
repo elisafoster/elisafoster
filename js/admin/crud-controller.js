@@ -513,8 +513,8 @@ export class CrudController {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 10px;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(11, 20, 38, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: var(--radius-sm, 6px);
       padding: 12px 16px;
       font-size: 0.85rem;
