@@ -10,34 +10,44 @@ import { MaintenanceManager } from "./maintenance-manager.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const contentArea = document.getElementById("admin-content-area");
-  const crudController = new CrudController(contentArea);
-  const maintenanceManager = new MaintenanceManager();
-
+  let crudController = null;
+  let maintenanceManager = null;
   let menuManager = null;
 
-  // 認可フローの初期化
+  // 認可フローの初期化 (最優先でイベント登録)
   const authManager = new AuthManager({
     onAuthorized: (user) => {
       // 認可成功: 内部UIを展開
-      const authWrapper = document.getElementById("admin-auth-wrapper");
-      const appLayout = document.getElementById("admin-app-layout");
+      try {
+        const authWrapper = document.getElementById("admin-auth-wrapper");
+        const appLayout = document.getElementById("admin-app-layout");
 
-      if (authWrapper) authWrapper.style.display = "none";
-      if (appLayout) appLayout.style.display = "flex";
+        if (authWrapper) authWrapper.style.display = "none";
+        if (appLayout) appLayout.style.display = "flex";
 
-      if (!menuManager) {
-        menuManager = new MenuManager({
-          onSelectTab: (tabKey) => {
-            crudController.loadTab(tabKey);
-          },
-        });
-        menuManager.init();
+        if (!crudController) {
+          crudController = new CrudController(contentArea);
+        }
+        if (!maintenanceManager) {
+          maintenanceManager = new MaintenanceManager();
+        }
+
+        if (!menuManager) {
+          menuManager = new MenuManager({
+            onSelectTab: (tabKey) => {
+              crudController.loadTab(tabKey);
+            },
+          });
+          menuManager.init();
+        }
+
+        maintenanceManager.init();
+
+        // 初期タブ（プロフィール）ロード
+        crudController.loadTab("profile");
+      } catch (err) {
+        console.error("[Admin onAuthorized Error]:", err);
       }
-
-      maintenanceManager.init();
-
-      // 初期タブ（プロフィール）ロード
-      crudController.loadTab("profile");
     },
     onUnauthorized: () => {
       // 未認可: 内部UIを非表示
@@ -49,6 +59,10 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   });
 
-  authManager.init();
+  try {
+    authManager.init();
+  } catch (err) {
+    console.error("[AuthManager Init Error]:", err);
+  }
 });
 

@@ -589,7 +589,7 @@ export class CrudController {
       characterDesign: record?.characterDesign || "",
       illustrator: record?.illustrator || "",
       live2d: record?.live2d || "",
-      3dModeling: record?.3dModeling || "",
+      "3dModeling": record?.["3dModeling"] || "",
       ...restoreState,
     };
 
@@ -836,7 +836,7 @@ export class CrudController {
             <div class="admin-form-group" style="margin-bottom: 0;">
               <label class="admin-form-label">3Dモデラー</label>
               <input class="admin-form-input" name="3dModeling" value="${
-                currentData.3dModeling || ""
+                currentData["3dModeling"] || ""
               }" placeholder="3Dモデラー名" />
             </div>
           </div>
@@ -937,7 +937,7 @@ export class CrudController {
         characterDesign: fd.get("characterDesign")?.toString().trim() || null,
         illustrator: fd.get("illustrator")?.toString().trim() || null,
         live2d: fd.get("live2d")?.toString().trim() || null,
-        3dModeling: fd.get("3dModeling")?.toString().trim() || null,
+        "3dModeling": fd.get("3dModeling")?.toString().trim() || null,
       };
 
       Object.keys(visualFieldsConfig).forEach((field) => {
