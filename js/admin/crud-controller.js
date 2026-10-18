@@ -998,12 +998,37 @@ export class CrudController {
     const wrap = document.createElement("div");
     wrap.className = "admin-upload-dialog-wrap";
 
-    let selectedFile = null;
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    // 規格解像度・アスペクト比の算出
+    let targetW = 1280;
+    let targetH = 960;
+    let headerTitleText = "トリミング調整";
+
+    if (cfg.aspectRatio) {
+      const [rw, rh] = cfg.aspectRatio.split(":").map(Number);
+      const maxEdge = cfg.maxLongEdge || 1024;
+      if (rw >= rh) {
+        targetW = maxEdge;
+        targetH = Math.round(maxEdge * (rh / rw));
+      } else {
+        targetH = maxEdge;
+        targetW = Math.round(maxEdge * (rw / rh));
+      }
+      const ratioLabel = rw === rh ? "正方形" : (rw > rh ? "横長" : "縦長");
+      headerTitleText = `トリミング調整 (${ratioLabel} ${cfg.aspectRatio} (${targetW}×${targetH}))`;
+    } else {
+      headerTitleText = `画像プレビュー＆調整 (最大 1920px)`;
+    }
+
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
 
     wrap.innerHTML = `
       <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
         <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
-        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code>` : ""}</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB (${maxKB} KB)</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code>` : ""}</div>
       </div>
 
       <!-- 画像選択ドロップゾーン -->
@@ -1015,13 +1040,39 @@ export class CrudController {
       </div>
 
       <!-- 画像プレビュー＆トリミングコンテナ -->
-      <div id="crop-stage" style="display: none; flex-direction: column; gap: 10px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <label class="admin-form-label" style="margin: 0;">プレビュー / フィッティング結果</label>
-          <span id="file-size-badge" style="font-size: 0.8rem; color: #60a5fa; font-weight: 600;"></span>
+      <div id="crop-stage" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span id="crop-header-text">${headerTitleText}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
         </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
         <div class="admin-upload-crop-container">
-          <canvas id="crop-canvas" class="admin-upload-crop-canvas"></canvas>
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong id="crop-resolution-val" class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
         </div>
       </div>
 
@@ -1068,25 +1119,207 @@ export class CrudController {
     const fileInput = wrap.querySelector("#upload-file-input");
     const cropStage = wrap.querySelector("#crop-stage");
     const cropCanvas = wrap.querySelector("#crop-canvas");
-    const sizeBadge = wrap.querySelector("#file-size-badge");
+    const cropHeaderText = wrap.querySelector("#crop-header-text");
+    const cropResVal = wrap.querySelector("#crop-resolution-val");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider");
+    const fitBtn = wrap.querySelector("#crop-fit-btn");
+    const centerBtn = wrap.querySelector("#crop-center-btn");
+    const sizeBadge = wrap.querySelector("#crop-size-badge");
     const nameInput = wrap.querySelector("#upload-filename-input");
     const extLabel = wrap.querySelector("#upload-ext-label");
     const nameError = wrap.querySelector("#upload-name-error");
 
     dropzone.onclick = () => fileInput.click();
 
+    // キャンバス変数の初期化
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const checkUploadBtnState = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      uploadBtn.disabled = !selectedImg || !isValid || !isSizeValid;
+    };
+
+    // 描画処理
+    const renderCanvas = () => {
+      if (!selectedImg) return;
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    // リアルタイム容量計算
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        if (!selectedImg) return;
+        const ext = extLabel.textContent.toLowerCase();
+        const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
+        const quality = ext === ".jpg" || ext === ".jpeg" ? 0.88 : undefined;
+
+        cropCanvas.toBlob((blob) => {
+          if (!blob) return;
+          currentBlob = blob;
+          const sizeKB = (blob.size / 1024).toFixed(1);
+          const limitKB = Math.round(cfg.maxSizeBytes / 1024);
+          const isOver = blob.size > cfg.maxSizeBytes;
+
+          if (isOver) {
+            sizeBadge.className = "crop-size-badge is-over";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB 超過`;
+            isSizeValid = false;
+          } else {
+            sizeBadge.className = "crop-size-badge is-ok";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB OK`;
+            isSizeValid = true;
+          }
+          checkUploadBtnState();
+        }, mimeType, quality);
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 90);
+      }
+    };
+
+    // ドラッグ移動制御
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startCenterX = 0;
+    let startCenterY = 0;
+
+    const onDragStart = (clientX, clientY) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      startCenterX = centerX;
+      startCenterY = centerY;
+      cropCanvas.classList.add("is-dragging");
+    };
+
+    const onDragMove = (clientX, clientY) => {
+      if (!isDragging || !selectedImg) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const factorX = targetW / rect.width;
+      const factorY = targetH / rect.height;
+      const dx = (clientX - startX) * factorX;
+      const dy = (clientY - startY) * factorY;
+      centerX = startCenterX + dx;
+      centerY = startCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      cropCanvas.classList.remove("is-dragging");
+      scheduleSizeUpdate(true);
+    };
+
+    cropCanvas.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onDragStart(e.clientX, e.clientY);
+    });
+
+    const handleWindowMouseMove = (e) => {
+      if (isDragging) {
+        onDragMove(e.clientX, e.clientY);
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDragging) {
+        onDragEnd();
+      }
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    // タッチ対応
+    cropCanvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) {
+        onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+
+    const handleWindowTouchMove = (e) => {
+      if (isDragging && e.touches.length === 1) {
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleWindowTouchEnd = () => {
+      if (isDragging) {
+        onDragEnd();
+      }
+    };
+
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // マウスホイールによるズーム
+    cropCanvas.addEventListener("wheel", (e) => {
+      if (!selectedImg) return;
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+      let newScale = scale * zoomFactor;
+      const minS = parseFloat(zoomSlider.min);
+      const maxS = parseFloat(zoomSlider.max);
+      newScale = Math.max(minS, Math.min(maxS, newScale));
+      scale = newScale;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    }, { passive: false });
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    // フィットボタン
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // 中央揃えボタン
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
     // ファイル選択処理
     fileInput.onchange = (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
-      if (file.size > cfg.maxSizeBytes) {
-        alert(`ファイルサイズが上限（${cfg.maxSizeMB}MB）を超えています: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
-        fileInput.value = "";
-        return;
-      }
-
-      selectedFile = file;
 
       const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".png";
       extLabel.textContent = ext;
@@ -1096,52 +1329,16 @@ export class CrudController {
         nameInput.value = baseName || "costume";
       }
 
-      sizeBadge.textContent = `${(file.size / 1024).toFixed(1)} KB`;
-
-      // 画像プレビュー＆トリミング / フィッティング
       const reader = new FileReader();
       reader.onload = (loadEvt) => {
         const img = new Image();
         img.onload = () => {
-          const ctx = cropCanvas.getContext("2d");
+          selectedImg = img;
 
-          if (cfg.aspectRatio) {
-            const [rw, rh] = cfg.aspectRatio.split(":").map(Number);
-            const targetRatio = rw / rh;
-            const maxEdge = cfg.maxLongEdge || 1024;
-
-            let canvasW, canvasH;
-            if (rw >= rh) {
-              canvasW = maxEdge;
-              canvasH = Math.round(maxEdge / targetRatio);
-            } else {
-              canvasH = maxEdge;
-              canvasW = Math.round(maxEdge * targetRatio);
-            }
-
-            cropCanvas.width = canvasW;
-            cropCanvas.height = canvasH;
-            ctx.clearRect(0, 0, canvasW, canvasH);
-
-            const imgRatio = img.width / img.height;
-            let drawW, drawH, drawX, drawY;
-
-            if (imgRatio > targetRatio) {
-              drawW = canvasW;
-              drawH = canvasW / imgRatio;
-              drawX = 0;
-              drawY = (canvasH - drawH) / 2;
-            } else {
-              drawH = canvasH;
-              drawW = canvasH * imgRatio;
-              drawX = (canvasW - drawW) / 2;
-              drawY = 0;
-            }
-
-            ctx.drawImage(img, drawX, drawY, drawW, drawH);
-          } else {
-            let w = img.width;
-            let h = img.height;
+          // アスペクト比未指定時の解像度計算
+          if (!cfg.aspectRatio) {
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
             const maxDim = 1920;
             if (w > maxDim || h > maxDim) {
               if (w > h) {
@@ -1152,14 +1349,31 @@ export class CrudController {
                 h = maxDim;
               }
             }
-            cropCanvas.width = w;
-            cropCanvas.height = h;
-            ctx.clearRect(0, 0, w, h);
-            ctx.drawImage(img, 0, 0, w, h);
+            targetW = w;
+            targetH = h;
+            cropHeaderText.textContent = `画像プレビュー (${targetW}×${targetH})`;
           }
 
+          cropResVal.textContent = `${targetW} × ${targetH} px`;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          // フィット倍率の算出
+          baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
           cropStage.style.display = "flex";
-          uploadBtn.disabled = !nameInput.value.trim() || !/^[a-zA-Z0-9_-]+$/.test(nameInput.value.trim());
+          checkUploadBtnState();
         };
         img.src = loadEvt.target.result;
       };
@@ -1172,11 +1386,10 @@ export class CrudController {
       const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
       if (val && !isValid) {
         nameError.style.display = "block";
-        uploadBtn.disabled = true;
       } else {
         nameError.style.display = "none";
-        uploadBtn.disabled = !selectedFile || !val;
       }
+      checkUploadBtnState();
     };
 
     // アップロードボタン押下
@@ -1184,6 +1397,11 @@ export class CrudController {
       const fileNameRaw = nameInput.value.trim();
       if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
         nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
         return;
       }
 
@@ -1195,9 +1413,17 @@ export class CrudController {
       uploadBtn.textContent = "アップロード中...";
 
       try {
-        const mimeType = ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
-        const dataUrl = cropCanvas.toDataURL(mimeType, 0.9);
-        const base64Data = dataUrl.split(",")[1];
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
 
         let patRecord = null;
         try {
@@ -1215,6 +1441,7 @@ export class CrudController {
           }
           savedState[field] = fullFileName;
           savedState[`${field}_mode`] = "library";
+          cleanupListeners();
           this.openVisualModal(currentRecord, savedState);
           return;
         }
@@ -1270,6 +1497,7 @@ export class CrudController {
         savedState[field] = fullFileName;
         savedState[`${field}_mode`] = "library";
 
+        cleanupListeners();
         this.openVisualModal(currentRecord, savedState);
       } catch (err) {
         console.error("[Upload Error]:", err);
@@ -1279,12 +1507,20 @@ export class CrudController {
       }
     };
 
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
     Modal.open({
       title: `${cfg.label} の画像アップロード`,
       content: wrap,
       footer: footer,
       isLarge: true,
       onClose: () => {
+        cleanupListeners();
         this.openVisualModal(currentRecord, savedState);
       },
     });
