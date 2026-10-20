@@ -1135,5 +1135,33 @@
   text-decoration: underline;
 }
 
+/* ==========================================================================
+   イベントバナー (event) 編集ダイアログ & カレンダーピッカー
+   ========================================================================== */
+input[type="datetime-local"].admin-form-input {
+  color-scheme: dark;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) brightness(1.2);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: filter 0.15s ease;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1) brightness(1.5);
+}
+
+/* バナー用プレビュー枠 (アスペクト比 3:1) */
+.admin-visual-preview-box.is-banner-box {
+  aspect-ratio: 3 / 1;
+  width: 100%;
+  height: auto;
+  min-height: 80px;
+}
+
+
 
 

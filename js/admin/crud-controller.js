@@ -1706,11 +1706,840 @@ export class CrudController {
   }
 
   /**
+   * イベントバナー (event) 専用の新規・編集モーダル
+   */
+  async openEventModal(record, restoreState = null) {
+    const isNew = !record;
+
+    // 全eventレコードを取得して自動採番とライブラリ一覧候補を準備
+    let allEvents = [];
+    try {
+      const res = await api.getTable("event");
+      allEvents = Array.isArray(res) ? res : (res ? [res] : []);
+    } catch (e) {
+      allEvents = [];
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allEvents.length > 0 ? Math.max(...allEvents.map((r) => Number(r.id) || 0)) + 1 : 1;
+
+    // 現在のデータ (復元データがある場合は復元データを最優先)
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      link: record?.link || "",
+      start_at: record?.start_at || "",
+      end_at: record?.end_at || "",
+      banner: record?.banner || "",
+      ...restoreState,
+    };
+
+    // ライブラリ候補の集約
+    if (!this.eventLibraryCache) {
+      this.eventLibraryCache = [];
+    }
+    const librarySet = new Set(["samplebanner.jpg", ...this.eventLibraryCache]);
+    allEvents.forEach((row) => {
+      if (row.banner && typeof row.banner === "string" && !row.banner.startsWith("http")) {
+        librarySet.add(row.banner.split("/").pop());
+      }
+    });
+    this.eventLibraryCache = Array.from(librarySet);
+
+    // 日時変換ヘルパー (YYYY-MM-DD HH:mm:ss <-> YYYY-MM-DDTHH:mm)
+    const formatToInputDatetime = (val) => {
+      if (!val) return "";
+      const str = String(val).trim();
+      return str.replace(" ", "T").substring(0, 16);
+    };
+
+    const formatFromInputDatetime = (val) => {
+      if (!val) return null;
+      const str = String(val).trim();
+      if (str.includes("T")) {
+        const [d, t] = str.split("T");
+        return `${d} ${t.length === 5 ? t + ":00" : t}`;
+      }
+      return str;
+    };
+
+    // GoogleドライブURL変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode = currentData.banner_mode ||
+      (currentData.banner && (currentData.banner.startsWith("http://") || currentData.banner.startsWith("https://")) ? "url" : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ リンク -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${currentData.id}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">リンク</label>
+          <input
+            class="admin-form-input"
+            name="link"
+            type="url"
+            value="${currentData.link || ""}"
+            placeholder="https://example.com/event"
+          />
+        </div>
+      </div>
+
+      <!-- 行2: 開始日時 ｜ 終了日時 (カレンダーピッカー) -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            開始日時
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="start_at"
+            type="datetime-local"
+            value="${formatToInputDatetime(currentData.start_at)}"
+            step="60"
+            required
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            終了日時
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="end_at"
+            type="datetime-local"
+            value="${formatToInputDatetime(currentData.end_at)}"
+            step="60"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- 行3: 画像選択 (バナー画像) -->
+      <div class="admin-visual-field-card" style="margin-top: 4px;">
+        <div class="admin-visual-field-header">
+          <label class="admin-form-label" style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            画像選択 (バナー画像)
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <div class="admin-visual-mode-toggle">
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="banner_mode" value="library" ${initialMode === "library" ? "checked" : ""}>
+              <span>ライブラリ参照</span>
+            </label>
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="banner_mode" value="url" ${initialMode === "url" ? "checked" : ""}>
+              <span>直URL指定</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-visual-field-body">
+          <div class="admin-visual-input-col">
+            <!-- ライブラリ選択UI -->
+            <div id="mode-library-banner" class="admin-visual-mode-panel" style="${initialMode === "library" ? "" : "display: none;"}">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="admin-form-input admin-visual-file-select" data-field="banner" style="flex: 1;">
+                  <option value="">-- ライブラリから画像を選択 --</option>
+                  ${this.eventLibraryCache.map((fn) => `
+                    <option value="${fn}" ${currentData.banner === fn ? "selected" : ""}>${fn}</option>
+                  `).join("")}
+                </select>
+                <button type="button" class="app-btn app-btn-secondary admin-event-upload-btn" data-field="banner" style="white-space: nowrap;">
+                  📤 アップロード
+                </button>
+              </div>
+              <span class="admin-form-hint">assets/event 配下の画像をプルダウンで選択、または新規アップロードできます</span>
+            </div>
+
+            <!-- 直URL指定UI -->
+            <div id="mode-url-banner" class="admin-visual-mode-panel" style="${initialMode === "url" ? "" : "display: none;"}">
+              <input
+                class="admin-form-input admin-visual-url-input"
+                data-field="banner"
+                type="url"
+                value="${initialMode === "url" ? currentData.banner || "" : ""}"
+                placeholder="https://drive.google.com/file/d/... または画像URL"
+              />
+              <span class="admin-form-hint">Googleドライブの共有URL、または画像の直接URLを入力してください（ドライブURLは自動変換されます）</span>
+            </div>
+          </div>
+
+          <!-- プレビュー枠 (横長バナー用 3:1) -->
+          <div class="admin-visual-preview-col" style="min-width: 240px; max-width: 280px;">
+            <div id="preview-box-banner" class="admin-visual-preview-box is-banner-box">
+              <span class="admin-visual-preview-empty">プレビューなし</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // プレビュー更新関数
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-banner");
+      if (!pBox) return;
+
+      const mode = form.querySelector('[name="banner_mode"]:checked')?.value || "library";
+      let imgVal = "";
+      if (mode === "library") {
+        imgVal = form.querySelector('.admin-visual-file-select[data-field="banner"]')?.value || "";
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="banner"]')?.value?.trim() || "";
+        imgVal = convertGoogleDriveUrl(raw);
+      }
+
+      if (imgVal) {
+        const fullUrl = api.resolveAssetUrl(imgVal, "event");
+        pBox.innerHTML = `
+          <img src="${fullUrl}" alt="バナープレビュー" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\' style=\\'color:#ef4444;\\'>読込失敗</span>';" />
+        `;
+      } else {
+        pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
+      }
+    };
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="banner_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-banner");
+        const urlPanel = form.querySelector("#mode-url-banner");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    // プルダウン変更
+    form.querySelector('.admin-visual-file-select[data-field="banner"]').onchange = updatePreview;
+
+    // URL入力変更
+    const urlInput = form.querySelector('.admin-visual-url-input[data-field="banner"]');
+    urlInput.oninput = () => {
+      const converted = convertGoogleDriveUrl(urlInput.value.trim());
+      if (converted !== urlInput.value.trim()) {
+        urlInput.value = converted;
+      }
+      updatePreview();
+    };
+
+    // アップロードボタン押下
+    form.querySelector('.admin-event-upload-btn[data-field="banner"]').onclick = () => {
+      const savedState = this.collectEventFormData(form);
+      const cfg = {
+        label: "イベントバナー画像",
+        category: "event",
+        uploadPath: "assets/event",
+        accept: ".png,.jpg,.jpeg",
+        maxSizeBytes: 2097152, // 2MB
+        maxSizeMB: 2,
+        aspectRatio: "3:1",
+        displayMode: "contain",
+        maxLongEdge: 1500,
+      };
+      this.openEventUploadModal("banner", record, savedState, cfg);
+    };
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const mode = form.querySelector('[name="banner_mode"]:checked')?.value || "library";
+      let bannerVal = null;
+      if (mode === "library") {
+        bannerVal = form.querySelector('.admin-visual-file-select[data-field="banner"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="banner"]')?.value?.trim() || null;
+        bannerVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const startAtVal = formatFromInputDatetime(fd.get("start_at"));
+      const endAtVal = formatFromInputDatetime(fd.get("end_at"));
+
+      if (!startAtVal || !endAtVal) {
+        alert("開始日時と終了日時は必須項目です");
+        return;
+      }
+
+      if (!bannerVal) {
+        alert("バナー画像を選択または入力してください");
+        return;
+      }
+
+      const payload = {
+        id: Number(fd.get("id")),
+        link: fd.get("link")?.toString().trim() || null,
+        start_at: startAtVal,
+        end_at: endAtVal,
+        banner: bannerVal,
+      };
+
+      try {
+        await api.saveTable("event", payload, isNew ? null : record.id);
+        Modal.close();
+        await this.loadTab("event");
+      } catch (e) {
+        // api-clientでトースト通知される
+      }
+    };
+
+    Modal.open({
+      title: isNew ? "イベントバナーの新規追加" : `イベントバナーの編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * イベントバナー 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectEventFormData(form) {
+    if (!form) return {};
+    const fd = new FormData(form);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+      data[k] = v;
+    }
+    const mode = form.querySelector('[name="banner_mode"]:checked')?.value || "library";
+    data["banner_mode"] = mode;
+    if (mode === "library") {
+      data["banner"] = form.querySelector('.admin-visual-file-select[data-field="banner"]')?.value || "";
+    } else {
+      data["banner"] = form.querySelector('.admin-visual-url-input[data-field="banner"]')?.value || "";
+    }
+    return data;
+  }
+
+  /**
+   * イベントバナー 画像アップロードモーダル (インタラクティブ・クロッパー 3:1)
+   */
+  async openEventUploadModal(field, currentRecord, savedState, cfg) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    let targetW = 1500;
+    let targetH = 500;
+    const headerTitleText = `トリミング調整 (横長 3:1 (1500×500))`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code></div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-event">
+        <input type="file" id="upload-file-input-event" accept="${cfg.accept}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCからバナー画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-event" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${headerTitleText}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas-event" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-event" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-event" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-event" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-event" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input-event" placeholder="例: summer_festival_banner" style="flex: 1;" />
+          <span id="upload-ext-label-event" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.jpg</span>
+        </div>
+        <span id="upload-name-error-event" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    cancelBtn.onclick = () => {
+      this.openEventModal(currentRecord, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone-event");
+    const fileInput = wrap.querySelector("#upload-file-input-event");
+    const cropStage = wrap.querySelector("#crop-stage-event");
+    const cropCanvas = wrap.querySelector("#crop-canvas-event");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-event");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-event");
+    const centerBtn = wrap.querySelector("#crop-center-btn-event");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-event");
+    const nameInput = wrap.querySelector("#upload-filename-input-event");
+    const extLabel = wrap.querySelector("#upload-ext-label-event");
+    const nameError = wrap.querySelector("#upload-name-error-event");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const checkUploadBtnState = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      uploadBtn.disabled = !selectedImg || !isValid || !isSizeValid;
+    };
+
+    const renderCanvas = () => {
+      if (!selectedImg) return;
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        if (!selectedImg) return;
+        const ext = extLabel.textContent.toLowerCase();
+        const mimeType = ext === ".png" ? "image/png" : "image/jpeg";
+        const quality = ext === ".png" ? undefined : 0.88;
+
+        cropCanvas.toBlob((blob) => {
+          if (!blob) return;
+          currentBlob = blob;
+          const sizeKB = (blob.size / 1024).toFixed(1);
+          const limitKB = Math.round(cfg.maxSizeBytes / 1024);
+          const isOver = blob.size > cfg.maxSizeBytes;
+
+          if (isOver) {
+            sizeBadge.className = "crop-size-badge is-over";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB 超過`;
+            isSizeValid = false;
+          } else {
+            sizeBadge.className = "crop-size-badge is-ok";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB OK`;
+            isSizeValid = true;
+          }
+          checkUploadBtnState();
+        }, mimeType, quality);
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 90);
+      }
+    };
+
+    // ドラッグ移動制御
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startCenterX = 0;
+    let startCenterY = 0;
+
+    const onDragStart = (clientX, clientY) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      startCenterX = centerX;
+      startCenterY = centerY;
+      cropCanvas.classList.add("is-dragging");
+    };
+
+    const onDragMove = (clientX, clientY) => {
+      if (!isDragging || !selectedImg) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const factorX = targetW / rect.width;
+      const factorY = targetH / rect.height;
+      const dx = (clientX - startX) * factorX;
+      const dy = (clientY - startY) * factorY;
+      centerX = startCenterX + dx;
+      centerY = startCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      cropCanvas.classList.remove("is-dragging");
+      scheduleSizeUpdate(true);
+    };
+
+    cropCanvas.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onDragStart(e.clientX, e.clientY);
+    });
+
+    const handleWindowMouseMove = (e) => {
+      if (isDragging) onDragMove(e.clientX, e.clientY);
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    // タッチ対応
+    cropCanvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) {
+        onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: false });
+
+    const handleWindowTouchMove = (e) => {
+      if (isDragging && e.touches.length === 1) {
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleWindowTouchEnd = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // ホイールズーム
+    cropCanvas.addEventListener("wheel", (e) => {
+      if (!selectedImg) return;
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+      let newScale = scale * zoomFactor;
+      const minS = parseFloat(zoomSlider.min);
+      const maxS = parseFloat(zoomSlider.max);
+      newScale = Math.max(minS, Math.min(maxS, newScale));
+      scale = newScale;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    }, { passive: false });
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".jpg";
+      extLabel.textContent = ext;
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!nameInput.value) {
+        nameInput.value = baseName || "event_banner";
+      }
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
+          cropStage.style.display = "flex";
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (val && !isValid) {
+        nameError.style.display = "block";
+      } else {
+        nameError.style.display = "none";
+      }
+      checkUploadBtnState();
+    };
+
+    // アップロードボタン押下
+    uploadBtn.onclick = async () => {
+      const fileNameRaw = nameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const ext = extLabel.textContent;
+      const fullFileName = `${fileNameRaw}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.eventLibraryCache.includes(fullFileName)) {
+            this.eventLibraryCache.push(fullFileName);
+          }
+          savedState["banner"] = fullFileName;
+          savedState["banner_mode"] = "library";
+          cleanupListeners();
+          this.openEventModal(currentRecord, savedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for event banner via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`${fullFileName} を正常にアップロードしました`);
+
+        if (!this.eventLibraryCache.includes(fullFileName)) {
+          this.eventLibraryCache.push(fullFileName);
+        }
+
+        savedState["banner"] = fullFileName;
+        savedState["banner_mode"] = "library";
+
+        cleanupListeners();
+        this.openEventModal(currentRecord, savedState);
+      } catch (err) {
+        console.error("[Upload Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+        this.openEventModal(currentRecord, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
     if (tableName === "visual") {
       return this.openVisualModal(record);
+    }
+    if (tableName === "event") {
+      return this.openEventModal(record);
     }
 
     const isNew = !record;
