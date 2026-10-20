@@ -215,9 +215,35 @@ export class CrudController {
   constructor(contentArea) {
     this.container = contentArea;
     this.currentTab = "profile";
+
+    // 立ち絵・衣装 (visual) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.visualState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+
+    // 誤った離脱防止
+    window.addEventListener("beforeunload", (e) => {
+      if (this.visualState?.hasPendingChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
   }
 
   async loadTab(tabKey) {
+    // 立ち絵・衣装一覧で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "visual" && tabKey !== "visual" && this.visualState?.hasPendingChanges) {
+      const ok = confirm(
+        "立ち絵・衣装一覧に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.visualState.hasPendingChanges = false;
+      this.visualState.isInitialized = false;
+    }
+
     this.currentTab = tabKey;
     if (!this.container) return;
 
@@ -299,8 +325,24 @@ export class CrudController {
    * 1. 汎用テーブル一覧画面
    */
   async renderTableListTab(tableName, title, displayColumns, options = {}) {
-    const records = await api.getTable(tableName);
-    const rows = Array.isArray(records) ? records : (records ? [records] : []);
+    let rows = [];
+
+    // 立ち絵・衣装 (visual) の場合は保留バッファ（ドラフト）を使用
+    if (tableName === "visual") {
+      if (!this.visualState.isInitialized) {
+        const records = await api.getTable("visual");
+        const loaded = Array.isArray(records) ? records : (records ? [records] : []);
+        this.visualState.originalRecords = JSON.parse(JSON.stringify(loaded));
+        this.visualState.currentRecords = JSON.parse(JSON.stringify(loaded));
+        this.visualState.hasPendingChanges = false;
+        this.visualState.isInitialized = true;
+      }
+      rows = this.visualState.currentRecords;
+    } else {
+      const records = await api.getTable(tableName);
+      rows = Array.isArray(records) ? records : (records ? [records] : []);
+    }
+
     const { hideDesc = false, showCountBadge = false, verticalActions = false } = options;
 
     const card = document.createElement("div");
@@ -341,14 +383,61 @@ export class CrudController {
 
     const actions = document.createElement("div");
     actions.className = "admin-card-actions";
+    actions.style.cssText = "display: flex; align-items: center; gap: 10px; flex-wrap: wrap;";
+
     const addBtn = document.createElement("button");
     addBtn.className = "app-btn app-btn-primary";
     addBtn.innerHTML = "+ 新規追加";
     addBtn.onclick = () => this.openEditModal(tableName, null);
     actions.appendChild(addBtn);
+
+    // 立ち絵・衣装一覧: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    if (tableName === "visual") {
+      const commitBtn = document.createElement("button");
+      commitBtn.id = "visual-commit-btn";
+      commitBtn.className = "app-btn app-btn-orange";
+
+      const changesCount = this.getVisualChangesCount();
+      if (this.visualState.hasPendingChanges && changesCount > 0) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+        commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+
+      commitBtn.onclick = async () => {
+        await this.commitVisualChanges();
+      };
+      actions.appendChild(commitBtn);
+    }
+
     header.appendChild(actions);
 
     card.appendChild(header);
+
+    // 立ち絵・衣装一覧で未反映の変更がある場合は通知アラートを表示
+    if (tableName === "visual" && this.visualState.hasPendingChanges) {
+      const changesCount = this.getVisualChangesCount();
+      if (changesCount > 0) {
+        const alertBar = document.createElement("div");
+        alertBar.className = "admin-pending-alert";
+        alertBar.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+        `;
+        alertBar.querySelector("button").onclick = async () => {
+          await this.commitVisualChanges();
+        };
+        card.appendChild(alertBar);
+      }
+    }
 
     // カラム定義の標準化
     let normalizedCols = [];
@@ -566,11 +655,15 @@ export class CrudController {
 
     // 全visualレコードを取得して自動採番とライブラリ一覧候補を準備
     let allVisuals = [];
-    try {
-      const res = await api.getTable("visual");
-      allVisuals = Array.isArray(res) ? res : (res ? [res] : []);
-    } catch (e) {
-      allVisuals = [];
+    if (this.visualState && this.visualState.isInitialized && this.visualState.currentRecords.length > 0) {
+      allVisuals = this.visualState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("visual");
+        allVisuals = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allVisuals = [];
+      }
     }
 
     // 自動採番 (新規時)
@@ -952,13 +1045,36 @@ export class CrudController {
         }
       });
 
-      try {
-        await api.saveTable("visual", payload, isNew ? null : record.id);
-        Modal.close();
-        await this.loadTab("visual");
-      } catch (e) {
-        // api-clientでトースト通知される
+      // 立ち絵・衣装 (visual) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.visualState.currentRecords.push(payload);
+      } else {
+        const idx = this.visualState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.visualState.currentRecords[idx] = {
+            ...this.visualState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.visualState.currentRecords.push(payload);
+        }
       }
+
+      // priority 順でソート
+      this.visualState.currentRecords.sort(
+        (a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0)
+      );
+
+      this.visualState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "衣装を一覧に追加しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+          : "衣装の変更を一覧に反映しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+      );
+      await this.loadTab("visual");
     };
 
     Modal.open({
@@ -1671,11 +1787,103 @@ export class CrudController {
    * レコード削除
    */
   async deleteRecord(tableName, id) {
+    if (tableName === "visual") {
+      if (!confirm(`ID: ${id} の立ち絵・衣装データを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.visualState.currentRecords = this.visualState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.visualState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.loadTab("visual");
+      return;
+    }
+
     if (!confirm(`ID: ${id} のレコードを本当に削除しますか？`)) return;
     try {
       await api.deleteRecord(tableName, id);
       await this.loadTab(this.currentTab);
     } catch (e) {}
+  }
+
+  /**
+   * 立ち絵・衣装 (visual) の未反映変更件数の算出
+   */
+  getVisualChangesCount() {
+    if (!this.visualState || !this.visualState.isInitialized) return 0;
+    const origMap = new Map(this.visualState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.visualState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => curr[k] !== orig[k]);
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * 立ち絵・衣装 (visual) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitVisualChanges() {
+    const count = this.getVisualChangesCount();
+    if (!this.visualState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `立ち絵・衣装一覧の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.visualState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.visualState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.visualState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("visual", rec.id);
+      }
+
+      // 2. 新規追加 (POST) および 更新 (PUT) の反映
+      for (const rec of this.visualState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加
+          await api.saveTable("visual", rec, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
+          if (hasDiff) {
+            await api.saveTable("visual", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("立ち絵・衣装一覧の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.visualState.hasPendingChanges = false;
+      this.visualState.isInitialized = false;
+      await this.loadTab("visual");
+    } catch (err) {
+      console.error("[Commit Visual Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
   }
 
   /**
