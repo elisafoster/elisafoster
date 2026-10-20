@@ -224,9 +224,17 @@ export class CrudController {
       hasPendingChanges: false,
     };
 
+    // イベントバナー (event) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.eventState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
-      if (this.visualState?.hasPendingChanges) {
+      if (this.visualState?.hasPendingChanges || this.eventState?.hasPendingChanges) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -242,6 +250,16 @@ export class CrudController {
       if (!ok) return;
       this.visualState.hasPendingChanges = false;
       this.visualState.isInitialized = false;
+    }
+
+    // イベントバナー管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "event" && tabKey !== "event" && this.eventState?.hasPendingChanges) {
+      const ok = confirm(
+        "イベントバナー管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.eventState.hasPendingChanges = false;
+      this.eventState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -343,7 +361,7 @@ export class CrudController {
   async renderTableListTab(tableName, title, displayColumns, options = {}) {
     let rows = [];
 
-    // 立ち絵・衣装 (visual) の場合は保留バッファ（ドラフト）を使用
+    // 立ち絵・衣装 (visual) またはイベントバナー (event) の場合は保留バッファ（ドラフト）を使用
     if (tableName === "visual") {
       if (!this.visualState.isInitialized) {
         const records = await api.getTable("visual");
@@ -354,6 +372,16 @@ export class CrudController {
         this.visualState.isInitialized = true;
       }
       rows = this.visualState.currentRecords;
+    } else if (tableName === "event") {
+      if (!this.eventState.isInitialized) {
+        const records = await api.getTable("event");
+        const loaded = Array.isArray(records) ? records : (records ? [records] : []);
+        this.eventState.originalRecords = JSON.parse(JSON.stringify(loaded));
+        this.eventState.currentRecords = JSON.parse(JSON.stringify(loaded));
+        this.eventState.hasPendingChanges = false;
+        this.eventState.isInitialized = true;
+      }
+      rows = this.eventState.currentRecords;
     } else {
       const records = await api.getTable(tableName);
       rows = Array.isArray(records) ? records : (records ? [records] : []);
@@ -431,6 +459,30 @@ export class CrudController {
       actions.appendChild(commitBtn);
     }
 
+    // イベントバナー管理: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    if (tableName === "event") {
+      const commitBtn = document.createElement("button");
+      commitBtn.id = "event-commit-btn";
+      commitBtn.className = "app-btn app-btn-orange";
+
+      const changesCount = this.getEventChangesCount();
+      if (this.eventState.hasPendingChanges && changesCount > 0) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+        commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+
+      commitBtn.onclick = async () => {
+        await this.commitEventChanges();
+      };
+      actions.appendChild(commitBtn);
+    }
+
     header.appendChild(actions);
 
     card.appendChild(header);
@@ -450,6 +502,26 @@ export class CrudController {
         `;
         alertBar.querySelector("button").onclick = async () => {
           await this.commitVisualChanges();
+        };
+        card.appendChild(alertBar);
+      }
+    }
+
+    // イベントバナー管理で未反映の変更がある場合は通知アラートを表示
+    if (tableName === "event" && this.eventState.hasPendingChanges) {
+      const changesCount = this.getEventChangesCount();
+      if (changesCount > 0) {
+        const alertBar = document.createElement("div");
+        alertBar.className = "admin-pending-alert";
+        alertBar.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+        `;
+        alertBar.querySelector("button").onclick = async () => {
+          await this.commitEventChanges();
         };
         card.appendChild(alertBar);
       }
@@ -1713,11 +1785,15 @@ export class CrudController {
 
     // 全eventレコードを取得して自動採番とライブラリ一覧候補を準備
     let allEvents = [];
-    try {
-      const res = await api.getTable("event");
-      allEvents = Array.isArray(res) ? res : (res ? [res] : []);
-    } catch (e) {
-      allEvents = [];
+    if (this.eventState && this.eventState.isInitialized && this.eventState.currentRecords.length > 0) {
+      allEvents = this.eventState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("event");
+        allEvents = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allEvents = [];
+      }
     }
 
     // 自動採番 (新規時)
@@ -2014,13 +2090,31 @@ export class CrudController {
         banner: bannerVal,
       };
 
-      try {
-        await api.saveTable("event", payload, isNew ? null : record.id);
-        Modal.close();
-        await this.loadTab("event");
-      } catch (e) {
-        // api-clientでトースト通知される
+      // イベントバナー (event) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.eventState.currentRecords.push(payload);
+      } else {
+        const idx = this.eventState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.eventState.currentRecords[idx] = {
+            ...this.eventState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.eventState.currentRecords.push(payload);
+        }
       }
+
+      this.eventState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "イベントバナーを一覧に追加しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+          : "イベントバナーの変更を一覧に反映しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+      );
+      await this.loadTab("event");
     };
 
     Modal.open({
@@ -2690,6 +2784,17 @@ export class CrudController {
       return;
     }
 
+    if (tableName === "event") {
+      if (!confirm(`ID: ${id} のイベントバナーデータを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.eventState.currentRecords = this.eventState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.eventState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.loadTab("event");
+      return;
+    }
+
     if (!confirm(`ID: ${id} のレコードを本当に削除しますか？`)) return;
     try {
       await api.deleteRecord(tableName, id);
@@ -2772,6 +2877,87 @@ export class CrudController {
       await this.loadTab("visual");
     } catch (err) {
       console.error("[Commit Visual Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * イベントバナー (event) の未反映変更件数の算出
+   */
+  getEventChangesCount() {
+    if (!this.eventState || !this.eventState.isInitialized) return 0;
+    const origMap = new Map(this.eventState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.eventState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => curr[k] !== orig[k]);
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * イベントバナー (event) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitEventChanges() {
+    const count = this.getEventChangesCount();
+    if (!this.eventState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `イベントバナー管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.eventState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.eventState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.eventState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("event", rec.id);
+      }
+
+      // 2. 新規追加 (POST) および 更新 (PUT) の反映
+      for (const rec of this.eventState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加
+          await api.saveTable("event", rec, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
+          if (hasDiff) {
+            await api.saveTable("event", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("イベントバナー管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.eventState.hasPendingChanges = false;
+      this.eventState.isInitialized = false;
+      await this.loadTab("event");
+    } catch (err) {
+      console.error("[Commit Event Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
