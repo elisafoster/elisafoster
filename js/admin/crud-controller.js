@@ -276,7 +276,23 @@ export class CrudController {
           );
           break;
         case "event":
-          await this.renderTableListTab("event", "イベントバナー管理", ["id", "banner", "link", "start_at", "end_at"]);
+          await this.renderTableListTab(
+            "event",
+            "イベントバナー管理",
+            [
+              { key: "actions", label: "操作", isAction: true },
+              { key: "id", label: "id" },
+              { key: "banner", label: "バナー画像", type: "image", category: "event", isBanner: true },
+              { key: "link", label: "リンク", isLink: true },
+              { key: "start_at", label: "開始日時", type: "datetime" },
+              { key: "end_at", label: "終了日時", type: "datetime" },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
           break;
         case "notice":
           await this.renderTableListTab("notice", "お知らせ管理", ["id", "created_at", "status", "message", "Image"]);
@@ -468,10 +484,16 @@ export class CrudController {
       th.textContent = col.label;
       if (col.isAction) {
         th.className = "admin-table-col-actions";
-      } else if (col.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "banner", "Image", "image"].includes(col.key)) {
+      } else if (col.key === "banner" || col.isBanner) {
+        th.className = "admin-table-col-banner";
+      } else if (col.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(col.key)) {
         th.className = "admin-table-col-image";
       } else if (col.key === "id") {
         th.className = "admin-table-col-id";
+      } else if (col.key === "link" || col.isLink) {
+        th.className = "admin-table-col-link";
+      } else if (col.type === "datetime" || col.key === "start_at" || col.key === "end_at" || col.key === "created_at" || col.key === "schedule_at") {
+        th.className = "admin-table-col-datetime";
       } else if (col.key === "costumeName") {
         th.className = "admin-table-col-costumeName";
       }
@@ -519,13 +541,20 @@ export class CrudController {
             tr.appendChild(tdAct);
           } else {
             const td = document.createElement("td");
-            if (colCfg.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "banner", "Image", "image"].includes(colCfg.key)) {
+            if (colCfg.key === "banner" || colCfg.isBanner) {
+              td.className = "admin-table-col-banner";
+            } else if (colCfg.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(colCfg.key)) {
               td.className = "admin-table-col-image";
             } else if (colCfg.key === "id") {
               td.className = "admin-table-col-id";
+            } else if (colCfg.key === "link" || colCfg.isLink) {
+              td.className = "admin-table-col-link";
+            } else if (colCfg.type === "datetime" || colCfg.key === "start_at" || colCfg.key === "end_at" || colCfg.key === "created_at" || colCfg.key === "schedule_at") {
+              td.className = "admin-table-col-datetime";
             } else if (colCfg.key === "costumeName") {
               td.className = "admin-table-col-costumeName";
             }
+
             let val = row[colCfg.key];
             if ((val === undefined || val === null || val === "") && colCfg.fallbackKey) {
               val = row[colCfg.fallbackKey];
@@ -538,14 +567,15 @@ export class CrudController {
               const category = colCfg.category || tableName;
               const imgUrl = api.resolveAssetUrl(val, category);
               const img = document.createElement("img");
-              img.className = "admin-table-thumb";
+              img.className = `admin-table-thumb ${colCfg.isBanner || colCfg.key === "banner" ? "is-banner" : ""}`;
               img.src = imgUrl;
               img.alt = colCfg.label;
-              img.title = `${row.costumeName ? row.costumeName + " - " : ""}${colCfg.label} (クリックで拡大)`;
+              const titlePrefix = row.costumeName || row.title || row.name || "";
+              img.title = `${titlePrefix ? titlePrefix + " - " : ""}${colCfg.label} (クリックで拡大)`;
               img.onclick = () => {
-                const modalTitle = `${row.costumeName ? row.costumeName + "：" : ""}${colCfg.label}`;
+                const modalTitle = `${titlePrefix ? titlePrefix + "：" : ""}${colCfg.label}`;
                 this.openImageDetailModal(imgUrl, modalTitle, {
-                  costumeName: row.costumeName,
+                  costumeName: titlePrefix,
                   columnLabel: colCfg.label,
                   path: val,
                 });
@@ -553,6 +583,22 @@ export class CrudController {
               td.appendChild(img);
             } else if (val === null || val === undefined || val === "") {
               td.innerHTML = '<span style="color:#64748b;">-</span>';
+            } else if (colCfg.isLink || colCfg.key === "link") {
+              // リンク列: 全文折り返し表示 (URL形式はクリック可能リンク)
+              const strVal = String(val);
+              if (strVal.startsWith("http://") || strVal.startsWith("https://")) {
+                const linkElem = document.createElement("a");
+                linkElem.className = "admin-table-link-text";
+                linkElem.href = strVal;
+                linkElem.target = "_blank";
+                linkElem.rel = "noopener noreferrer";
+                linkElem.textContent = strVal;
+                td.appendChild(linkElem);
+              } else {
+                td.textContent = strVal;
+                td.style.wordBreak = "break-all";
+                td.style.whiteSpace = "normal";
+              }
             } else if (typeof val === "boolean" || colCfg.key === "isFeatured" || colCfg.key === "is_active") {
               td.textContent = (val === 1 || val === true) ? "✓ 表示" : "✕ 非表示";
             } else {

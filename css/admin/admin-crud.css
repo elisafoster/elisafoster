@@ -138,6 +138,59 @@
   min-width: 120px;
 }
 
+/* イベントバナーなどのバナー画像カラム (start_at と同じ 180px) */
+.admin-table th.admin-table-col-banner,
+.admin-table td.admin-table-col-banner {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  text-align: center;
+}
+
+.admin-table-thumb.is-banner {
+  width: 100%;
+  max-width: 156px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-sm, 6px);
+  margin: 0 auto;
+}
+
+/* リンクカラム (start_at と同じ 180px・折り返し表示) */
+.admin-table th.admin-table-col-link,
+.admin-table td.admin-table-col-link {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  white-space: normal !important;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.admin-table-link-text {
+  color: #60a5fa;
+  text-decoration: underline;
+  word-break: break-all;
+  font-size: 0.85rem;
+  display: inline-block;
+  line-height: 1.45;
+  transition: color var(--transition-fast, 0.15s);
+}
+
+.admin-table-link-text:hover {
+  color: #93c5fd;
+}
+
+/* 日時カラム (start_at, end_at: 幅 180px) */
+.admin-table th.admin-table-col-datetime,
+.admin-table td.admin-table-col-datetime {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  white-space: nowrap;
+}
+
 .admin-table-actions {
   display: flex;
   gap: 8px;
