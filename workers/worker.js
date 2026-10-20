@@ -238,6 +238,19 @@ export default {
       if (SINGLETON_TABLES.includes(tableName)) {
         body.id = 1;
         if (tableName === "profile") {
+          if (body.comment && typeof body.comment === "string" && body.comment.length > 75) {
+            return jsonResponse({ error: "キャッチフレーズは75文字以内で入力してください" }, 400);
+          }
+          if (body.message && typeof body.message === "string") {
+            const norm = body.message.replace(/\r\n/g, "\n");
+            if (norm.length > 180) {
+              return jsonResponse({ error: "自己紹介文は180文字以内で入力してください" }, 400);
+            }
+            const lines = norm.length > 0 ? norm.split("\n") : [];
+            if (lines.length > 5) {
+              return jsonResponse({ error: "自己紹介文は最大5行以内で入力してください" }, 400);
+            }
+          }
           if (typeof body.platforms === "object") body.platforms = JSON.stringify(body.platforms);
           if (typeof body.moves === "object") body.moves = JSON.stringify(body.moves);
         }

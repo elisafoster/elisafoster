@@ -295,6 +295,51 @@
   color: #94a3b8;
 }
 
+/* フォーム文字数・行数カウンターおよびバリデーション */
+.admin-form-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.admin-form-counter {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--transition-fast, 0.2s ease);
+}
+
+.admin-form-counter.is-error {
+  color: #f87171 !important;
+  font-weight: 700;
+}
+
+.admin-form-input.is-invalid,
+.admin-form-textarea.is-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.05) !important;
+}
+
+.admin-form-error-msg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: #f87171;
+  margin-top: 5px;
+  line-height: 1.4;
+  animation: adminFadeIn 0.2s ease;
+}
+
+@keyframes adminFadeIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* スイッチトグル */
 .admin-switch-label {
   display: inline-flex;

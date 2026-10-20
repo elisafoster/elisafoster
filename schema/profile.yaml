@@ -27,11 +27,18 @@ profile:
       type: text
       description: "キャッチフレーズ"
       required: false
+      validation:
+        maxLength: 75
+        errorMessage: "キャッチフレーズは75文字以内で入力してください"
 
     message:
       type: text
       description: "自己紹介"
       required: false
+      validation:
+        maxLength: 180
+        maxLines: 5
+        errorMessage: "自己紹介は180文字以内、最大5行以内で入力してください"
 
     birthday:
       label: "誕生日"

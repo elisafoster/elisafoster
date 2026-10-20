@@ -3119,15 +3119,23 @@ export class CrudController {
                 <input class="admin-form-input" name="nickname" value="${profile?.nickname || ""}" placeholder="ニックネーム" />
               </div>
               <div class="admin-form-group">
-                <label class="admin-form-label">キャッチフレーズ</label>
-                <input class="admin-form-input" name="comment" value="${profile?.comment || ""}" placeholder="キャッチフレーズ" />
+                <div class="admin-form-label-row">
+                  <label class="admin-form-label" style="margin-bottom: 0;">キャッチフレーズ</label>
+                  <span class="admin-form-counter" id="profile-comment-counter">0 / 75文字</span>
+                </div>
+                <input class="admin-form-input" id="profile-comment-input" name="comment" value="${profile?.comment || ""}" placeholder="キャッチフレーズ (75文字以内)" />
+                <div class="admin-form-error-msg" id="profile-comment-error" style="display: none;"></div>
               </div>
             </div>
 
             <!-- 3行目: 自己紹介文 -->
             <div class="admin-form-group" style="margin-bottom: 0;">
-              <label class="admin-form-label">自己紹介文</label>
-              <textarea class="admin-form-textarea" name="message" rows="4" placeholder="自己紹介文を入力してください">${profile?.message || ""}</textarea>
+              <div class="admin-form-label-row">
+                <label class="admin-form-label" style="margin-bottom: 0;">自己紹介文</label>
+                <span class="admin-form-counter" id="profile-message-counter">0 / 180文字 ｜ 0 / 5行</span>
+              </div>
+              <textarea class="admin-form-textarea" id="profile-message-input" name="message" rows="5" placeholder="自己紹介文を入力してください (180文字以内、最大5行)">${profile?.message || ""}</textarea>
+              <div class="admin-form-error-msg" id="profile-message-error" style="display: none;"></div>
             </div>
           </div>
         </details>
@@ -3439,6 +3447,94 @@ export class CrudController {
       });
     }
 
+    // キャッチフレーズ & 自己紹介文のバリデーション制御
+    const commentInput = form.querySelector("#profile-comment-input");
+    const commentCounter = form.querySelector("#profile-comment-counter");
+    const commentError = form.querySelector("#profile-comment-error");
+
+    const messageInput = form.querySelector("#profile-message-input");
+    const messageCounter = form.querySelector("#profile-message-counter");
+    const messageError = form.querySelector("#profile-message-error");
+
+    const validateComment = () => {
+      const val = commentInput ? commentInput.value : "";
+      const len = val.length;
+      const maxLen = 75;
+      const isOver = len > maxLen;
+
+      if (commentCounter) {
+        commentCounter.textContent = `${len} / ${maxLen}文字`;
+        commentCounter.classList.toggle("is-error", isOver);
+      }
+
+      if (commentInput) {
+        commentInput.classList.toggle("is-invalid", isOver);
+      }
+
+      if (commentError) {
+        if (isOver) {
+          commentError.textContent = `⚠️ キャッチフレーズは75文字以内で入力してください（${len - maxLen}文字超過）`;
+          commentError.style.display = "flex";
+        } else {
+          commentError.textContent = "";
+          commentError.style.display = "none";
+        }
+      }
+
+      return !isOver;
+    };
+
+    const validateMessage = () => {
+      const raw = messageInput ? messageInput.value : "";
+      const normalized = raw.replace(/\r\n/g, "\n");
+      const len = normalized.length;
+      const maxLen = 180;
+      const lines = normalized.length > 0 ? normalized.split("\n") : [];
+      const lineCount = lines.length;
+      const maxLines = 5;
+
+      const isLenOver = len > maxLen;
+      const isLinesOver = lineCount > maxLines;
+      const isInvalid = isLenOver || isLinesOver;
+
+      if (messageCounter) {
+        messageCounter.textContent = `${len} / ${maxLen}文字 ｜ ${lineCount} / ${maxLines}行`;
+        messageCounter.classList.toggle("is-error", isInvalid);
+      }
+
+      if (messageInput) {
+        messageInput.classList.toggle("is-invalid", isInvalid);
+      }
+
+      if (messageError) {
+        if (isLenOver && isLinesOver) {
+          messageError.textContent = `⚠️ 文字数（${len - maxLen}文字超過）と行数（${lineCount - maxLines}行超過）が上限を超えています`;
+          messageError.style.display = "flex";
+        } else if (isLenOver) {
+          messageError.textContent = `⚠️ 自己紹介文は180文字以内で入力してください（${len - maxLen}文字超過）`;
+          messageError.style.display = "flex";
+        } else if (isLinesOver) {
+          messageError.textContent = `⚠️ 自己紹介文は最大5行以内で入力してください（${lineCount - maxLines}行超過）`;
+          messageError.style.display = "flex";
+        } else {
+          messageError.textContent = "";
+          messageError.style.display = "none";
+        }
+      }
+
+      return !isInvalid;
+    };
+
+    if (commentInput) {
+      commentInput.addEventListener("input", validateComment);
+      validateComment();
+    }
+
+    if (messageInput) {
+      messageInput.addEventListener("input", validateMessage);
+      validateMessage();
+    }
+
     // 画面外クリック時にポップオーバーを閉じる
     document.addEventListener("click", () => {
       closeAllPopovers();
@@ -3447,6 +3543,22 @@ export class CrudController {
     // フォーム送信処理
     form.onsubmit = async (e) => {
       e.preventDefault();
+
+      const isCommentValid = validateComment();
+      const isMessageValid = validateMessage();
+
+      if (!isCommentValid) {
+        Toast.error("キャッチフレーズが75文字を超えています。修正してください。");
+        commentInput?.focus();
+        return;
+      }
+
+      if (!isMessageValid) {
+        Toast.error("自己紹介文の文字数または行数が上限を超えています。修正してください。");
+        messageInput?.focus();
+        return;
+      }
+
       const formData = new FormData(form);
       const payload = { ...profile };
 
