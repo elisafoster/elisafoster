@@ -46,10 +46,12 @@
 .admin-table-container {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-table {
   width: 100%;
+  min-width: 860px; /* スマホや縦長画面時でも画像・各列が絶対に潰れない最小幅 */
   text-align: left;
   font-size: 0.9rem;
   border-collapse: collapse;
@@ -69,15 +71,32 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   color: #f1f5f9;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .admin-table tr:hover td {
   background: rgba(255, 255, 255, 0.04);
 }
 
+/* 画像カラム (立ち絵, SD, サムネイル, 衣装背景など) */
+.admin-table th.admin-table-col-image,
+.admin-table td.admin-table-col-image,
+.admin-table td:has(.admin-table-thumb) {
+  width: 124px;
+  min-width: 124px;
+  max-width: 124px;
+  text-align: center;
+}
+
+/* サムネイル画像本体（縦長・スマホ時でもサイズ不変・アスペクト比維持） */
 .admin-table-thumb {
   width: 96px;
   height: 96px;
+  min-width: 96px;
+  min-height: 96px;
+  max-width: 96px;
+  max-height: 96px;
+  aspect-ratio: 1 / 1;
   border-radius: var(--radius-sm, 6px);
   object-fit: contain;
   background: #090d16;
@@ -87,12 +106,36 @@
   cursor: zoom-in;
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   display: block;
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .admin-table-thumb:hover {
   transform: scale(1.05);
   border-color: #60a5fa;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* 操作カラム */
+.admin-table th.admin-table-col-actions,
+.admin-table td.admin-table-col-actions {
+  width: 80px;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* IDカラム */
+.admin-table th.admin-table-col-id,
+.admin-table td.admin-table-col-id {
+  width: 50px;
+  min-width: 50px;
+  text-align: center;
+}
+
+/* 衣装名カラム */
+.admin-table th.admin-table-col-costumeName,
+.admin-table td.admin-table-col-costumeName {
+  min-width: 120px;
 }
 
 .admin-table-actions {

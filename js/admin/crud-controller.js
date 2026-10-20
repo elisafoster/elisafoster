@@ -466,6 +466,15 @@ export class CrudController {
     normalizedCols.forEach((col) => {
       const th = document.createElement("th");
       th.textContent = col.label;
+      if (col.isAction) {
+        th.className = "admin-table-col-actions";
+      } else if (col.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "banner", "Image", "image"].includes(col.key)) {
+        th.className = "admin-table-col-image";
+      } else if (col.key === "id") {
+        th.className = "admin-table-col-id";
+      } else if (col.key === "costumeName") {
+        th.className = "admin-table-col-costumeName";
+      }
       headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
@@ -490,6 +499,7 @@ export class CrudController {
           if (colCfg.isAction) {
             // 操作列 (td 自体は table-cell として vertical-align: middle を維持し、内部 div を flex 化)
             const tdAct = document.createElement("td");
+            tdAct.className = "admin-table-col-actions";
             const actWrap = document.createElement("div");
             actWrap.className = `admin-table-actions ${verticalActions ? "is-vertical" : ""}`;
 
@@ -509,6 +519,13 @@ export class CrudController {
             tr.appendChild(tdAct);
           } else {
             const td = document.createElement("td");
+            if (colCfg.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "banner", "Image", "image"].includes(colCfg.key)) {
+              td.className = "admin-table-col-image";
+            } else if (colCfg.key === "id") {
+              td.className = "admin-table-col-id";
+            } else if (colCfg.key === "costumeName") {
+              td.className = "admin-table-col-costumeName";
+            }
             let val = row[colCfg.key];
             if ((val === undefined || val === null || val === "") && colCfg.fallbackKey) {
               val = row[colCfg.fallbackKey];
