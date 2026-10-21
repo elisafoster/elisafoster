@@ -12,6 +12,7 @@
 
 import { api } from "../common/api-client.js";
 import { Modal } from "../common/modal.js";
+import { escapeHtml } from "../common/utils.js";
 
 export class ScheduleSection {
   constructor(container, scheduleList, tagList) {
@@ -460,7 +461,7 @@ export class ScheduleSection {
     const timeStr = item.time ? `${item.time}〜` : "時間未定";
     const dtEl = document.createElement("span");
     dtEl.className = "lp-schedule-modal-datetime";
-    dtEl.innerHTML = `📅 ${item.schedule_at || ""} ${timeStr}`;
+    dtEl.innerHTML = `📅 ${escapeHtml(item.schedule_at || "")} ${escapeHtml(timeStr)}`;
     metaRow.appendChild(dtEl);
 
     const tagObj = this.tags.find((t) => String(t.id) === String(item.scheduleTag_id));

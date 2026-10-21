@@ -12,6 +12,7 @@
 
 import { api } from "../common/api-client.js";
 import { Modal } from "../common/modal.js";
+import { escapeHtml } from "../common/utils.js";
 
 // TikTok用 SVG プレースホルダー (Data URI)
 const TIKTOK_PLACEHOLDER_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280" width="720" height="1280"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23010101"/><stop offset="50%" stop-color="%23121212"/><stop offset="100%" stop-color="%231a1a1a"/></linearGradient><linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="%2325F4EE"/><stop offset="100%" stop-color="%23FE2C55"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23bg)"/><circle cx="360" cy="560" r="160" fill="%2325F4EE" opacity="0.12"/><circle cx="380" cy="580" r="160" fill="%23FE2C55" opacity="0.12"/><g transform="translate(240, 430) scale(4)"><path fill="%2325F4EE" d="M38.5 13.5c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V4h-6v26.5c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3v-6.2c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5S11.7 41.7 18.1 41.7s11.5-5.1 11.5-11.5V17.7c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z" opacity="0.85"/><path fill="%23FE2C55" d="M40.5 14.5c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V5h-6v26.5c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3V20.6c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5S13.7 43.5 20.1 43.5s11.5-5.1 11.5-11.5V18.7c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z" opacity="0.85"/><path fill="%23ffffff" d="M39.5 14c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V4.5h-6V31c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3v-6.2c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5s5.1 11.5 11.5 11.5 11.5-5.1 11.5-11.5V18.2c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z"/></g><text x="360" y="780" fill="%23ffffff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" letter-spacing="4">TikTok Video</text><rect x="260" y="830" width="200" height="4" rx="2" fill="url(%23accent)"/></svg>`;
@@ -310,7 +311,7 @@ export class MovieSection {
       dropItem.className = `lp-movie-dropdown-item ${isSelected ? "is-active" : ""}`;
       dropItem.type = "button";
       dropItem.innerHTML = `
-        <span>${item.name}</span>
+        <span>${escapeHtml(item.name)}</span>
         ${isSelected ? '<span class="lp-dropdown-check">✓</span>' : ""}
       `;
       dropItem.onclick = () => {
@@ -412,7 +413,7 @@ export class MovieSection {
       dropItem.className = `lp-movie-dropdown-item ${isSelected ? "is-active" : ""}`;
       dropItem.type = "button";
       dropItem.innerHTML = `
-        <span>#${tag.tagName}</span>
+        <span>#${escapeHtml(tag.tagName)}</span>
         ${isSelected ? '<span class="lp-dropdown-check">✓</span>' : ""}
       `;
       dropItem.onclick = () => {

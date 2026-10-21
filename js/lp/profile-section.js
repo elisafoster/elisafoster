@@ -15,6 +15,19 @@
 import { api } from "../common/api-client.js";
 import { Modal } from "../common/modal.js";
 
+/**
+ * 安全なHTMLエスケープ関数 (XSS対策)
+ */
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function getYouTubeInfo(url) {
   if (!url) return null;
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
@@ -96,7 +109,7 @@ export class ProfileSection {
     if (this.profile.nickname) {
       const nickBadge = document.createElement("div");
       nickBadge.className = "lp-profile-nick-badge";
-      nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${this.profile.nickname}</span>`;
+      nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${escapeHtml(this.profile.nickname)}</span>`;
       leftCol.appendChild(nickBadge);
     }
 
@@ -152,8 +165,8 @@ export class ProfileSection {
       const row = document.createElement("div");
       row.className = "lp-spec-row-item";
       row.innerHTML = `
-        <span class="lp-spec-row-label"><i>${s.icon}</i> ${s.label}</span>
-        <span class="lp-spec-row-val">${s.value}</span>
+        <span class="lp-spec-row-label"><i>${escapeHtml(s.icon)}</i> ${escapeHtml(s.label)}</span>
+        <span class="lp-spec-row-val">${escapeHtml(s.value)}</span>
       `;
       specsList.appendChild(row);
     });
@@ -184,8 +197,8 @@ export class ProfileSection {
       const row = document.createElement("div");
       row.className = "lp-credit-row-item";
       row.innerHTML = `
-        <span class="lp-credit-row-label">${c.label}</span>
-        <span class="lp-credit-row-val">${c.val}</span>
+        <span class="lp-credit-row-label">${escapeHtml(c.label)}</span>
+        <span class="lp-credit-row-val">${escapeHtml(c.val)}</span>
       `;
       creditsList.appendChild(row);
     });
@@ -202,7 +215,13 @@ export class ProfileSection {
     const snsBtns = document.createElement("div");
     snsBtns.className = "lp-channels-btn-group";
 
-    if (this.profile.youtubeUrl) {
+    const isSafeUrl = (url) => {
+      if (!url || typeof url !== "string") return false;
+      const lower = url.trim().toLowerCase();
+      return lower.startsWith("http://") || lower.startsWith("https://");
+    };
+
+    if (this.profile.youtubeUrl && isSafeUrl(this.profile.youtubeUrl)) {
       const ytBtn = document.createElement("a");
       ytBtn.className = "lp-channel-btn lp-btn-youtube";
       ytBtn.href = this.profile.youtubeUrl;
@@ -212,7 +231,7 @@ export class ProfileSection {
       snsBtns.appendChild(ytBtn);
     }
 
-    if (this.profile.xUrl) {
+    if (this.profile.xUrl && isSafeUrl(this.profile.xUrl)) {
       const xBtn = document.createElement("a");
       xBtn.className = "lp-channel-btn lp-btn-x";
       xBtn.href = this.profile.xUrl;
@@ -224,7 +243,7 @@ export class ProfileSection {
 
     if (Array.isArray(this.profile.platforms)) {
       this.profile.platforms.forEach((p) => {
-        if (!p.link) return;
+        if (!p.link || !isSafeUrl(p.link)) return;
         const pBtn = document.createElement("a");
         pBtn.className = "lp-channel-btn lp-btn-platform";
         pBtn.href = p.link;
@@ -257,7 +276,7 @@ export class ProfileSection {
 
         card.innerHTML = `
           <div class="lp-profile-movie-thumb-wrapper">
-            <img class="lp-profile-movie-thumb" src="${thumbSrc}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
+            <img class="lp-profile-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
             <div class="lp-profile-movie-play-btn">
               <div class="lp-profile-movie-play-icon">▶</div>
             </div>
@@ -323,7 +342,7 @@ export class ProfileSection {
             ? api.resolveAssetUrl(v.thumbnail, "visual/thumbnail")
             : api.resolveAssetUrl(v.visual, "visual/standing");
 
-          btn.innerHTML = `<img src="${thumbSrc}" alt="${v.costumeName || ""}" />`;
+          btn.innerHTML = `<img src="${escapeHtml(thumbSrc)}" alt="${escapeHtml(v.costumeName || "")}" />`;
 
           btn.onclick = () => {
             this.currentVisualIndex = idx;
