@@ -1319,6 +1319,25 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   min-height: 80px;
 }
 
+/* お知らせ用プレビュー枠 (アスペクト比 16:9) */
+.admin-visual-preview-box.is-notice-box {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  min-height: 100px;
+}
+
+/* お知らせ一覧テーブルの画像サムネイル (アスペクト比 16:9) */
+.admin-table-thumb.is-notice-image {
+  width: 100%;
+  max-width: 130px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border-radius: var(--radius-sm, 6px);
+  margin: 0 auto;
+}
+
 
 
 

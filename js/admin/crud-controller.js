@@ -233,9 +233,22 @@ export class CrudController {
       hasPendingChanges: false,
     };
 
+    // お知らせ (notice) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.noticeState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+    this.noticeLibraryCache = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
-      if (this.visualState?.hasPendingChanges || this.eventState?.hasPendingChanges) {
+      if (
+        this.visualState?.hasPendingChanges ||
+        this.eventState?.hasPendingChanges ||
+        this.noticeState?.hasPendingChanges
+      ) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -261,6 +274,16 @@ export class CrudController {
       if (!ok) return;
       this.eventState.hasPendingChanges = false;
       this.eventState.isInitialized = false;
+    }
+
+    // お知らせ管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "notice" && tabKey !== "notice" && this.noticeState?.hasPendingChanges) {
+      const ok = confirm(
+        "お知らせ管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.noticeState.hasPendingChanges = false;
+      this.noticeState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -383,7 +406,7 @@ export class CrudController {
   async renderTableListTab(tableName, title, displayColumns, options = {}) {
     let rows = [];
 
-    // 立ち絵・衣装 (visual) またはイベントバナー (event) の場合は保留バッファ（ドラフト）を使用
+    // 立ち絵・衣装 (visual)、イベントバナー (event)、お知らせ (notice) の場合は保留バッファ（ドラフト）を使用
     if (tableName === "visual") {
       if (!this.visualState.isInitialized) {
         const records = await api.getTable("visual");
@@ -404,6 +427,16 @@ export class CrudController {
         this.eventState.isInitialized = true;
       }
       rows = this.eventState.currentRecords;
+    } else if (tableName === "notice") {
+      if (!this.noticeState.isInitialized) {
+        const records = await api.getTable("notice");
+        const loaded = Array.isArray(records) ? records : (records ? [records] : []);
+        this.noticeState.originalRecords = JSON.parse(JSON.stringify(loaded));
+        this.noticeState.currentRecords = JSON.parse(JSON.stringify(loaded));
+        this.noticeState.hasPendingChanges = false;
+        this.noticeState.isInitialized = true;
+      }
+      rows = this.noticeState.currentRecords;
     } else {
       const records = await api.getTable(tableName);
       rows = Array.isArray(records) ? records : (records ? [records] : []);
@@ -505,6 +538,30 @@ export class CrudController {
       actions.appendChild(commitBtn);
     }
 
+    // お知らせ管理: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    if (tableName === "notice") {
+      const commitBtn = document.createElement("button");
+      commitBtn.id = "notice-commit-btn";
+      commitBtn.className = "app-btn app-btn-orange";
+
+      const changesCount = this.getNoticeChangesCount();
+      if (this.noticeState.hasPendingChanges && changesCount > 0) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+        commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+
+      commitBtn.onclick = async () => {
+        await this.commitNoticeChanges();
+      };
+      actions.appendChild(commitBtn);
+    }
+
     header.appendChild(actions);
 
     card.appendChild(header);
@@ -544,6 +601,26 @@ export class CrudController {
         `;
         alertBar.querySelector("button").onclick = async () => {
           await this.commitEventChanges();
+        };
+        card.appendChild(alertBar);
+      }
+    }
+
+    // お知らせ管理で未反映の変更がある場合は通知アラートを表示
+    if (tableName === "notice" && this.noticeState.hasPendingChanges) {
+      const changesCount = this.getNoticeChangesCount();
+      if (changesCount > 0) {
+        const alertBar = document.createElement("div");
+        alertBar.className = "admin-pending-alert";
+        alertBar.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+        `;
+        alertBar.querySelector("button").onclick = async () => {
+          await this.commitNoticeChanges();
         };
         card.appendChild(alertBar);
       }
@@ -722,7 +799,7 @@ export class CrudController {
                 const category = colCfg.category || tableName;
                 const imgUrl = api.resolveAssetUrl(val, category);
                 const img = document.createElement("img");
-                img.className = `admin-table-thumb ${colCfg.isBanner || colCfg.key === "banner" ? "is-banner" : ""}`;
+                img.className = `admin-table-thumb ${colCfg.isBanner || colCfg.key === "banner" ? "is-banner" : (colCfg.category === "notice" || tableName === "notice" ? "is-notice-image" : "")}`;
                 img.src = imgUrl;
                 img.alt = colCfg.label;
                 const titlePrefix = row.costumeName || row.title || row.name || "";
@@ -2710,6 +2787,896 @@ export class CrudController {
   }
 
   /**
+   * お知らせ (notice) 専用の新規・編集モーダル
+   */
+  async openNoticeModal(record, restoreState = null) {
+    const isNew = !record;
+
+    // 全noticeレコードを取得して自動採番とライブラリ一覧候補を準備
+    let allNotices = [];
+    if (this.noticeState && this.noticeState.isInitialized && this.noticeState.currentRecords.length > 0) {
+      allNotices = this.noticeState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("notice");
+        allNotices = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allNotices = [];
+      }
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allNotices.length > 0 ? Math.max(...allNotices.map((r) => Number(r.id) || 0)) + 1 : 1;
+
+    // 現在のデータ (復元データがある場合は復元データを最優先)
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      status: record?.status || "published",
+      scheduled_at: record?.scheduled_at || "",
+      created_at: record?.created_at || "",
+      message: record?.message || "",
+      Image: record?.Image || record?.image || "",
+      ...restoreState,
+    };
+
+    // ライブラリ候補の集約
+    if (!this.noticeLibraryCache) {
+      this.noticeLibraryCache = [];
+    }
+    const librarySet = new Set(["noticesample.png", ...this.noticeLibraryCache]);
+    allNotices.forEach((row) => {
+      const img = row.Image || row.image;
+      if (img && typeof img === "string" && !img.startsWith("http")) {
+        librarySet.add(img.split("/").pop());
+      }
+    });
+    this.noticeLibraryCache = Array.from(librarySet);
+
+    // 日時変換ヘルパー (YYYY-MM-DD HH:mm:ss <-> YYYY-MM-DDTHH:mm)
+    const formatToInputDatetime = (val) => {
+      if (!val) return "";
+      const str = String(val).trim();
+      return str.replace(" ", "T").substring(0, 16);
+    };
+
+    const formatFromInputDatetime = (val) => {
+      if (!val) return null;
+      const str = String(val).trim();
+      if (str.includes("T")) {
+        const [d, t] = str.split("T");
+        return `${d} ${t.length === 5 ? t + ":00" : t}`;
+      }
+      return str;
+    };
+
+    // GoogleドライブURL変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode =
+      currentData.image_mode ||
+      (currentData.Image && (currentData.Image.startsWith("http://") || currentData.Image.startsWith("https://"))
+        ? "url"
+        : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ ステータス -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${escapeHtml(currentData.id)}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            ステータス
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <select class="admin-form-input" name="status">
+            <option value="published" ${currentData.status === "published" ? "selected" : ""}>公開 (published)</option>
+            <option value="scheduled" ${currentData.status === "scheduled" ? "selected" : ""}>予約 (scheduled)</option>
+            <option value="draft" ${currentData.status === "draft" ? "selected" : ""}>下書き (draft)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 行2: 予約投稿時刻 ｜ 送信時刻 -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            予約投稿時刻
+            <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(未設定時は即時公開)</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="scheduled_at"
+            type="datetime-local"
+            value="${escapeHtml(formatToInputDatetime(currentData.scheduled_at))}"
+            step="60"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            送信時刻
+            <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(${isNew ? "新規保存時に自動設定" : "作成日時"})</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="created_at"
+            type="text"
+            value="${escapeHtml(currentData.created_at || (isNew ? "保存時に自動設定" : "-"))}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+      </div>
+
+      <!-- 行3: お知らせ本文 -->
+      <div class="admin-form-group">
+        <label class="admin-form-label">
+          お知らせ本文
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <textarea
+          class="admin-form-textarea"
+          name="message"
+          rows="4"
+          placeholder="お知らせ本文を入力してください"
+          required
+        >${escapeHtml(currentData.message || "")}</textarea>
+      </div>
+
+      <!-- 行4: 画像選択 (Image) -->
+      <div class="admin-visual-field-card" style="margin-top: 4px;">
+        <div class="admin-visual-field-header">
+          <label class="admin-form-label" style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            画像選択 (画像)
+          </label>
+          <div class="admin-visual-mode-toggle">
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="library" ${initialMode === "library" ? "checked" : ""}>
+              <span>ライブラリ参照</span>
+            </label>
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="url" ${initialMode === "url" ? "checked" : ""}>
+              <span>直URL指定</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-visual-field-body">
+          <div class="admin-visual-input-col">
+            <!-- ライブラリ選択UI -->
+            <div id="mode-library-notice" class="admin-visual-mode-panel" style="${initialMode === "library" ? "" : "display: none;"}">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="admin-form-input admin-visual-file-select" data-field="Image" style="flex: 1;">
+                  <option value="">-- 画像を選択しない (なし) --</option>
+                  ${this.noticeLibraryCache.map((fn) => `
+                    <option value="${escapeHtml(fn)}" ${currentData.Image === fn ? "selected" : ""}>${escapeHtml(fn)}</option>
+                  `).join("")}
+                </select>
+                <button type="button" class="app-btn app-btn-secondary admin-notice-upload-btn" data-field="Image" style="white-space: nowrap;">
+                  📤 アップロード
+                </button>
+              </div>
+              <span class="admin-form-hint">assets/notice 配下の画像をプルダウンで選択、または新規アップロードできます</span>
+            </div>
+
+            <!-- 直URL指定UI -->
+            <div id="mode-url-notice" class="admin-visual-mode-panel" style="${initialMode === "url" ? "" : "display: none;"}">
+              <input
+                class="admin-form-input admin-visual-url-input"
+                data-field="Image"
+                type="url"
+                value="${initialMode === "url" ? escapeHtml(currentData.Image || "") : ""}"
+                placeholder="https://drive.google.com/file/d/... または画像URL"
+              />
+              <span class="admin-form-hint">Googleドライブの共有URL、または画像の直接URLを入力してください（ドライブURLは自動変換されます）</span>
+            </div>
+          </div>
+
+          <!-- プレビュー枠 (アスペクト比 16:9) -->
+          <div class="admin-visual-preview-col" style="min-width: 240px; max-width: 280px;">
+            <div id="preview-box-notice-image" class="admin-visual-preview-box is-notice-box">
+              <span class="admin-visual-preview-empty">プレビューなし</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // プレビュー更新関数
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-notice-image");
+      if (!pBox) return;
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imgVal = "";
+      if (mode === "library") {
+        imgVal = form.querySelector('.admin-visual-file-select[data-field="Image"]')?.value || "";
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="Image"]')?.value?.trim() || "";
+        imgVal = convertGoogleDriveUrl(raw);
+      }
+
+      if (imgVal) {
+        const fullUrl = api.resolveAssetUrl(imgVal, "notice");
+        pBox.innerHTML = `
+          <img src="${escapeHtml(fullUrl)}" alt="お知らせ画像プレビュー" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\' style=\\'color:#ef4444;\\'>読込失敗</span>';" />
+        `;
+      } else {
+        pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
+      }
+    };
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="image_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-notice");
+        const urlPanel = form.querySelector("#mode-url-notice");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    // プルダウン変更
+    form.querySelector('.admin-visual-file-select[data-field="Image"]').onchange = updatePreview;
+
+    // URL入力変更
+    const urlInput = form.querySelector('.admin-visual-url-input[data-field="Image"]');
+    urlInput.oninput = () => {
+      const converted = convertGoogleDriveUrl(urlInput.value.trim());
+      if (converted !== urlInput.value.trim()) {
+        urlInput.value = converted;
+      }
+      updatePreview();
+    };
+
+    // アップロードボタン押下
+    form.querySelector('.admin-notice-upload-btn[data-field="Image"]').onclick = () => {
+      const savedState = this.collectNoticeFormData(form);
+      const cfg = {
+        label: "お知らせ画像",
+        category: "notice",
+        uploadPath: "assets/notice",
+        accept: ".png,.jpg,.jpeg,.webp",
+        maxSizeBytes: 2097152, // 2MB
+        maxSizeMB: 2,
+        aspectRatio: "16:9",
+        displayMode: "contain",
+        maxLongEdge: 1280,
+      };
+      this.openNoticeUploadModal("Image", record, savedState, cfg);
+    };
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imageVal = null;
+      if (mode === "library") {
+        imageVal = form.querySelector('.admin-visual-file-select[data-field="Image"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="Image"]')?.value?.trim() || null;
+        imageVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const statusVal = fd.get("status")?.toString().trim() || "published";
+      const scheduledAtVal = formatFromInputDatetime(fd.get("scheduled_at"));
+      const messageVal = fd.get("message")?.toString().trim();
+
+      if (!messageVal) {
+        alert("お知らせ本文は必須項目です");
+        return;
+      }
+
+      if (statusVal === "scheduled" && !scheduledAtVal) {
+        alert("予約投稿の場合は、予約投稿時刻を入力してください");
+        return;
+      }
+
+      const nowStr = new Date().toISOString().replace("T", " ").substring(0, 19);
+
+      const payload = {
+        id: Number(fd.get("id")),
+        status: statusVal,
+        scheduled_at: scheduledAtVal,
+        created_at: currentData.created_at || nowStr,
+        message: messageVal,
+        Image: imageVal || null,
+      };
+
+      // お知らせ (notice) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.noticeState.currentRecords.push(payload);
+      } else {
+        const idx = this.noticeState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.noticeState.currentRecords[idx] = {
+            ...this.noticeState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.noticeState.currentRecords.push(payload);
+        }
+      }
+
+      this.noticeState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "お知らせを一覧に追加しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+          : "お知らせの変更を一覧に反映しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+      );
+      await this.loadTab("notice");
+    };
+
+    Modal.open({
+      title: isNew ? "お知らせの新規追加" : `お知らせの編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * お知らせ 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectNoticeFormData(form) {
+    if (!form) return {};
+    const fd = new FormData(form);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+      data[k] = v;
+    }
+    const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+    data["image_mode"] = mode;
+    if (mode === "library") {
+      data["Image"] = form.querySelector('.admin-visual-file-select[data-field="Image"]')?.value || "";
+    } else {
+      data["Image"] = form.querySelector('.admin-visual-url-input[data-field="Image"]')?.value || "";
+    }
+    return data;
+  }
+
+  /**
+   * お知らせ 画像アップロードモーダル (インタラクティブ・クロッパー 16:9)
+   */
+  async openNoticeUploadModal(field, currentRecord, savedState, cfg) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    let targetW = 1280;
+    let targetH = 720;
+    const headerTitleText = `トリミング調整 (横長 16:9 (1280×720))`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${escapeHtml(cfg.label)}</strong> (保存先: <code>${escapeHtml(cfg.uploadPath)}</code>)</div>
+        <div>対応形式: <code>${escapeHtml(cfg.accept)}</code> ｜ 容量上限: <code>${escapeHtml(cfg.maxSizeMB)}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${escapeHtml(cfg.aspectRatio)} (${escapeHtml(cfg.displayMode)})</code></div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-notice">
+        <input type="file" id="upload-file-input-notice" accept="${escapeHtml(cfg.accept)}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCからお知らせ画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-notice" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${escapeHtml(headerTitleText)}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas-notice" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-notice" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-notice" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-notice" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-notice" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input-notice" placeholder="例: notice_image_202610" style="flex: 1;" />
+          <span id="upload-ext-label-notice" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.jpg</span>
+        </div>
+        <span id="upload-name-error-notice" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    cancelBtn.onclick = () => {
+      this.openNoticeModal(currentRecord, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone-notice");
+    const fileInput = wrap.querySelector("#upload-file-input-notice");
+    const cropStage = wrap.querySelector("#crop-stage-notice");
+    const cropCanvas = wrap.querySelector("#crop-canvas-notice");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-notice");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-notice");
+    const centerBtn = wrap.querySelector("#crop-center-btn-notice");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-notice");
+    const nameInput = wrap.querySelector("#upload-filename-input-notice");
+    const extLabel = wrap.querySelector("#upload-ext-label-notice");
+    const nameError = wrap.querySelector("#upload-name-error-notice");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const checkUploadBtnState = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      uploadBtn.disabled = !selectedImg || !isValid || !isSizeValid;
+    };
+
+    const renderCanvas = () => {
+      if (!selectedImg) return;
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        if (!selectedImg) return;
+        const ext = extLabel.textContent.toLowerCase();
+        let mimeType = "image/jpeg";
+        let quality = 0.85;
+        if (ext === ".png") {
+          mimeType = "image/png";
+          quality = undefined;
+        } else if (ext === ".webp") {
+          mimeType = "image/webp";
+          quality = 0.85;
+        }
+
+        cropCanvas.toBlob(
+          (blob) => {
+            if (!blob) return;
+            currentBlob = blob;
+            const sizeKB = (blob.size / 1024).toFixed(1);
+            const limitKB = Math.round(cfg.maxSizeBytes / 1024);
+            const isOver = blob.size > cfg.maxSizeBytes;
+
+            if (isOver) {
+              sizeBadge.className = "crop-size-badge is-over";
+              sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB 超過`;
+              isSizeValid = false;
+            } else {
+              sizeBadge.className = "crop-size-badge is-ok";
+              sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB OK`;
+              isSizeValid = true;
+            }
+            checkUploadBtnState();
+          },
+          mimeType,
+          quality
+        );
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 90);
+      }
+    };
+
+    // ドラッグ移動制御
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startCenterX = 0;
+    let startCenterY = 0;
+
+    const onDragStart = (clientX, clientY) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      startCenterX = centerX;
+      startCenterY = centerY;
+      cropCanvas.classList.add("is-dragging");
+    };
+
+    const onDragMove = (clientX, clientY) => {
+      if (!isDragging || !selectedImg) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const factorX = targetW / rect.width;
+      const factorY = targetH / rect.height;
+      const dx = (clientX - startX) * factorX;
+      const dy = (clientY - startY) * factorY;
+      centerX = startCenterX + dx;
+      centerY = startCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      cropCanvas.classList.remove("is-dragging");
+      scheduleSizeUpdate(true);
+    };
+
+    cropCanvas.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onDragStart(e.clientX, e.clientY);
+    });
+
+    const handleWindowMouseMove = (e) => {
+      if (isDragging) onDragMove(e.clientX, e.clientY);
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    // タッチ対応
+    cropCanvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 1) {
+          onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      },
+      { passive: false }
+    );
+
+    const handleWindowTouchMove = (e) => {
+      if (isDragging && e.touches.length === 1) {
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleWindowTouchEnd = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // ホイールズーム
+    cropCanvas.addEventListener(
+      "wheel",
+      (e) => {
+        if (!selectedImg) return;
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+        let newScale = scale * zoomFactor;
+        const minS = parseFloat(zoomSlider.min);
+        const maxS = parseFloat(zoomSlider.max);
+        newScale = Math.max(minS, Math.min(maxS, newScale));
+        scale = newScale;
+        zoomSlider.value = scale;
+        renderCanvas();
+        scheduleSizeUpdate(false);
+      },
+      { passive: false }
+    );
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".jpg";
+      extLabel.textContent = ext;
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!nameInput.value) {
+        nameInput.value = baseName || "notice_image";
+      }
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
+          cropStage.style.display = "flex";
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (val && !isValid) {
+        nameError.style.display = "block";
+      } else {
+        nameError.style.display = "none";
+      }
+      checkUploadBtnState();
+    };
+
+    // アップロードボタン押下
+    uploadBtn.onclick = async () => {
+      const fileNameRaw = nameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const ext = extLabel.textContent;
+      const fullFileName = `${fileNameRaw}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.noticeLibraryCache.includes(fullFileName)) {
+            this.noticeLibraryCache.push(fullFileName);
+          }
+          savedState["Image"] = fullFileName;
+          savedState["image_mode"] = "library";
+          cleanupListeners();
+          this.openNoticeModal(currentRecord, savedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for notice image via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`${fullFileName} を正常にアップロードしました`);
+
+        if (!this.noticeLibraryCache.includes(fullFileName)) {
+          this.noticeLibraryCache.push(fullFileName);
+        }
+
+        savedState["Image"] = fullFileName;
+        savedState["image_mode"] = "library";
+
+        cleanupListeners();
+        this.openNoticeModal(currentRecord, savedState);
+      } catch (err) {
+        console.error("[Upload Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+        this.openNoticeModal(currentRecord, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
@@ -2718,6 +3685,9 @@ export class CrudController {
     }
     if (tableName === "event") {
       return this.openEventModal(record);
+    }
+    if (tableName === "notice") {
+      return this.openNoticeModal(record);
     }
 
     const isNew = !record;
@@ -2930,6 +3900,17 @@ export class CrudController {
       return;
     }
 
+    if (tableName === "notice") {
+      if (!confirm(`ID: ${id} のお知らせデータを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.noticeState.currentRecords = this.noticeState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.noticeState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.loadTab("notice");
+      return;
+    }
+
     if (!confirm(`ID: ${id} のレコードを本当に削除しますか？`)) return;
     try {
       await api.deleteRecord(tableName, id);
@@ -3093,6 +4074,87 @@ export class CrudController {
       await this.loadTab("event");
     } catch (err) {
       console.error("[Commit Event Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * お知らせ (notice) の未反映変更件数の算出
+   */
+  getNoticeChangesCount() {
+    if (!this.noticeState || !this.noticeState.isInitialized) return 0;
+    const origMap = new Map(this.noticeState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.noticeState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => curr[k] !== orig[k]);
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * お知らせ (notice) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitNoticeChanges() {
+    const count = this.getNoticeChangesCount();
+    if (!this.noticeState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `お知らせ管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.noticeState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.noticeState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.noticeState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("notice", rec.id);
+      }
+
+      // 2. 新規追加 (POST) および 更新 (PUT) の反映
+      for (const rec of this.noticeState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加
+          await api.saveTable("notice", rec, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
+          if (hasDiff) {
+            await api.saveTable("notice", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("お知らせ管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.noticeState.hasPendingChanges = false;
+      this.noticeState.isInitialized = false;
+      await this.loadTab("notice");
+    } catch (err) {
+      console.error("[Commit Notice Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
