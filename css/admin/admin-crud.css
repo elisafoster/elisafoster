@@ -157,6 +157,30 @@
   margin: 0 auto;
 }
 
+/* ギャラリー画像カラム (大きめに表示) */
+.admin-table th.admin-table-col-gallery-image,
+.admin-table td.admin-table-col-gallery-image,
+.admin-table td:has(.admin-table-thumb.is-gallery) {
+  width: 240px;
+  min-width: 240px;
+  max-width: 260px;
+  text-align: center;
+}
+
+.admin-table-thumb.is-gallery {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  min-height: 110px;
+  max-height: 135px;
+  object-fit: contain;
+  background: #090d16;
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px;
+  margin: 0 auto;
+}
+
 /* リンクカラム (start_at と同じ 180px・折り返し表示) */
 .admin-table th.admin-table-col-link,
 .admin-table td.admin-table-col-link {

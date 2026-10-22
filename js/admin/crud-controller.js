@@ -384,7 +384,21 @@ export class CrudController {
           await this.renderScheduleTab();
           break;
         case "gallery":
-          await this.renderTableListTab("gallery", "画像（ギャラリー）管理", ["id", "name", "image"]);
+          await this.renderTableListTab(
+            "gallery",
+            "ギャラリー管理",
+            [
+              { key: "actions", label: "操作", isAction: true },
+              { key: "id", label: "id" },
+              { key: "name", label: "画像名" },
+              { key: "image", label: "画像", type: "image", category: "gallery", isGallery: true },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
           break;
         case "movie":
           await this.renderTableListTab("movie", "動画リスト管理", ["id", "movieUrl", "movieCategory_id", "is_active"]);
@@ -681,6 +695,8 @@ export class CrudController {
         th.className = "admin-table-col-actions";
       } else if (col.key === "banner" || col.isBanner) {
         th.className = "admin-table-col-banner";
+      } else if (col.isGallery || (tableName === "gallery" && (col.key === "image" || col.type === "image"))) {
+        th.className = "admin-table-col-gallery-image";
       } else if (col.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(col.key)) {
         th.className = "admin-table-col-image";
       } else if (col.key === "id") {
@@ -745,6 +761,8 @@ export class CrudController {
             const td = document.createElement("td");
             if (colCfg.key === "banner" || colCfg.isBanner) {
               td.className = "admin-table-col-banner";
+            } else if (colCfg.isGallery || (tableName === "gallery" && (colCfg.key === "image" || colCfg.type === "image"))) {
+              td.className = "admin-table-col-gallery-image";
             } else if (colCfg.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(colCfg.key)) {
               td.className = "admin-table-col-image";
             } else if (colCfg.key === "id") {
@@ -819,7 +837,15 @@ export class CrudController {
                 const category = colCfg.category || tableName;
                 const imgUrl = api.resolveAssetUrl(val, category);
                 const img = document.createElement("img");
-                img.className = `admin-table-thumb ${colCfg.isBanner || colCfg.key === "banner" ? "is-banner" : (colCfg.category === "notice" || tableName === "notice" ? "is-notice-image" : "")}`;
+                const isBanner = colCfg.isBanner || colCfg.key === "banner";
+                const isNotice = colCfg.category === "notice" || tableName === "notice";
+                const isGallery = colCfg.isGallery || tableName === "gallery" || colCfg.category === "gallery";
+                let thumbModifier = "";
+                if (isBanner) thumbModifier = "is-banner";
+                else if (isNotice) thumbModifier = "is-notice-image";
+                else if (isGallery) thumbModifier = "is-gallery";
+
+                img.className = `admin-table-thumb ${thumbModifier}`.trim();
                 img.src = imgUrl;
                 img.alt = colCfg.label;
                 const titlePrefix = row.costumeName || row.title || row.name || "";
@@ -5181,10 +5207,13 @@ export class CrudController {
           ? ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"]
           : tableName === "notice"
             ? ["status", "scheduled_at", "message", "Image"]
-            : ["name", "priority"]);
+            : tableName === "gallery"
+              ? ["name", "image"]
+              : ["name", "priority"]);
 
     const labelMap = {
       id: "id",
+      name: "画像名",
       status: "ステータス",
       scheduled_at: "予約投稿時刻",
       message: "お知らせ本文",
@@ -5198,7 +5227,7 @@ export class CrudController {
 
       const label = document.createElement("label");
       label.className = "admin-form-label";
-      label.textContent = (tableName === "notice" && labelMap[key]) ? labelMap[key] : key;
+      label.textContent = labelMap[key] || key;
       group.appendChild(label);
 
       const val = currentData[key] ?? "";
@@ -5343,8 +5372,12 @@ export class CrudController {
       }
     };
 
+    let modalTitleText = `${tableName} の${isNew ? "新規作成" : "編集"}`;
+    if (tableName === "notice") modalTitleText = `お知らせの${isNew ? "新規作成" : "編集"}`;
+    if (tableName === "gallery") modalTitleText = `ギャラリー画像の${isNew ? "新規作成" : "編集"}`;
+
     Modal.open({
-      title: tableName === "notice" ? `お知らせの${isNew ? "新規作成" : "編集"}` : `${tableName} の${isNew ? "新規作成" : "編集"}`,
+      title: modalTitleText,
       content: form,
       footer: submitBtn,
     });
