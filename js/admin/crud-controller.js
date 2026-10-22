@@ -270,6 +270,9 @@ export class CrudController {
     // 動画リスト (movie) 専用ライブラリキャッシュ
     this.movieLibraryCache = null;
 
+    // ショップグッズ (shop) 専用ライブラリキャッシュ
+    this.shopLibraryCache = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
       if (
@@ -445,7 +448,7 @@ export class CrudController {
           await this.renderMovieTab();
           break;
         case "shop":
-          await this.renderTableListTab("shop", "ショップグッズ管理", ["id", "name", "price", "priority"]);
+          await this.renderShopTab();
           break;
         case "linkList":
           await this.renderTableListTab("linkList", "リンクリスト管理", ["id", "title", "link", "priority"]);
@@ -7822,6 +7825,1219 @@ export class CrudController {
   }
 
   /**
+   * ショップグッズ管理タブ (shopTag 管理アコーディオン + ショップ商品一覧)
+   */
+  async renderShopTab() {
+    let shops = [];
+    let tags = [];
+
+    try {
+      const [shopsRes, tagsRes] = await Promise.all([
+        api.getTable("shop").catch(() => []),
+        api.getTable("shopTag").catch(() => []),
+      ]);
+      shops = Array.isArray(shopsRes) ? shopsRes : (shopsRes ? [shopsRes] : []);
+      tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
+    } catch (err) {
+      console.error("[Shop Data Load Error]:", err);
+      shops = [];
+      tags = [];
+    }
+
+    // 表示順（priority）昇順でソート（同じ場合はID昇順）
+    shops.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0) || (Number(a.id) || 0) - (Number(b.id) || 0));
+
+    // タグマップ (ID -> タグオブジェクト)
+    const tagMap = new Map(tags.map((t) => [String(t.id), t]));
+
+    const container = document.createElement("div");
+    container.style.cssText = "display: flex; flex-direction: column; gap: 20px;";
+
+    // ========================================================
+    // 1. ショップタグ (shopTag) 管理アコーディオン
+    // ========================================================
+    const tagCard = document.createElement("div");
+    tagCard.className = "admin-tag-manager-card";
+
+    if (this._isShopTagOpen === undefined) {
+      this._isShopTagOpen = true;
+    }
+
+    tagCard.innerHTML = `
+      <div class="admin-tag-manager-header" id="shop-tag-manager-toggle-btn">
+        <div class="admin-tag-manager-title">
+          <h2 class="admin-card-title">タグ</h2>
+          <span class="admin-count-badge">${tags.length}件</span>
+        </div>
+        <span class="admin-tag-manager-arrow" id="shop-tag-manager-arrow">${this._isShopTagOpen ? "▲" : "▼"}</span>
+      </div>
+      <div class="admin-tag-manager-body" id="shop-tag-manager-body" style="display: ${this._isShopTagOpen ? "flex" : "none"};">
+        <div class="admin-tag-input-row">
+          <input
+            type="text"
+            class="admin-form-input"
+            id="new-shop-tag-name-input"
+            placeholder="新しいタグ名 (例: グッズ、ボイス、音楽、デジタル)"
+          />
+          <button type="button" class="app-btn app-btn-primary" id="add-shop-tag-btn" style="white-space: nowrap; padding: 8px 20px;">
+            追加
+          </button>
+        </div>
+        <div class="admin-tag-chips-container" id="shop-tag-chips-container">
+          ${tags.length === 0 ? '<span style="color: #64748b; font-size: 0.85rem;">登録されているタグはありません</span>' : ""}
+          ${tags.map((t) => `
+            <div class="admin-tag-chip" data-id="${escapeHtml(t.id)}">
+              <span>${escapeHtml(t.tagName)} <span class="admin-tag-chip-id">(ID: ${escapeHtml(t.id)})</span></span>
+              <button type="button" class="admin-tag-chip-del" data-id="${escapeHtml(t.id)}" title="削除">×</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    // アコーディオン開閉トグル
+    const toggleBtn = tagCard.querySelector("#shop-tag-manager-toggle-btn");
+    const tagBody = tagCard.querySelector("#shop-tag-manager-body");
+    const tagArrow = tagCard.querySelector("#shop-tag-manager-arrow");
+    toggleBtn.onclick = () => {
+      this._isShopTagOpen = !this._isShopTagOpen;
+      tagBody.style.display = this._isShopTagOpen ? "flex" : "none";
+      tagArrow.textContent = this._isShopTagOpen ? "▲" : "▼";
+    };
+
+    // タグ追加処理
+    const tagInput = tagCard.querySelector("#new-shop-tag-name-input");
+    const addTagBtn = tagCard.querySelector("#add-shop-tag-btn");
+
+    const handleAddTag = async () => {
+      const val = tagInput.value.trim();
+      if (!val) {
+        alert("タグ名を入力してください");
+        tagInput.focus();
+        return;
+      }
+
+      addTagBtn.disabled = true;
+      try {
+        const nextId = tags.length > 0 ? Math.max(...tags.map((t) => Number(t.id) || 0)) + 1 : 1;
+        await api.saveTable("shopTag", { id: nextId, tagName: val }, null);
+        Toast.success(`タグ「${val}」を追加しました`);
+        await this.renderShopTab();
+      } catch (e) {
+        console.error("[Add Shop Tag Error]:", e);
+        Toast.error(`タグの追加に失敗しました: ${e.message}`);
+        addTagBtn.disabled = false;
+      }
+    };
+
+    addTagBtn.onclick = handleAddTag;
+    tagInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddTag();
+      }
+    };
+
+    // タグ削除処理
+    tagCard.querySelectorAll(".admin-tag-chip-del").forEach((delBtn) => {
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const tagId = delBtn.dataset.id;
+        const targetTag = tags.find((t) => String(t.id) === String(tagId));
+        const tagName = targetTag?.tagName || tagId;
+
+        const ok = confirm(
+          `タグ「${tagName}」を削除しますか？\n\n※このタグを使用している商品がある場合、タグ表示に影響する可能性があります。`
+        );
+        if (!ok) return;
+
+        try {
+          await api.deleteRecord("shopTag", tagId);
+          Toast.info(`タグ「${tagName}」を削除しました`);
+          await this.renderShopTab();
+        } catch (err) {
+          console.error("[Delete Shop Tag Error]:", err);
+          Toast.error(`タグの削除に失敗しました: ${err.message}`);
+        }
+      };
+    });
+
+    container.appendChild(tagCard);
+
+    // ========================================================
+    // 2. ショップグッズ管理テーブルカード
+    // ========================================================
+    const card = document.createElement("div");
+    card.className = "admin-card";
+
+    // ヘッダー: 「ショップグッズ管理」+ 件数チップ + 「+ 新規追加」
+    // ※「テーブル: shop (7件)」のテキストは非表示
+    const header = document.createElement("div");
+    header.className = "admin-card-header";
+
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "admin-card-title-group";
+
+    const titleRow = document.createElement("div");
+    titleRow.style.cssText = "display: flex; align-items: center; gap: 12px; flex-wrap: wrap;";
+
+    const h2 = document.createElement("h2");
+    h2.className = "admin-card-title";
+    h2.textContent = "ショップグッズ管理";
+    titleRow.appendChild(h2);
+
+    const countBadge = document.createElement("span");
+    countBadge.className = "admin-count-badge";
+    countBadge.textContent = `${shops.length}件`;
+    titleRow.appendChild(countBadge);
+
+    titleGroup.appendChild(titleRow);
+    header.appendChild(titleGroup);
+
+    const actions = document.createElement("div");
+    actions.className = "admin-card-actions";
+    actions.style.cssText = "display: flex; align-items: center; gap: 10px;";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "app-btn app-btn-primary";
+    addBtn.innerHTML = "+ 新規追加";
+    addBtn.onclick = () => this.openShopModal(null, tags);
+    actions.appendChild(addBtn);
+
+    header.appendChild(actions);
+    card.appendChild(header);
+
+    // テーブル生成
+    // ヘッダーカラム: 操作｜id｜商品名/価格(2段表示)｜タグ｜商品画像｜表示順
+    const tableContainer = document.createElement("div");
+    tableContainer.className = "admin-table-container";
+
+    const table = document.createElement("table");
+    table.className = "admin-table";
+
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr>
+        <th class="admin-table-col-actions" style="width: 80px; text-align: center;">操作</th>
+        <th style="width: 60px; text-align: center;">id</th>
+        <th style="min-width: 200px;">商品名 / 価格</th>
+        <th style="width: 140px;">タグ</th>
+        <th style="width: 130px; text-align: center;">商品画像</th>
+        <th style="width: 80px; text-align: center;">表示順</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    if (shops.length === 0) {
+      const emptyTr = document.createElement("tr");
+      emptyTr.innerHTML = `
+        <td colspan="6" style="text-align: center; color: #64748b; padding: 36px 16px;">
+          ショップ商品データがありません。「+ 新規追加」ボタンから登録してください。
+        </td>
+      `;
+      tbody.appendChild(emptyTr);
+    } else {
+      shops.forEach((item) => {
+        const tr = document.createElement("tr");
+
+        // 1. 操作列 (縦並び「編集」「削除」)
+        const tdActions = document.createElement("td");
+        tdActions.className = "admin-table-col-actions";
+        tdActions.style.textAlign = "center";
+
+        const actWrap = document.createElement("div");
+        actWrap.className = "admin-table-actions is-vertical";
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "app-btn app-btn-secondary app-btn-sm";
+        editBtn.textContent = "編集";
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.openShopModal(item, tags);
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "app-btn app-btn-danger app-btn-sm";
+        delBtn.textContent = "削除";
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await this.deleteRecord("shop", item.id);
+        };
+
+        actWrap.appendChild(editBtn);
+        actWrap.appendChild(delBtn);
+        tdActions.appendChild(actWrap);
+        tr.appendChild(tdActions);
+
+        // 2. id列
+        const tdId = document.createElement("td");
+        tdId.style.textAlign = "center";
+        tdId.textContent = item.id;
+        tr.appendChild(tdId);
+
+        // 3. 商品名 / 価格 (2段表示)
+        const tdNamePrice = document.createElement("td");
+        const formattedPrice =
+          item.price != null && item.price !== ""
+            ? `¥${Number(item.price).toLocaleString()}`
+            : '<span style="color: #64748b;">(価格未設定)</span>';
+
+        tdNamePrice.innerHTML = `
+          <div class="admin-shop-tworow-cell">
+            <div class="admin-shop-name-row">${escapeHtml(item.name || "")}</div>
+            <div class="admin-shop-price-row">${formattedPrice}</div>
+          </div>
+        `;
+        tr.appendChild(tdNamePrice);
+
+        // 4. タグ (shopTag_id)
+        const tdTag = document.createElement("td");
+        const tagObj = tagMap.get(String(item.shopTag_id));
+        if (tagObj) {
+          tdTag.innerHTML = `<span class="admin-schedule-tag-badge">${escapeHtml(tagObj.tagName)}</span>`;
+        } else if (item.shopTag_id) {
+          tdTag.innerHTML = `<span class="admin-schedule-tag-badge" style="opacity: 0.7;">ID: ${escapeHtml(item.shopTag_id)}</span>`;
+        } else {
+          tdTag.innerHTML = `<span style="color: #64748b;">-</span>`;
+        }
+        tr.appendChild(tdTag);
+
+        // 5. 商品画像 (merchandiseImage)
+        const tdImg = document.createElement("td");
+        tdImg.style.textAlign = "center";
+        const hasImg = item.merchandiseImage || item.image;
+        if (hasImg) {
+          const imgDisplayUrl = api.resolveAssetUrl(hasImg, "shop");
+          const img = document.createElement("img");
+          img.className = "admin-table-thumb is-shop-thumb";
+          img.src = imgDisplayUrl;
+          img.alt = item.name || "商品画像";
+          img.title = `${item.name || "商品画像"} (クリックで拡大)`;
+          img.onclick = (e) => {
+            e.stopPropagation();
+            this.openImageDetailModal(imgDisplayUrl, `商品画像: ${item.name || `ID: ${item.id}`}`, {
+              costumeName: item.name || `商品 ID: ${item.id}`,
+              columnLabel: "商品画像",
+              path: hasImg,
+            });
+          };
+          tdImg.appendChild(img);
+        } else {
+          tdImg.innerHTML = `<span style="color: #64748b; font-size: 0.78rem;">(画像なし)</span>`;
+        }
+        tr.appendChild(tdImg);
+
+        // 6. 表示順 (priority)
+        const tdPriority = document.createElement("td");
+        tdPriority.style.textAlign = "center";
+        tdPriority.textContent = item.priority != null ? item.priority : "-";
+        tr.appendChild(tdPriority);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    card.appendChild(tableContainer);
+    container.appendChild(card);
+
+    this.container.innerHTML = "";
+    this.container.appendChild(container);
+  }
+
+  /**
+   * ショップグッズ (shop) 専用の新規・編集モーダル
+   */
+  async openShopModal(record, tags = null, restoreState = null) {
+    const isNew = !record;
+
+    // タグマスタの取得 (渡されていない場合)
+    let allTags = tags;
+    if (!allTags) {
+      try {
+        const tRes = await api.getTable("shopTag").catch(() => []);
+        allTags = Array.isArray(tRes) ? tRes : (tRes ? [tRes] : []);
+      } catch (e) {
+        allTags = [];
+      }
+    }
+
+    // 全ショップレコード取得 (ID自動採番 & 表示順設定 & ライブラリキャッシュ用)
+    let allShops = [];
+    try {
+      const res = await api.getTable("shop");
+      allShops = Array.isArray(res) ? res : (res ? [res] : []);
+    } catch (e) {
+      allShops = [];
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allShops.length > 0 ? Math.max(...allShops.map((s) => Number(s.id) || 0)) + 1 : 1;
+    const nextPriority = allShops.length > 0 ? Math.max(...allShops.map((s) => Number(s.priority) || 0)) + 1 : 1;
+
+    // 現在のデータ
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      name: record?.name || "",
+      price: record?.price != null ? record.price : "",
+      shopTag_id: record?.shopTag_id || "",
+      merchandiseImage: record?.merchandiseImage || record?.image || "",
+      priority: record?.priority != null ? record.priority : nextPriority,
+      booth: record?.booth || "",
+      base: record?.base || "",
+      streamart: record?.streamart || "",
+      freeshop: record?.freeshop || "",
+      ...restoreState,
+    };
+
+    // ライブラリ候補の集約
+    if (!this.shopLibraryCache) {
+      this.shopLibraryCache = [];
+    }
+    const librarySet = new Set(["samplegoods.png", ...this.shopLibraryCache]);
+    allShops.forEach((row) => {
+      const img = row.merchandiseImage || row.image;
+      if (img && typeof img === "string" && !img.startsWith("http")) {
+        librarySet.add(img.split("/").pop());
+      }
+    });
+    this.shopLibraryCache = Array.from(librarySet);
+
+    // GoogleドライブURL変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode =
+      currentData.image_mode ||
+      (currentData.merchandiseImage &&
+      (currentData.merchandiseImage.startsWith("http://") || currentData.merchandiseImage.startsWith("https://"))
+        ? "url"
+        : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ 表示順 -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${escapeHtml(currentData.id)}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            表示順 (priority)
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="priority"
+            type="number"
+            value="${escapeHtml(currentData.priority)}"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- 行2: 商品名 ｜ 価格 -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            商品名
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="name"
+            type="text"
+            value="${escapeHtml(currentData.name)}"
+            placeholder="例: アクリルスタンド、ボイスドラマvol.1"
+            required
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            価格 (円)
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="price"
+            type="number"
+            min="0"
+            step="1"
+            value="${escapeHtml(currentData.price)}"
+            placeholder="例: 1500"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- 行3: タグ (shopTag) -->
+      <div class="admin-form-group">
+        <label class="admin-form-label">タグ (区分)</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select class="admin-form-input" name="shopTag_id" id="modal-shop-tag-select" style="flex: 1;">
+            <option value="">-- タグを選択しない (なし) --</option>
+            ${allTags.map((t) => `
+              <option value="${escapeHtml(t.id)}" ${String(currentData.shopTag_id) === String(t.id) ? "selected" : ""}>
+                ${escapeHtml(t.tagName)} (ID: ${escapeHtml(t.id)})
+              </option>
+            `).join("")}
+          </select>
+          <button type="button" class="app-btn app-btn-secondary" id="btn-toggle-shop-tag" style="white-space: nowrap; padding: 8px 14px; font-size: 0.85rem;">
+            ＋ タグ追加
+          </button>
+        </div>
+
+        <!-- インラインタグ追加パネル -->
+        <div id="modal-inline-shop-tag-panel" style="display: none; margin-top: 8px; padding: 10px 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-sm, 6px);">
+          <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span>新規タグ名を入力してください:</span>
+            <button type="button" id="btn-modal-shop-tag-close" style="background: none; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 0 4px; line-height: 1;" title="閉じる">×</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input
+              type="text"
+              class="admin-form-input"
+              id="modal-inline-shop-tag-input"
+              placeholder="新しいタグ名 (例: グッズ、ボイス、音楽)"
+              style="flex: 1; padding: 6px 10px; font-size: 0.85rem;"
+            />
+            <button type="button" class="app-btn app-btn-primary app-btn-sm" id="btn-modal-shop-tag-submit" style="white-space: nowrap; padding: 6px 14px; font-size: 0.82rem;">
+              追加
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行4: 商品画像 (merchandiseImage) -->
+      <div class="admin-visual-field-card">
+        <div class="admin-visual-field-header">
+          <span class="admin-visual-field-title">商品画像 (4:3)</span>
+          <span class="admin-form-label-required">*必須</span>
+        </div>
+
+        <!-- モード切替ラジオ -->
+        <div class="admin-visual-mode-selector">
+          <label class="admin-visual-mode-label">
+            <input type="radio" name="image_mode" value="library" ${initialMode === "library" ? "checked" : ""} />
+            <span>ライブラリから選択 / アップロード</span>
+          </label>
+          <label class="admin-visual-mode-label">
+            <input type="radio" name="image_mode" value="url" ${initialMode === "url" ? "checked" : ""} />
+            <span>外部URL指定 (Googleドライブ等)</span>
+          </label>
+        </div>
+
+        <!-- モード1: ライブラリ選択パネル -->
+        <div class="admin-visual-mode-panel" id="mode-library-shop" style="display: ${initialMode === "library" ? "block" : "none"};">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select class="admin-form-input admin-visual-file-select" data-field="merchandiseImage" style="flex: 1;">
+              <option value="">-- ライブラリから選択 --</option>
+              ${this.shopLibraryCache.map((fn) => `
+                <option value="${escapeHtml(fn)}" ${currentData.merchandiseImage && currentData.merchandiseImage.endsWith(fn) ? "selected" : ""}>
+                  ${escapeHtml(fn)}
+                </option>
+              `).join("")}
+            </select>
+            <button type="button" class="app-btn app-btn-secondary admin-shop-upload-btn" data-field="merchandiseImage" style="white-space: nowrap; padding: 8px 14px;">
+              📁 アップロード
+            </button>
+          </div>
+        </div>
+
+        <!-- モード2: 外部URL指定パネル -->
+        <div class="admin-visual-mode-panel" id="mode-url-shop" style="display: ${initialMode === "url" ? "block" : "none"};">
+          <input
+            type="text"
+            class="admin-form-input admin-visual-url-input"
+            data-field="merchandiseImage"
+            placeholder="https://drive.google.com/file/d/... または画像直URL"
+            value="${initialMode === "url" ? escapeHtml(currentData.merchandiseImage || "") : ""}"
+          />
+          <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">
+            ※ Googleドライブの「リンクを知っている全員」の共有リンクを貼り付けると自動変換されます
+          </p>
+        </div>
+
+        <!-- プレビュー枠 (4:3) -->
+        <div class="admin-visual-preview-box is-shop-box" id="preview-box-shop" style="margin-top: 10px; max-width: 200px; aspect-ratio: 4 / 3;">
+          <span class="admin-visual-preview-empty">プレビューなし</span>
+        </div>
+      </div>
+
+      <!-- 行5: 各種ショップURLリンク (任意) -->
+      <div style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius-md, 8px); padding: 14px 16px;">
+        <div style="font-weight: 600; font-size: 0.88rem; color: #f1f5f9; margin-bottom: 10px;">
+          🔗 商品ページリンク設定 (任意)
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="admin-form-group">
+            <label class="admin-form-label" style="font-size: 0.82rem;">BOOTH URL</label>
+            <input
+              class="admin-form-input"
+              name="booth"
+              type="url"
+              value="${escapeHtml(currentData.booth)}"
+              placeholder="https://◯◯.booth.pm/items/..."
+            />
+          </div>
+
+          <div class="admin-form-group">
+            <label class="admin-form-label" style="font-size: 0.82rem;">BASE URL</label>
+            <input
+              class="admin-form-input"
+              name="base"
+              type="url"
+              value="${escapeHtml(currentData.base)}"
+              placeholder="https://◯◯.thebase.in/items/..."
+            />
+          </div>
+
+          <div class="admin-form-group">
+            <label class="admin-form-label" style="font-size: 0.82rem;">StreamArt URL</label>
+            <input
+              class="admin-form-input"
+              name="streamart"
+              type="url"
+              value="${escapeHtml(currentData.streamart)}"
+              placeholder="https://streamart.jp/..."
+            />
+          </div>
+
+          <div class="admin-form-group">
+            <label class="admin-form-label" style="font-size: 0.82rem;">任意ショップ URL (freeshop)</label>
+            <input
+              class="admin-form-input"
+              name="freeshop"
+              type="url"
+              value="${escapeHtml(currentData.freeshop)}"
+              placeholder="https://..."
+            />
+          </div>
+        </div>
+      </div>
+    `;
+
+    // インラインタグ追加パネルの開閉 & 登録
+    const btnToggleTag = form.querySelector("#btn-toggle-shop-tag");
+    const tagPanel = form.querySelector("#modal-inline-shop-tag-panel");
+    const btnCloseTag = form.querySelector("#btn-modal-shop-tag-close");
+    const inputInlineTag = form.querySelector("#modal-inline-shop-tag-input");
+    const btnSubmitTag = form.querySelector("#btn-modal-shop-tag-submit");
+    const selectTag = form.querySelector("#modal-shop-tag-select");
+
+    btnToggleTag.onclick = () => {
+      const isHidden = tagPanel.style.display === "none";
+      tagPanel.style.display = isHidden ? "block" : "none";
+      if (isHidden) inputInlineTag.focus();
+    };
+
+    btnCloseTag.onclick = () => {
+      tagPanel.style.display = "none";
+    };
+
+    const handleInlineTagSubmit = async () => {
+      const val = inputInlineTag.value.trim();
+      if (!val) {
+        alert("タグ名を入力してください");
+        inputInlineTag.focus();
+        return;
+      }
+
+      btnSubmitTag.disabled = true;
+      try {
+        const nextTagId = allTags.length > 0 ? Math.max(...allTags.map((t) => Number(t.id) || 0)) + 1 : 1;
+        await api.saveTable("shopTag", { id: nextTagId, tagName: val }, null);
+        Toast.success(`タグ「${val}」を追加しました`);
+
+        // セレクトボックスに即時反映
+        const newOpt = document.createElement("option");
+        newOpt.value = String(nextTagId);
+        newOpt.textContent = `${val} (ID: ${nextTagId})`;
+        newOpt.selected = true;
+        selectTag.appendChild(newOpt);
+        allTags.push({ id: nextTagId, tagName: val });
+
+        inputInlineTag.value = "";
+        tagPanel.style.display = "none";
+      } catch (e) {
+        console.error("[Inline Add Shop Tag Error]:", e);
+        Toast.error(`タグの追加に失敗しました: ${e.message}`);
+      } finally {
+        btnSubmitTag.disabled = false;
+      }
+    };
+
+    btnSubmitTag.onclick = handleInlineTagSubmit;
+    inputInlineTag.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleInlineTagSubmit();
+      }
+    };
+
+    // プレビュー描画ヘルパー
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-shop");
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let val = null;
+
+      if (mode === "library") {
+        val = form.querySelector('.admin-visual-file-select[data-field="merchandiseImage"]')?.value?.trim();
+      } else {
+        val = form.querySelector('.admin-visual-url-input[data-field="merchandiseImage"]')?.value?.trim();
+      }
+
+      if (val) {
+        const fullUrl = api.resolveAssetUrl(val, "shop");
+        pBox.innerHTML = `
+          <img src="${escapeHtml(fullUrl)}" alt="プレビュー" style="width: 100%; height: 100%; object-fit: contain;" />
+        `;
+      } else {
+        pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
+      }
+    };
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="image_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-shop");
+        const urlPanel = form.querySelector("#mode-url-shop");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    // プルダウン変更
+    form.querySelector('.admin-visual-file-select[data-field="merchandiseImage"]').onchange = updatePreview;
+
+    // URL入力変更
+    const urlInput = form.querySelector('.admin-visual-url-input[data-field="merchandiseImage"]');
+    urlInput.oninput = () => {
+      const converted = convertGoogleDriveUrl(urlInput.value.trim());
+      if (converted !== urlInput.value.trim()) {
+        urlInput.value = converted;
+      }
+      updatePreview();
+    };
+
+    // アップロードボタン押下
+    form.querySelector('.admin-shop-upload-btn[data-field="merchandiseImage"]').onclick = () => {
+      const savedState = this.collectShopFormData(form);
+      const cfg = {
+        label: "商品画像",
+        category: "shop",
+        uploadPath: "assets/shop",
+        accept: ".png,.jpg,.jpeg,.webp",
+        maxSizeBytes: 2097152, // 2MB
+        maxSizeMB: 2,
+        aspectRatio: "4:3",
+        displayMode: "contain",
+        maxLongEdge: 800,
+      };
+      this.openShopUploadModal("merchandiseImage", record, savedState, cfg, allTags);
+    };
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const nameVal = fd.get("name")?.toString().trim();
+      const priceVal = fd.get("price")?.toString().trim();
+
+      if (!nameVal) {
+        alert("商品名は必須項目です");
+        return;
+      }
+
+      if (!priceVal) {
+        alert("価格は必須項目です");
+        return;
+      }
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imageVal = null;
+      if (mode === "library") {
+        imageVal = form.querySelector('.admin-visual-file-select[data-field="merchandiseImage"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="merchandiseImage"]')?.value?.trim() || null;
+        imageVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const payload = {
+        id: Number(fd.get("id")),
+        name: nameVal,
+        price: Number(priceVal) || 0,
+        shopTag_id: fd.get("shopTag_id") ? Number(fd.get("shopTag_id")) : null,
+        merchandiseImage: imageVal || null,
+        priority: fd.get("priority") ? Number(fd.get("priority")) : 0,
+        booth: fd.get("booth")?.toString().trim() || null,
+        base: fd.get("base")?.toString().trim() || null,
+        streamart: fd.get("streamart")?.toString().trim() || null,
+        freeshop: fd.get("freeshop")?.toString().trim() || null,
+      };
+
+      try {
+        await api.saveTable("shop", payload, isNew ? null : record.id);
+        Modal.close();
+        Toast.success(isNew ? "商品を新規追加しました" : "商品の変更を保存しました");
+        await this.renderShopTab();
+      } catch (err) {
+        console.error("[Save Shop Error]:", err);
+      }
+    };
+
+    Modal.open({
+      title: isNew ? "ショップ商品の新規追加" : `ショップ商品の編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * ショップ商品 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectShopFormData(form) {
+    const fd = new FormData(form);
+    const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+    let imageVal = "";
+    if (mode === "library") {
+      imageVal = form.querySelector('.admin-visual-file-select[data-field="merchandiseImage"]')?.value?.trim() || "";
+    } else {
+      imageVal = form.querySelector('.admin-visual-url-input[data-field="merchandiseImage"]')?.value?.trim() || "";
+    }
+
+    return {
+      id: fd.get("id") ? Number(fd.get("id")) : undefined,
+      name: fd.get("name")?.toString() || "",
+      price: fd.get("price")?.toString() || "",
+      shopTag_id: fd.get("shopTag_id")?.toString() || "",
+      merchandiseImage: imageVal,
+      image_mode: mode,
+      priority: fd.get("priority")?.toString() || "1",
+      booth: fd.get("booth")?.toString() || "",
+      base: fd.get("base")?.toString() || "",
+      streamart: fd.get("streamart")?.toString() || "",
+      freeshop: fd.get("freeshop")?.toString() || "",
+    };
+  }
+
+  /**
+   * ショップ商品 (shop) 専用の画像アップロード・クロップモーダル
+   */
+  async openShopUploadModal(field, currentRecord, savedState, cfg, tags) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = false;
+
+    const targetW = 800;
+    const targetH = 600;
+    const maxKB = cfg.maxSizeMB * 1024;
+
+    wrap.innerHTML = `
+      <div class="admin-upload-dropzone" id="upload-dropzone-shop">
+        <input type="file" id="upload-file-input-shop" accept="${cfg.accept}" style="display: none;" />
+        <div class="admin-upload-dropzone-icon">📁</div>
+        <div class="admin-upload-dropzone-text">クリックまたはドラッグ＆ドロップで画像を選択</div>
+        <div class="admin-upload-dropzone-hint">${cfg.accept} / 最大 ${cfg.maxSizeMB}MB</div>
+      </div>
+
+      <div class="crop-stage" id="crop-stage-shop" style="display: none;">
+        <div class="crop-canvas-wrapper" style="max-width: 480px; aspect-ratio: 4 / 3;">
+          <canvas id="crop-canvas-shop"></canvas>
+        </div>
+
+        <div class="crop-controls">
+          <div class="crop-control-row">
+            <span class="crop-control-label">ズーム</span>
+            <input type="range" class="crop-slider" id="crop-zoom-slider-shop" />
+          </div>
+          <div class="crop-btn-group">
+            <button type="button" class="app-btn app-btn-secondary app-btn-sm" id="crop-fit-btn-shop">全体表示</button>
+            <button type="button" class="app-btn app-btn-secondary app-btn-sm" id="crop-center-btn-shop">中央揃え</button>
+            <span class="crop-size-badge" id="crop-size-badge-shop">- KB / ${maxKB} KB</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-upload-filename-row">
+        <label class="admin-upload-filename-label">保存ファイル名:</label>
+        <div class="admin-upload-filename-input-wrap">
+          <input type="text" class="admin-form-input" id="upload-filename-input-shop" placeholder="例: goods_stand" />
+          <span class="admin-upload-ext-label" id="upload-ext-label-shop">.jpg</span>
+        </div>
+      </div>
+      <div class="admin-upload-error-text" id="upload-name-error-shop" style="display: none;">
+        ※ 半角英数字、ハイフン、アンダースコアのみ使用できます
+      </div>
+    `;
+
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    cancelBtn.onclick = () => {
+      this.openShopModal(currentRecord, tags, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone-shop");
+    const fileInput = wrap.querySelector("#upload-file-input-shop");
+    const cropStage = wrap.querySelector("#crop-stage-shop");
+    const cropCanvas = wrap.querySelector("#crop-canvas-shop");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-shop");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-shop");
+    const centerBtn = wrap.querySelector("#crop-center-btn-shop");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-shop");
+    const nameInput = wrap.querySelector("#upload-filename-input-shop");
+    const extLabel = wrap.querySelector("#upload-ext-label-shop");
+    const nameError = wrap.querySelector("#upload-name-error-shop");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const renderCanvas = () => {
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      if (!selectedImg) return;
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        cropCanvas.toBlob(
+          (blob) => {
+            currentBlob = blob;
+            if (!blob) return;
+            const kb = Math.round(blob.size / 1024);
+            const isOk = blob.size <= cfg.maxSizeBytes;
+            isSizeValid = isOk;
+
+            if (isOk) {
+              sizeBadge.className = "crop-size-badge is-ok";
+              sizeBadge.textContent = `${kb} KB / ${maxKB} KB OK`;
+            } else {
+              sizeBadge.className = "crop-size-badge is-ng";
+              sizeBadge.textContent = `${kb} KB / ${maxKB} KB 超過`;
+            }
+            checkUploadBtnState();
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 200);
+      }
+    };
+
+    const checkUploadBtnState = () => {
+      const fileNameRaw = nameInput.value.trim();
+      const isNameOk = /^[a-zA-Z0-9_-]+$/.test(fileNameRaw);
+      uploadBtn.disabled = !selectedImg || !isSizeValid || !isNameOk;
+    };
+
+    // ドラッグ移動
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let initialCenterX = targetW / 2;
+    let initialCenterY = targetH / 2;
+
+    cropCanvas.onmousedown = (e) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      initialCenterX = centerX;
+      initialCenterY = centerY;
+      cropCanvas.style.cursor = "grabbing";
+    };
+
+    const handleWindowMouseMove = (e) => {
+      if (!isDragging) return;
+      const dx = (e.clientX - dragStartX) * (targetW / cropCanvas.clientWidth);
+      const dy = (e.clientY - dragStartY) * (targetH / cropCanvas.clientHeight);
+      centerX = initialCenterX + dx;
+      centerY = initialCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDragging) {
+        isDragging = false;
+        cropCanvas.style.cursor = "grab";
+        scheduleSizeUpdate(true);
+      }
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    // タッチ対応
+    cropCanvas.ontouchstart = (e) => {
+      if (!selectedImg || e.touches.length !== 1) return;
+      isDragging = true;
+      dragStartX = e.touches[0].clientX;
+      dragStartY = e.touches[0].clientY;
+      initialCenterX = centerX;
+      initialCenterY = centerY;
+    };
+
+    const handleWindowTouchMove = (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const dx = (e.touches[0].clientX - dragStartX) * (targetW / cropCanvas.clientWidth);
+      const dy = (e.touches[0].clientY - dragStartY) * (targetH / cropCanvas.clientHeight);
+      centerX = initialCenterX + dx;
+      centerY = initialCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const handleWindowTouchEnd = () => {
+      if (isDragging) {
+        isDragging = false;
+        scheduleSizeUpdate(true);
+      }
+    };
+
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: true });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // ホイールズーム
+    cropCanvas.onwheel = (e) => {
+      e.preventDefault();
+      if (!selectedImg) return;
+      const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+      scale = Math.max(parseFloat(zoomSlider.min), Math.min(parseFloat(zoomSlider.max), scale * zoomFactor));
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".jpg";
+      extLabel.textContent = ext;
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!nameInput.value) {
+        nameInput.value = baseName || "shop_image";
+      }
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
+          cropStage.style.display = "flex";
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (val && !isValid) {
+        nameError.style.display = "block";
+      } else {
+        nameError.style.display = "none";
+      }
+      checkUploadBtnState();
+    };
+
+    // アップロードボタン押下
+    uploadBtn.onclick = async () => {
+      const fileNameRaw = nameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const ext = extLabel.textContent;
+      const fullFileName = `${fileNameRaw}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const uploadResult = await api.uploadAsset(uploadPath, currentBlob);
+        Toast.success(`「${fullFileName}」をアップロードしました`);
+
+        if (!this.shopLibraryCache) {
+          this.shopLibraryCache = [];
+        }
+        if (!this.shopLibraryCache.includes(fullFileName)) {
+          this.shopLibraryCache.unshift(fullFileName);
+        }
+
+        cleanupListeners();
+        Modal.close();
+
+        // 復元してモーダル再オープン
+        const updatedState = {
+          ...savedState,
+          merchandiseImage: fullFileName,
+          image_mode: "library",
+        };
+        this.openShopModal(currentRecord, tags, updatedState);
+      } catch (err) {
+        console.error("[Upload Shop Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+        this.openShopModal(currentRecord, tags, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
@@ -7842,6 +9058,9 @@ export class CrudController {
     }
     if (tableName === "movie") {
       return this.openMovieModal(record);
+    }
+    if (tableName === "shop") {
+      return this.openShopModal(record);
     }
 
     const isNew = !record;
@@ -8102,6 +9321,18 @@ export class CrudController {
       this.movieState.hasPendingChanges = true;
       Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
       await this.renderMovieTab();
+      return;
+    }
+
+    if (tableName === "shop") {
+      if (!confirm(`ID: ${id} のショップ商品を本当に削除しますか？`)) return;
+      try {
+        await api.deleteRecord("shop", id);
+        Toast.info(`ID: ${id} の商品を削除しました`);
+        await this.renderShopTab();
+      } catch (err) {
+        console.error("[Delete Shop Error]:", err);
+      }
       return;
     }
 

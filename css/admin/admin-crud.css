@@ -1757,6 +1757,54 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   color: #d8b4fe;
 }
 
+/* ========================================================
+   ショップグッズ管理 (shop) 専用スタイル
+   ======================================================== */
+/* 商品名・価格の2段表示セル */
+.admin-shop-tworow-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-shop-name-row {
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.admin-shop-price-row {
+  font-size: 0.85rem;
+  color: #38bdf8;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ショップ商品サムネイル (4:3) */
+.admin-table-thumb.is-shop-thumb {
+  width: 72px;
+  height: 54px;
+  min-width: 72px;
+  min-height: 54px;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm, 6px);
+  margin: 0 auto;
+}
+
+/* ショップ用プレビュー枠 (4:3) */
+.admin-visual-preview-box.is-shop-box {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  min-height: 120px;
+}
+
+
 
 
 
