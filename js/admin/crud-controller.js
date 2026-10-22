@@ -4443,14 +4443,39 @@ export class CrudController {
             タグ
             <span class="admin-form-label-required">*必須</span>
           </label>
-          <select class="admin-form-input" name="scheduleTag_id" required>
-            ${allTags.length === 0 ? '<option value="">(タグが未登録です)</option>' : ""}
-            ${allTags.map((t) => `
-              <option value="${escapeHtml(t.id)}" ${String(currentData.scheduleTag_id) === String(t.id) ? "selected" : ""}>
-                ${escapeHtml(t.tagName)} (ID: ${escapeHtml(t.id)})
-              </option>
-            `).join("")}
-          </select>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select class="admin-form-input" name="scheduleTag_id" id="modal-schedule-tag-select" required style="flex: 1;">
+              ${allTags.length === 0 ? '<option value="">(タグが未登録です)</option>' : ""}
+              ${allTags.map((t) => `
+                <option value="${escapeHtml(t.id)}" ${String(currentData.scheduleTag_id) === String(t.id) ? "selected" : ""}>
+                  ${escapeHtml(t.tagName)} (ID: ${escapeHtml(t.id)})
+                </option>
+              `).join("")}
+            </select>
+            <button type="button" class="app-btn app-btn-secondary" id="btn-toggle-modal-tag" style="white-space: nowrap; padding: 8px 14px; font-size: 0.85rem;">
+              ＋ タグ追加
+            </button>
+          </div>
+
+          <!-- インラインタグ追加パネル -->
+          <div id="modal-inline-tag-panel" style="display: none; margin-top: 8px; padding: 10px 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+              <span>新規タグ名を入力してください:</span>
+              <button type="button" id="btn-modal-tag-close" style="background: none; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 0 4px; line-height: 1;" title="閉じる">×</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input
+                type="text"
+                class="admin-form-input"
+                id="modal-inline-tag-input"
+                placeholder="新しいタグ名 (例: 配信、グッズ、コラボ)"
+                style="flex: 1; padding: 6px 10px; font-size: 0.85rem;"
+              />
+              <button type="button" class="app-btn app-btn-primary app-btn-sm" id="btn-modal-tag-submit" style="white-space: nowrap; padding: 6px 14px; font-size: 0.82rem;">
+                追加
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -4575,6 +4600,90 @@ export class CrudController {
     if (swInput && swText) {
       swInput.onchange = () => {
         swText.textContent = swInput.checked ? "表示" : "非表示";
+      };
+    }
+
+    // タグ追加処理 (インラインパネル)
+    const tagSelect = form.querySelector("#modal-schedule-tag-select");
+    const toggleTagBtn = form.querySelector("#btn-toggle-modal-tag");
+    const tagPanel = form.querySelector("#modal-inline-tag-panel");
+    const tagInput = form.querySelector("#modal-inline-tag-input");
+    const tagSubmitBtn = form.querySelector("#btn-modal-tag-submit");
+    const tagCloseBtn = form.querySelector("#btn-modal-tag-close");
+
+    if (toggleTagBtn && tagPanel && tagInput && tagSubmitBtn) {
+      toggleTagBtn.onclick = () => {
+        const isVisible = tagPanel.style.display !== "none";
+        tagPanel.style.display = isVisible ? "none" : "block";
+        if (!isVisible) {
+          tagInput.focus();
+        }
+      };
+
+      if (tagCloseBtn) {
+        tagCloseBtn.onclick = () => {
+          tagPanel.style.display = "none";
+        };
+      }
+
+      const handleCreateTag = async () => {
+        const val = tagInput.value.trim();
+        if (!val) {
+          alert("タグ名を入力してください");
+          tagInput.focus();
+          return;
+        }
+
+        // 既存タグとの重複チェック
+        const isExist = allTags.some((t) => t.tagName === val);
+        if (isExist) {
+          const existTag = allTags.find((t) => t.tagName === val);
+          tagSelect.value = String(existTag.id);
+          Toast.info(`タグ「${val}」は既に存在するため選択しました`);
+          tagPanel.style.display = "none";
+          tagInput.value = "";
+          return;
+        }
+
+        tagSubmitBtn.disabled = true;
+        try {
+          const nextTagId = allTags.length > 0 ? Math.max(...allTags.map((t) => Number(t.id) || 0)) + 1 : 1;
+          const newTag = { id: nextTagId, tagName: val };
+          await api.saveTable("scheduleTag", newTag, null);
+
+          // allTags 配列と select を更新
+          allTags.push(newTag);
+
+          // (タグが未登録です) の空optionがあれば削除
+          const emptyOpt = tagSelect.querySelector('option[value=""]');
+          if (emptyOpt) emptyOpt.remove();
+
+          const newOpt = document.createElement("option");
+          newOpt.value = String(newTag.id);
+          newOpt.textContent = `${newTag.tagName} (ID: ${newTag.id})`;
+          tagSelect.appendChild(newOpt);
+          tagSelect.value = String(newTag.id);
+
+          Toast.success(`タグ「${val}」を追加し、選択しました`);
+          tagInput.value = "";
+          tagPanel.style.display = "none";
+        } catch (err) {
+          console.error("[Create Tag Error]:", err);
+          Toast.error(`タグの追加に失敗しました: ${err.message}`);
+        } finally {
+          tagSubmitBtn.disabled = false;
+        }
+      };
+
+      tagSubmitBtn.onclick = handleCreateTag;
+      tagInput.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleCreateTag();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          tagPanel.style.display = "none";
+        }
       };
     }
 
