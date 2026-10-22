@@ -3865,6 +3865,7 @@ export class CrudController {
     thead.innerHTML = `
       <tr>
         <th class="admin-table-col-actions" style="width: 80px; text-align: center;">操作</th>
+        <th style="width: 75px; text-align: center;">詳細</th>
         <th style="width: 60px; text-align: center;">id</th>
         <th>タイトル</th>
         <th style="width: 140px;">タグ</th>
@@ -3884,7 +3885,7 @@ export class CrudController {
     if (schedules.length === 0) {
       const emptyTr = document.createElement("tr");
       emptyTr.innerHTML = `
-        <td colspan="6" style="text-align: center; color: #64748b; padding: 36px 16px;">
+        <td colspan="7" style="text-align: center; color: #64748b; padding: 36px 16px;">
           スケジュールデータがありません。「+ 新規追加」ボタンから登録してください。
         </td>
       `;
@@ -3906,11 +3907,11 @@ export class CrudController {
         tdActions.style.textAlign = "center";
 
         const actWrap = document.createElement("div");
-        actWrap.className = "admin-table-actions-vertical";
+        actWrap.className = "admin-table-actions is-vertical";
 
         const editBtn = document.createElement("button");
         editBtn.type = "button";
-        editBtn.className = "app-btn app-btn-secondary app-btn-sm admin-table-btn-block";
+        editBtn.className = "app-btn app-btn-secondary app-btn-sm";
         editBtn.textContent = "編集";
         editBtn.onclick = (e) => {
           e.stopPropagation();
@@ -3919,7 +3920,7 @@ export class CrudController {
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
-        delBtn.className = "app-btn app-btn-danger app-btn-sm admin-table-btn-block";
+        delBtn.className = "app-btn app-btn-danger app-btn-sm";
         delBtn.textContent = "削除";
         delBtn.onclick = async (e) => {
           e.stopPropagation();
@@ -3939,23 +3940,35 @@ export class CrudController {
         tdActions.appendChild(actWrap);
         trMain.appendChild(tdActions);
 
-        // 2. id列
+        // 2. 開閉トグル列 (操作とidの間)
+        const tdToggle = document.createElement("td");
+        tdToggle.style.textAlign = "center";
+        tdToggle.style.width = "75px";
+
+        const toggleBtn = document.createElement("button");
+        toggleBtn.type = "button";
+        toggleBtn.className = "admin-accordion-toggle-btn";
+        toggleBtn.id = `toggle-indicator-${item.id}`;
+        toggleBtn.textContent = "開く ▼";
+        toggleBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleAccordion();
+        };
+        tdToggle.appendChild(toggleBtn);
+        trMain.appendChild(tdToggle);
+
+        // 3. id列
         const tdId = document.createElement("td");
         tdId.style.textAlign = "center";
         tdId.textContent = item.id;
         trMain.appendChild(tdId);
 
-        // 3. タイトル列 (アコーディオン開閉インジケータ付き)
+        // 4. タイトル列
         const tdTitle = document.createElement("td");
-        tdTitle.innerHTML = `
-          <div class="admin-schedule-title-cell">
-            <span class="admin-schedule-title-text">${escapeHtml(item.title || "")}</span>
-            <span class="admin-accordion-toggle-indicator" id="toggle-indicator-${item.id}">開く ▼</span>
-          </div>
-        `;
+        tdTitle.innerHTML = `<span class="admin-schedule-title-text">${escapeHtml(item.title || "")}</span>`;
         trMain.appendChild(tdTitle);
 
-        // 4. タグ列 (scheduleTag_id -> tagName)
+        // 5. タグ列 (scheduleTag_id -> tagName)
         const tdTag = document.createElement("td");
         const tagObj = tagMap.get(String(item.scheduleTag_id));
         if (tagObj) {
@@ -3967,7 +3980,7 @@ export class CrudController {
         }
         trMain.appendChild(tdTag);
 
-        // 5. 日時 / 時間 (2段表示)
+        // 6. 日時 / 時間 (2段表示)
         const tdDateTime = document.createElement("td");
         tdDateTime.className = "admin-table-col-notice-time";
         tdDateTime.innerHTML = `
@@ -3984,7 +3997,7 @@ export class CrudController {
         `;
         trMain.appendChild(tdDateTime);
 
-        // 6. 公開フラグ (トグルスイッチ表示)
+        // 7. 公開フラグ (トグルスイッチ表示)
         const tdActive = document.createElement("td");
         tdActive.style.textAlign = "center";
 
@@ -4036,7 +4049,7 @@ export class CrudController {
         // アコーディオン詳細行 (detail / Image / link)
         // ========================================================
         const tdDetailCell = document.createElement("td");
-        tdDetailCell.colSpan = 6;
+        tdDetailCell.colSpan = 7;
         tdDetailCell.className = "admin-schedule-detail-cell";
 
         const detailBox = document.createElement("div");
@@ -4121,14 +4134,14 @@ export class CrudController {
         tdDetailCell.appendChild(detailBox);
         trDetail.appendChild(tdDetailCell);
 
-        // 行クリックでアコーディオン開閉
+        // 行クリックまたはトグルボタンでアコーディオン開閉
         const toggleAccordion = () => {
           isRowOpen = !isRowOpen;
           trDetail.style.display = isRowOpen ? "table-row" : "none";
           const indicator = trMain.querySelector(`#toggle-indicator-${item.id}`);
           if (indicator) {
             indicator.textContent = isRowOpen ? "閉じる ▲" : "開く ▼";
-            indicator.style.background = isRowOpen ? "rgba(56, 189, 248, 0.25)" : "rgba(56, 189, 248, 0.12)";
+            indicator.classList.toggle("is-open", isRowOpen);
           }
         };
 

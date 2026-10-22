@@ -1497,24 +1497,35 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   color: #f8fafc;
 }
 
+.admin-accordion-toggle-btn,
 .admin-accordion-toggle-indicator {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.3);
   border-radius: 4px;
-  padding: 3px 8px;
+  padding: 4px 10px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   white-space: nowrap;
   user-select: none;
+  cursor: pointer;
   transition: all var(--transition-fast, 0.2s);
 }
 
+.admin-accordion-toggle-btn:hover,
 .admin-schedule-row:hover .admin-accordion-toggle-indicator {
-  background: rgba(56, 189, 248, 0.22);
+  background: rgba(56, 189, 248, 0.25);
   border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+.admin-accordion-toggle-btn.is-open {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: #38bdf8;
+  color: #ffffff;
 }
 
 .admin-schedule-tag-badge {
@@ -1538,26 +1549,23 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   border-bottom: 2px solid rgba(56, 189, 248, 0.25) !important;
 }
 
+/* 詳細・画像・リンクは縦長画面でも常に横並びを維持 */
 .admin-schedule-detail-box {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr;
+  grid-template-columns: minmax(180px, 2fr) minmax(160px, 1.2fr) minmax(160px, 1.2fr);
   gap: 16px;
   background: rgba(15, 23, 42, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm, 6px);
   padding: 14px 18px;
-}
-
-@media (max-width: 900px) {
-  .admin-schedule-detail-box {
-    grid-template-columns: 1fr;
-  }
+  min-width: 520px;
 }
 
 .admin-schedule-detail-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .admin-schedule-detail-heading {
