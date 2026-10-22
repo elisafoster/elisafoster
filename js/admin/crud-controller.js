@@ -260,6 +260,9 @@ export class CrudController {
     };
     this.galleryLibraryCache = null;
 
+    // 動画リスト (movie) 専用ライブラリキャッシュ
+    this.movieLibraryCache = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
       if (
@@ -421,7 +424,7 @@ export class CrudController {
           );
           break;
         case "movie":
-          await this.renderTableListTab("movie", "動画リスト管理", ["id", "movieUrl", "movieCategory_id", "is_active"]);
+          await this.renderMovieTab();
           break;
         case "shop":
           await this.renderTableListTab("shop", "ショップグッズ管理", ["id", "name", "price", "priority"]);
@@ -6169,6 +6172,1461 @@ export class CrudController {
   }
 
   /**
+   * 動画リスト管理タブ (movieTag 管理アコーディオン + 動画一覧)
+   */
+  async renderMovieTab() {
+    let movies = [];
+    let categories = [];
+    let tags = [];
+    let lists = [];
+
+    try {
+      const [moviesRes, categoriesRes, tagsRes, listsRes] = await Promise.all([
+        api.getTable("movie").catch(() => []),
+        api.getTable("movieCategory").catch(() => []),
+        api.getTable("movieTag").catch(() => []),
+        api.getTable("movieList").catch(() => []),
+      ]);
+      movies = Array.isArray(moviesRes) ? moviesRes : (moviesRes ? [moviesRes] : []);
+      categories = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes ? [categoriesRes] : []);
+      tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
+      lists = Array.isArray(listsRes) ? listsRes : (listsRes ? [listsRes] : []);
+    } catch (err) {
+      console.error("[Movie Data Load Error]:", err);
+      movies = [];
+      categories = [];
+      tags = [];
+      lists = [];
+    }
+
+    // マップ
+    const categoryMap = new Map(categories.map((c) => [String(c.id), c]));
+    const tagMap = new Map(tags.map((t) => [String(t.id), t]));
+    const listMap = new Map(lists.map((l) => [String(l.id), l]));
+
+    // YouTube サムネイル取得ヘルパー
+    const getYouTubeThumbnail = (url) => {
+      if (!url || typeof url !== "string") return null;
+      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+      if (match && match[1]) {
+        return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+      }
+      return null;
+    };
+
+    const container = document.createElement("div");
+    container.style.cssText = "display: flex; flex-direction: column; gap: 20px;";
+
+    // ========================================================
+    // 1. 動画タグ (movieTag) 管理アコーディオン
+    // ========================================================
+    const tagCard = document.createElement("div");
+    tagCard.className = "admin-tag-manager-card";
+
+    let isTagOpen = true;
+
+    tagCard.innerHTML = `
+      <div class="admin-tag-manager-header" id="movie-tag-manager-toggle-btn">
+        <div class="admin-tag-manager-title">
+          <h2 class="admin-card-title">タグ</h2>
+          <span class="admin-count-badge">${tags.length}件</span>
+        </div>
+        <span class="admin-tag-manager-arrow" id="movie-tag-manager-arrow">▲</span>
+      </div>
+      <div class="admin-tag-manager-body" id="movie-tag-manager-body">
+        <div class="admin-tag-input-row">
+          <input
+            type="text"
+            class="admin-form-input"
+            id="new-movie-tag-name-input"
+            placeholder="新しいタグ名 (例: MV、歌ってみた、切り抜き)"
+          />
+          <button type="button" class="app-btn app-btn-primary" id="add-movie-tag-btn" style="white-space: nowrap; padding: 8px 20px;">
+            追加
+          </button>
+        </div>
+        <div class="admin-tag-chips-container" id="movie-tag-chips-container">
+          ${tags.length === 0 ? '<span style="color: #64748b; font-size: 0.85rem;">登録されているタグはありません</span>' : ""}
+          ${tags.map((t) => `
+            <div class="admin-tag-chip" data-id="${escapeHtml(t.id)}">
+              <span>${escapeHtml(t.tagName)} <span class="admin-tag-chip-id">(ID: ${escapeHtml(t.id)})</span></span>
+              <button type="button" class="admin-tag-chip-del" data-id="${escapeHtml(t.id)}" title="削除">×</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    // アコーディオン開閉トグル
+    const toggleBtn = tagCard.querySelector("#movie-tag-manager-toggle-btn");
+    const tagBody = tagCard.querySelector("#movie-tag-manager-body");
+    const tagArrow = tagCard.querySelector("#movie-tag-manager-arrow");
+    toggleBtn.onclick = () => {
+      isTagOpen = !isTagOpen;
+      tagBody.style.display = isTagOpen ? "flex" : "none";
+      tagArrow.textContent = isTagOpen ? "▲" : "▼";
+    };
+
+    // タグ追加処理
+    const tagInput = tagCard.querySelector("#new-movie-tag-name-input");
+    const addTagBtn = tagCard.querySelector("#add-movie-tag-btn");
+
+    const handleAddTag = async () => {
+      const val = tagInput.value.trim();
+      if (!val) {
+        alert("タグ名を入力してください");
+        tagInput.focus();
+        return;
+      }
+
+      addTagBtn.disabled = true;
+      try {
+        const nextId = tags.length > 0 ? Math.max(...tags.map((t) => Number(t.id) || 0)) + 1 : 1;
+        await api.saveTable("movieTag", { id: nextId, tagName: val }, null);
+        Toast.success(`タグ「${val}」を追加しました`);
+        await this.renderMovieTab();
+      } catch (e) {
+        console.error("[Add Movie Tag Error]:", e);
+        Toast.error(`タグの追加に失敗しました: ${e.message}`);
+        addTagBtn.disabled = false;
+      }
+    };
+
+    addTagBtn.onclick = handleAddTag;
+    tagInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddTag();
+      }
+    };
+
+    // タグ削除処理
+    tagCard.querySelectorAll(".admin-tag-chip-del").forEach((delBtn) => {
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const tagId = delBtn.dataset.id;
+        const targetTag = tags.find((t) => String(t.id) === String(tagId));
+        const tagName = targetTag?.tagName || tagId;
+
+        const ok = confirm(
+          `タグ「${tagName}」を削除しますか？\n\n※このタグを使用している動画がある場合、タグ表示に影響する可能性があります。`
+        );
+        if (!ok) return;
+
+        try {
+          await api.deleteRecord("movieTag", tagId);
+          Toast.info(`タグ「${tagName}」を削除しました`);
+          await this.renderMovieTab();
+        } catch (err) {
+          console.error("[Delete Movie Tag Error]:", err);
+          Toast.error(`タグの削除に失敗しました: ${err.message}`);
+        }
+      };
+    });
+
+    container.appendChild(tagCard);
+
+    // ========================================================
+    // 2. 動画リスト管理テーブル
+    // ========================================================
+    const card = document.createElement("div");
+    card.className = "admin-card";
+
+    // ヘッダー
+    const header = document.createElement("div");
+    header.className = "admin-card-header";
+
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "admin-card-title-group";
+
+    const titleRow = document.createElement("div");
+    titleRow.style.cssText = "display: flex; align-items: center; gap: 12px; flex-wrap: wrap;";
+
+    const h2 = document.createElement("h2");
+    h2.className = "admin-card-title";
+    h2.textContent = "動画リスト管理";
+    titleRow.appendChild(h2);
+
+    const countBadge = document.createElement("span");
+    countBadge.className = "admin-count-badge";
+    countBadge.textContent = `${movies.length}件`;
+    titleRow.appendChild(countBadge);
+
+    titleGroup.appendChild(titleRow);
+    header.appendChild(titleGroup);
+
+    const actions = document.createElement("div");
+    actions.className = "admin-card-actions";
+    actions.style.cssText = "display: flex; align-items: center; gap: 10px;";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "app-btn app-btn-primary";
+    addBtn.innerHTML = "+ 新規追加";
+    addBtn.onclick = () => this.openMovieModal(null, categories, tags, lists);
+    actions.appendChild(addBtn);
+
+    header.appendChild(actions);
+    card.appendChild(header);
+
+    // テーブル生成
+    const tableContainer = document.createElement("div");
+    tableContainer.className = "admin-table-container";
+
+    const table = document.createElement("table");
+    table.className = "admin-table";
+
+    // thead
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr>
+        <th class="admin-table-col-actions" style="width: 80px; text-align: center;">操作</th>
+        <th style="width: 60px; text-align: center;">id</th>
+        <th style="width: 130px;">動画タイプ</th>
+        <th style="width: 130px;">タグ</th>
+        <th style="min-width: 260px;">動画</th>
+        <th style="width: 190px;">再生リスト</th>
+        <th style="width: 120px; text-align: center;">公開フラグ</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    if (movies.length === 0) {
+      const emptyTr = document.createElement("tr");
+      emptyTr.innerHTML = `
+        <td colspan="7" style="text-align: center; color: #64748b; padding: 36px 16px;">
+          動画データがありません。「+ 新規追加」ボタンから登録してください。
+        </td>
+      `;
+      tbody.appendChild(emptyTr);
+    } else {
+      movies.forEach((item) => {
+        const tr = document.createElement("tr");
+
+        // 1. 操作列 (縦並び「編集」「削除」)
+        const tdActions = document.createElement("td");
+        tdActions.className = "admin-table-col-actions";
+        tdActions.style.textAlign = "center";
+
+        const actWrap = document.createElement("div");
+        actWrap.className = "admin-table-actions is-vertical";
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "app-btn app-btn-secondary app-btn-sm";
+        editBtn.textContent = "編集";
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.openMovieModal(item, categories, tags, lists);
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "app-btn app-btn-danger app-btn-sm";
+        delBtn.textContent = "削除";
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const ok = confirm(`ID: ${item.id} の動画を本当に削除しますか？`);
+          if (!ok) return;
+          try {
+            await api.deleteRecord("movie", item.id);
+            Toast.info(`ID: ${item.id} の動画を削除しました`);
+            await this.renderMovieTab();
+          } catch (err) {
+            console.error("[Delete Movie Error]:", err);
+          }
+        };
+
+        actWrap.appendChild(editBtn);
+        actWrap.appendChild(delBtn);
+        tdActions.appendChild(actWrap);
+        tr.appendChild(tdActions);
+
+        // 2. id列
+        const tdId = document.createElement("td");
+        tdId.style.textAlign = "center";
+        tdId.textContent = item.id;
+        tr.appendChild(tdId);
+
+        // 3. 動画タイプ (movieCategory_id)
+        const tdCategory = document.createElement("td");
+        const catObj = categoryMap.get(String(item.movieCategory_id));
+        if (catObj) {
+          tdCategory.innerHTML = `<span class="admin-category-badge">${escapeHtml(catObj.categoryName)}</span>`;
+        } else if (item.movieCategory_id) {
+          tdCategory.innerHTML = `<span class="admin-category-badge" style="opacity: 0.7;">ID: ${escapeHtml(item.movieCategory_id)}</span>`;
+        } else {
+          tdCategory.innerHTML = `<span style="color: #64748b;">-</span>`;
+        }
+        tr.appendChild(tdCategory);
+
+        // 4. タグ (movieTag_id)
+        const tdTag = document.createElement("td");
+        const tagObj = tagMap.get(String(item.movieTag_id));
+        if (tagObj) {
+          tdTag.innerHTML = `<span class="admin-schedule-tag-badge">${escapeHtml(tagObj.tagName)}</span>`;
+        } else if (item.movieTag_id) {
+          tdTag.innerHTML = `<span class="admin-schedule-tag-badge" style="opacity: 0.7;">ID: ${escapeHtml(item.movieTag_id)}</span>`;
+        } else {
+          tdTag.innerHTML = `<span style="color: #64748b;">-</span>`;
+        }
+        tr.appendChild(tdTag);
+
+        // 5. 動画 (movieImage / movieUrl の 2段表示)
+        const tdMovie = document.createElement("td");
+        const ytThumb = getYouTubeThumbnail(item.movieUrl);
+        const hasImg = item.movieImage || item.image;
+        let thumbHtml = "";
+        let imgDisplayUrl = "";
+
+        if (hasImg) {
+          imgDisplayUrl = api.resolveAssetUrl(hasImg, "movie");
+          thumbHtml = `
+            <img src="${escapeHtml(imgDisplayUrl)}" alt="動画サムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" />
+          `;
+        } else if (ytThumb) {
+          imgDisplayUrl = ytThumb;
+          thumbHtml = `
+            <img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" />
+          `;
+        } else {
+          thumbHtml = `<span style="color: #64748b; font-size: 0.78rem;">(画像なし)</span>`;
+        }
+
+        tdMovie.innerHTML = `
+          <div class="admin-movie-tworow-cell">
+            <div class="admin-movie-thumb-wrap">
+              ${thumbHtml}
+            </div>
+            <div class="admin-movie-url-wrap">
+              ${item.movieUrl ? `
+                <a href="${escapeHtml(item.movieUrl)}" target="_blank" rel="noopener noreferrer" class="admin-movie-url-link" title="${escapeHtml(item.movieUrl)}">
+                  🔗 ${escapeHtml(item.movieUrl)} ↗
+                </a>
+              ` : '<span style="color: #64748b;">-</span>'}
+            </div>
+          </div>
+        `;
+
+        if (imgDisplayUrl) {
+          const imgEl = tdMovie.querySelector("img");
+          if (imgEl) {
+            imgEl.onclick = (e) => {
+              e.stopPropagation();
+              this.openImageDetailModal(imgDisplayUrl, `動画サムネイル (ID: ${item.id})`, {
+                costumeName: `動画 ID: ${item.id}`,
+                columnLabel: "動画サムネイル",
+                path: hasImg || item.movieUrl,
+              });
+            };
+          }
+        }
+        tr.appendChild(tdMovie);
+
+        // 6. 再生リスト (movieList > listName、プルダウンで変更可能)
+        const tdList = document.createElement("td");
+        const listSelect = document.createElement("select");
+        listSelect.className = "admin-form-input admin-table-select";
+        listSelect.title = "クリックして再生リストを変更できます";
+
+        const optEmpty = document.createElement("option");
+        optEmpty.value = "";
+        optEmpty.textContent = "(未設定 / なし)";
+        listSelect.appendChild(optEmpty);
+
+        lists.forEach((l) => {
+          const opt = document.createElement("option");
+          opt.value = String(l.id);
+          opt.textContent = l.listName;
+          if (String(item.movieList) === String(l.id)) {
+            opt.selected = true;
+          }
+          listSelect.appendChild(opt);
+        });
+
+        listSelect.onchange = async (e) => {
+          e.stopPropagation();
+          const newVal = listSelect.value ? Number(listSelect.value) : null;
+          const oldVal = item.movieList;
+          item.movieList = newVal;
+          try {
+            await api.saveTable("movie", { ...item, movieList: newVal }, item.id);
+            const selectedListName = newVal ? (listMap.get(String(newVal))?.listName || `ID: ${newVal}`) : "未設定";
+            Toast.success(`ID: ${item.id} の再生リストを「${selectedListName}」に更新しました`);
+          } catch (err) {
+            console.error("[Update MovieList Error]:", err);
+            Toast.error(`再生リストの更新に失敗しました: ${err.message}`);
+            listSelect.value = oldVal ? String(oldVal) : "";
+            item.movieList = oldVal;
+          }
+        };
+
+        tdList.appendChild(listSelect);
+        tr.appendChild(tdList);
+
+        // 7. 公開フラグ (トグルスイッチ)
+        const tdActive = document.createElement("td");
+        tdActive.style.textAlign = "center";
+
+        const isActive = item.is_active === 1 || item.is_active === true || item.is_active === "1";
+
+        const switchLabel = document.createElement("label");
+        switchLabel.className = "admin-switch-label";
+        switchLabel.style.cssText = "justify-content: center; margin: 0 auto;";
+
+        const switchInput = document.createElement("input");
+        switchInput.type = "checkbox";
+        switchInput.className = "admin-switch-input";
+        switchInput.checked = isActive;
+
+        const switchSlider = document.createElement("span");
+        switchSlider.className = "admin-switch-slider";
+
+        const statusText = document.createElement("span");
+        statusText.className = "admin-switch-status-text";
+        statusText.style.cssText = "font-size: 0.82rem; min-width: 42px; text-align: left;";
+        statusText.textContent = isActive ? "表示" : "非表示";
+
+        switchInput.onchange = async (e) => {
+          e.stopPropagation();
+          const newActive = switchInput.checked ? 1 : 0;
+          statusText.textContent = newActive ? "表示" : "非表示";
+          item.is_active = newActive;
+          try {
+            await api.saveTable("movie", { ...item, is_active: newActive }, item.id);
+            Toast.success(`ID: ${item.id} の公開フラグを「${newActive ? "表示" : "非表示"}」に更新しました`);
+          } catch (err) {
+            console.error("[Toggle Movie Active Error]:", err);
+            Toast.error(`更新に失敗しました: ${err.message}`);
+            switchInput.checked = !switchInput.checked;
+            statusText.textContent = switchInput.checked ? "表示" : "非表示";
+          }
+        };
+
+        switchLabel.appendChild(switchInput);
+        switchLabel.appendChild(switchSlider);
+        switchLabel.appendChild(statusText);
+        tdActive.appendChild(switchLabel);
+        tr.appendChild(tdActive);
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    card.appendChild(tableContainer);
+    container.appendChild(card);
+
+    this.container.innerHTML = "";
+    this.container.appendChild(container);
+  }
+
+  /**
+   * 動画 (movie) 専用の新規・編集モーダル
+   */
+  async openMovieModal(record, categories = null, tags = null, lists = null, restoreState = null) {
+    const isNew = !record;
+
+    // マスタデータの取得 (渡されていない場合)
+    let allCategories = categories;
+    let allTags = tags;
+    let allLists = lists;
+
+    if (!allCategories || !allTags || !allLists) {
+      try {
+        const [cRes, tRes, lRes] = await Promise.all([
+          allCategories ? Promise.resolve(allCategories) : api.getTable("movieCategory").catch(() => []),
+          allTags ? Promise.resolve(allTags) : api.getTable("movieTag").catch(() => []),
+          allLists ? Promise.resolve(allLists) : api.getTable("movieList").catch(() => []),
+        ]);
+        allCategories = Array.isArray(cRes) ? cRes : (cRes ? [cRes] : []);
+        allTags = Array.isArray(tRes) ? tRes : (tRes ? [tRes] : []);
+        allLists = Array.isArray(lRes) ? lRes : (lRes ? [lRes] : []);
+      } catch (e) {
+        allCategories = allCategories || [];
+        allTags = allTags || [];
+        allLists = allLists || [];
+      }
+    }
+
+    // 全動画レコード取得 (ID自動採番 & ライブラリキャッシュ用)
+    let allMovies = [];
+    try {
+      const res = await api.getTable("movie");
+      allMovies = Array.isArray(res) ? res : (res ? [res] : []);
+    } catch (e) {
+      allMovies = [];
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allMovies.length > 0 ? Math.max(...allMovies.map((m) => Number(m.id) || 0)) + 1 : 1;
+
+    // 現在のデータ
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      movieCategory_id: record?.movieCategory_id || (allCategories[0]?.id || ""),
+      movieTag_id: record?.movieTag_id || "",
+      movieUrl: record?.movieUrl || "",
+      movieImage: record?.movieImage || record?.image || "",
+      movieList: record?.movieList || "",
+      is_active: record ? (record.is_active === 1 || record.is_active === true || record.is_active === "1") : true,
+      ...restoreState,
+    };
+
+    // ライブラリ候補の集約
+    if (!this.movieLibraryCache) {
+      this.movieLibraryCache = [];
+    }
+    const librarySet = new Set(["moviesample.png", ...this.movieLibraryCache]);
+    allMovies.forEach((row) => {
+      const img = row.movieImage || row.image;
+      if (img && typeof img === "string" && !img.startsWith("http")) {
+        librarySet.add(img.split("/").pop());
+      }
+    });
+    this.movieLibraryCache = Array.from(librarySet);
+
+    // GoogleドライブURL変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode =
+      currentData.image_mode ||
+      (currentData.movieImage && (currentData.movieImage.startsWith("http://") || currentData.movieImage.startsWith("https://"))
+        ? "url"
+        : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ 公開フラグ -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${escapeHtml(currentData.id)}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">公開フラグ (表示/非表示)</label>
+          <div style="padding-top: 6px;">
+            <label class="admin-switch-label">
+              <input type="checkbox" name="is_active" class="admin-switch-input" ${currentData.is_active ? "checked" : ""} />
+              <span class="admin-switch-slider"></span>
+              <span class="admin-switch-status-text">${currentData.is_active ? "表示" : "非表示"}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行2: 動画タイプ ｜ タグ -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            動画タイプ
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <select class="admin-form-input" name="movieCategory_id" required>
+            ${allCategories.length === 0 ? '<option value="">(動画タイプが未登録です)</option>' : ""}
+            ${allCategories.map((c) => `
+              <option value="${escapeHtml(c.id)}" ${String(currentData.movieCategory_id) === String(c.id) ? "selected" : ""}>
+                ${escapeHtml(c.categoryName)} (ID: ${escapeHtml(c.id)})
+              </option>
+            `).join("")}
+          </select>
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">タグ</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select class="admin-form-input" name="movieTag_id" id="modal-movie-tag-select" style="flex: 1;">
+              <option value="">-- タグを選択しない (なし) --</option>
+              ${allTags.map((t) => `
+                <option value="${escapeHtml(t.id)}" ${String(currentData.movieTag_id) === String(t.id) ? "selected" : ""}>
+                  ${escapeHtml(t.tagName)} (ID: ${escapeHtml(t.id)})
+                </option>
+              `).join("")}
+            </select>
+            <button type="button" class="app-btn app-btn-secondary" id="btn-toggle-movie-tag" style="white-space: nowrap; padding: 8px 14px; font-size: 0.85rem;">
+              ＋ タグ追加
+            </button>
+          </div>
+
+          <!-- インラインタグ追加パネル -->
+          <div id="modal-inline-movie-tag-panel" style="display: none; margin-top: 8px; padding: 10px 12px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-sm, 6px);">
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+              <span>新規タグ名を入力してください:</span>
+              <button type="button" id="btn-modal-movie-tag-close" style="background: none; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 0 4px; line-height: 1;" title="閉じる">×</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input
+                type="text"
+                class="admin-form-input"
+                id="modal-inline-movie-tag-input"
+                placeholder="新しいタグ名 (例: MV、歌ってみた、切り抜き)"
+                style="flex: 1; padding: 6px 10px; font-size: 0.85rem;"
+              />
+              <button type="button" class="app-btn app-btn-primary app-btn-sm" id="btn-modal-movie-tag-submit" style="white-space: nowrap; padding: 6px 14px; font-size: 0.82rem;">
+                追加
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行3: 動画URL ｜ 再生リスト -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            動画URL
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="movieUrl"
+            type="url"
+            value="${escapeHtml(currentData.movieUrl)}"
+            placeholder="https://www.youtube.com/watch?v=... または TikTok等のURL"
+            required
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">再生リスト (所属リスト)</label>
+          <select class="admin-form-input" name="movieList">
+            <option value="">-- 再生リストに所属しない (なし) --</option>
+            ${allLists.map((l) => `
+              <option value="${escapeHtml(l.id)}" ${String(currentData.movieList) === String(l.id) ? "selected" : ""}>
+                ${escapeHtml(l.listName)} (ID: ${escapeHtml(l.id)})
+              </option>
+            `).join("")}
+          </select>
+        </div>
+      </div>
+
+      <!-- 行4: 動画画像 (movieImage) -->
+      <div class="admin-visual-field-card" style="margin-top: 4px;">
+        <div class="admin-visual-field-header">
+          <label class="admin-form-label" style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            動画画像 (サムネイル)
+            <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(未設定の場合は動画URLから自動取得可能)</span>
+          </label>
+          <div class="admin-visual-mode-toggle">
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="library" ${initialMode === "library" ? "checked" : ""}>
+              <span>ライブラリ参照</span>
+            </label>
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="url" ${initialMode === "url" ? "checked" : ""}>
+              <span>直URL指定</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-visual-field-body">
+          <div class="admin-visual-input-col">
+            <!-- ライブラリ選択UI -->
+            <div id="mode-library-movie" class="admin-visual-mode-panel" style="${initialMode === "library" ? "" : "display: none;"}">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="admin-form-input admin-visual-file-select" data-field="movieImage" style="flex: 1;">
+                  <option value="">-- 画像を選択しない (なし) --</option>
+                  ${this.movieLibraryCache.map((fn) => `
+                    <option value="${escapeHtml(fn)}" ${currentData.movieImage === fn ? "selected" : ""}>${escapeHtml(fn)}</option>
+                  `).join("")}
+                </select>
+                <button type="button" class="app-btn app-btn-secondary admin-movie-upload-btn" data-field="movieImage" style="white-space: nowrap;">
+                  📤 アップロード
+                </button>
+              </div>
+              <span class="admin-form-hint">assets/movie 配下の画像をプルダウンで選択、または新規アップロードできます</span>
+            </div>
+
+            <!-- 直URL指定UI -->
+            <div id="mode-url-movie" class="admin-visual-mode-panel" style="${initialMode === "url" ? "" : "display: none;"}">
+              <input
+                class="admin-form-input admin-visual-url-input"
+                data-field="movieImage"
+                type="url"
+                value="${initialMode === "url" ? escapeHtml(currentData.movieImage || "") : ""}"
+                placeholder="https://drive.google.com/file/d/... または画像URL"
+              />
+              <span class="admin-form-hint">Googleドライブの共有URL、または画像の直接URLを入力してください（ドライブURLは自動変換されます）</span>
+            </div>
+          </div>
+
+          <!-- プレビュー枠 (アスペクト比 16:9) -->
+          <div class="admin-visual-preview-col" style="min-width: 240px; max-width: 280px;">
+            <div id="preview-box-movie-image" class="admin-visual-preview-box is-notice-box">
+              <span class="admin-visual-preview-empty">プレビューなし</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // スイッチ切り替え
+    const swInput = form.querySelector('[name="is_active"]');
+    const swText = form.querySelector('.admin-switch-status-text');
+    if (swInput && swText) {
+      swInput.onchange = () => {
+        swText.textContent = swInput.checked ? "表示" : "非表示";
+      };
+    }
+
+    // タグ追加処理 (インラインパネル)
+    const tagSelect = form.querySelector("#modal-movie-tag-select");
+    const toggleTagBtn = form.querySelector("#btn-toggle-movie-tag");
+    const tagPanel = form.querySelector("#modal-inline-movie-tag-panel");
+    const tagInput = form.querySelector("#modal-inline-movie-tag-input");
+    const tagSubmitBtn = form.querySelector("#btn-modal-movie-tag-submit");
+    const tagCloseBtn = form.querySelector("#btn-modal-movie-tag-close");
+
+    if (toggleTagBtn && tagPanel && tagInput && tagSubmitBtn) {
+      toggleTagBtn.onclick = () => {
+        const isVisible = tagPanel.style.display !== "none";
+        tagPanel.style.display = isVisible ? "none" : "block";
+        if (!isVisible) {
+          tagInput.focus();
+        }
+      };
+
+      if (tagCloseBtn) {
+        tagCloseBtn.onclick = () => {
+          tagPanel.style.display = "none";
+        };
+      }
+
+      const handleCreateTag = async () => {
+        const val = tagInput.value.trim();
+        if (!val) {
+          alert("タグ名を入力してください");
+          tagInput.focus();
+          return;
+        }
+
+        // 既存タグとの重複チェック
+        const isExist = allTags.some((t) => t.tagName === val);
+        if (isExist) {
+          const existTag = allTags.find((t) => t.tagName === val);
+          tagSelect.value = String(existTag.id);
+          Toast.info(`タグ「${val}」は既に存在するため選択しました`);
+          tagPanel.style.display = "none";
+          tagInput.value = "";
+          return;
+        }
+
+        tagSubmitBtn.disabled = true;
+        try {
+          const nextTagId = allTags.length > 0 ? Math.max(...allTags.map((t) => Number(t.id) || 0)) + 1 : 1;
+          const newTag = { id: nextTagId, tagName: val };
+          await api.saveTable("movieTag", newTag, null);
+
+          // allTags 配列と select を更新
+          allTags.push(newTag);
+
+          const newOpt = document.createElement("option");
+          newOpt.value = String(newTag.id);
+          newOpt.textContent = `${newTag.tagName} (ID: ${newTag.id})`;
+          tagSelect.appendChild(newOpt);
+          tagSelect.value = String(newTag.id);
+
+          Toast.success(`タグ「${val}」を追加し、選択しました`);
+          tagInput.value = "";
+          tagPanel.style.display = "none";
+        } catch (err) {
+          console.error("[Create Movie Tag Error]:", err);
+          Toast.error(`タグの追加に失敗しました: ${err.message}`);
+        } finally {
+          tagSubmitBtn.disabled = false;
+        }
+      };
+
+      tagSubmitBtn.onclick = handleCreateTag;
+      tagInput.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleCreateTag();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          tagPanel.style.display = "none";
+        }
+      };
+    }
+
+    // プレビュー更新関数
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-movie-image");
+      if (!pBox) return;
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imgVal = "";
+      if (mode === "library") {
+        imgVal = form.querySelector('.admin-visual-file-select[data-field="movieImage"]')?.value || "";
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="movieImage"]')?.value?.trim() || "";
+        imgVal = convertGoogleDriveUrl(raw);
+      }
+
+      if (imgVal) {
+        const fullUrl = api.resolveAssetUrl(imgVal, "movie");
+        pBox.innerHTML = `
+          <img src="${escapeHtml(fullUrl)}" alt="動画サムネイルプレビュー" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\' style=\\'color:#ef4444;\\'>読込失敗</span>';" />
+        `;
+      } else {
+        const mUrl = form.querySelector('[name="movieUrl"]')?.value?.trim();
+        const match = mUrl ? mUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/) : null;
+        if (match && match[1]) {
+          const ytThumb = `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+          pBox.innerHTML = `
+            <img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイルプレビュー" />
+          `;
+        } else {
+          pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
+        }
+      }
+    };
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="image_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-movie");
+        const urlPanel = form.querySelector("#mode-url-movie");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    // プルダウン変更
+    form.querySelector('.admin-visual-file-select[data-field="movieImage"]').onchange = updatePreview;
+
+    // URL入力変更
+    const urlInput = form.querySelector('.admin-visual-url-input[data-field="movieImage"]');
+    urlInput.oninput = () => {
+      const converted = convertGoogleDriveUrl(urlInput.value.trim());
+      if (converted !== urlInput.value.trim()) {
+        urlInput.value = converted;
+      }
+      updatePreview();
+    };
+
+    // 動画URL変更時も自動プレビュー更新
+    form.querySelector('[name="movieUrl"]').oninput = updatePreview;
+
+    // アップロードボタン押下
+    form.querySelector('.admin-movie-upload-btn[data-field="movieImage"]').onclick = () => {
+      const savedState = this.collectMovieFormData(form);
+      const cfg = {
+        label: "動画画像",
+        category: "movie",
+        uploadPath: "assets/movie",
+        accept: ".png,.jpg,.jpeg,.webp",
+        maxSizeBytes: 2097152, // 2MB
+        maxSizeMB: 2,
+        aspectRatio: "16:9",
+        displayMode: "contain",
+        maxLongEdge: 1280,
+      };
+      this.openMovieUploadModal("movieImage", record, savedState, cfg, allCategories, allTags, allLists);
+    };
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const catVal = fd.get("movieCategory_id")?.toString().trim();
+      const urlVal = fd.get("movieUrl")?.toString().trim();
+
+      if (!catVal) {
+        alert("動画タイプは必須項目です");
+        return;
+      }
+
+      if (!urlVal) {
+        alert("動画URLは必須項目です");
+        return;
+      }
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imageVal = null;
+      if (mode === "library") {
+        imageVal = form.querySelector('.admin-visual-file-select[data-field="movieImage"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="movieImage"]')?.value?.trim() || null;
+        imageVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const payload = {
+        id: Number(fd.get("id")),
+        movieCategory_id: Number(catVal) || catVal,
+        movieTag_id: fd.get("movieTag_id") ? Number(fd.get("movieTag_id")) : null,
+        movieUrl: urlVal,
+        movieImage: imageVal || null,
+        movieList: fd.get("movieList") ? Number(fd.get("movieList")) : null,
+        is_active: form.querySelector('[name="is_active"]')?.checked ? 1 : 0,
+      };
+
+      try {
+        await api.saveTable("movie", payload, isNew ? null : record.id);
+        Modal.close();
+        Toast.success(isNew ? "動画を新規追加しました" : "動画の変更を保存しました");
+        await this.renderMovieTab();
+      } catch (err) {
+        console.error("[Save Movie Error]:", err);
+      }
+    };
+
+    Modal.open({
+      title: isNew ? "動画の新規追加" : `動画の編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * 動画 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectMovieFormData(form) {
+    if (!form) return {};
+    const fd = new FormData(form);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+      data[k] = v;
+    }
+    data["is_active"] = form.querySelector('[name="is_active"]')?.checked;
+    const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+    data["image_mode"] = mode;
+    if (mode === "library") {
+      data["movieImage"] = form.querySelector('.admin-visual-file-select[data-field="movieImage"]')?.value || "";
+    } else {
+      data["movieImage"] = form.querySelector('.admin-visual-url-input[data-field="movieImage"]')?.value || "";
+    }
+    return data;
+  }
+
+  /**
+   * 動画 画像アップロードモーダル (インタラクティブ・クロッパー 16:9)
+   */
+  async openMovieUploadModal(field, currentRecord, savedState, cfg, categories, tags, lists) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    let targetW = 1280;
+    let targetH = 720;
+    const headerTitleText = `トリミング調整 (横長 16:9 (1280×720))`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${escapeHtml(cfg.label)}</strong> (保存先: <code>${escapeHtml(cfg.uploadPath)}</code>)</div>
+        <div>対応形式: <code>${escapeHtml(cfg.accept)}</code> ｜ 容量上限: <code>${escapeHtml(cfg.maxSizeMB)}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${escapeHtml(cfg.aspectRatio)} (${escapeHtml(cfg.displayMode)})</code></div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-movie">
+        <input type="file" id="upload-file-input-movie" accept="${escapeHtml(cfg.accept)}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCから動画画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-movie" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${escapeHtml(headerTitleText)}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas-movie" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-movie" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-movie" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-movie" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-movie" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input-movie" placeholder="例: movie_thumb_202610" style="flex: 1;" />
+          <span id="upload-ext-label-movie" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.jpg</span>
+        </div>
+        <span id="upload-name-error-movie" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    cancelBtn.onclick = () => {
+      this.openMovieModal(currentRecord, categories, tags, lists, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone-movie");
+    const fileInput = wrap.querySelector("#upload-file-input-movie");
+    const cropStage = wrap.querySelector("#crop-stage-movie");
+    const cropCanvas = wrap.querySelector("#crop-canvas-movie");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-movie");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-movie");
+    const centerBtn = wrap.querySelector("#crop-center-btn-movie");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-movie");
+    const nameInput = wrap.querySelector("#upload-filename-input-movie");
+    const extLabel = wrap.querySelector("#upload-ext-label-movie");
+    const nameError = wrap.querySelector("#upload-name-error-movie");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const renderCanvas = () => {
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      if (!selectedImg) return;
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        cropCanvas.toBlob(
+          (blob) => {
+            currentBlob = blob;
+            if (!blob) return;
+            const kb = Math.round(blob.size / 1024);
+            const isOk = blob.size <= cfg.maxSizeBytes;
+            isSizeValid = isOk;
+
+            if (isOk) {
+              sizeBadge.className = "crop-size-badge is-ok";
+              sizeBadge.textContent = `${kb} KB / ${maxKB} KB OK`;
+            } else {
+              sizeBadge.className = "crop-size-badge is-ng";
+              sizeBadge.textContent = `${kb} KB / ${maxKB} KB 超過`;
+            }
+            checkUploadBtnState();
+          },
+          "image/jpeg",
+          0.85
+        );
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 90);
+      }
+    };
+
+    // ドラッグ移動制御
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startCenterX = 0;
+    let startCenterY = 0;
+
+    const onDragStart = (clientX, clientY) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      startCenterX = centerX;
+      startCenterY = centerY;
+      cropCanvas.classList.add("is-dragging");
+    };
+
+    const onDragMove = (clientX, clientY) => {
+      if (!isDragging || !selectedImg) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const factorX = targetW / rect.width;
+      const factorY = targetH / rect.height;
+      const dx = (clientX - startX) * factorX;
+      const dy = (clientY - startY) * factorY;
+      centerX = startCenterX + dx;
+      centerY = startCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      cropCanvas.classList.remove("is-dragging");
+      scheduleSizeUpdate(true);
+    };
+
+    cropCanvas.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onDragStart(e.clientX, e.clientY);
+    });
+
+    const handleWindowMouseMove = (e) => {
+      if (isDragging) onDragMove(e.clientX, e.clientY);
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    // タッチ対応
+    cropCanvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 1) {
+          onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      },
+      { passive: false }
+    );
+
+    const handleWindowTouchMove = (e) => {
+      if (isDragging && e.touches.length === 1) {
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleWindowTouchEnd = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // ホイールズーム
+    cropCanvas.addEventListener(
+      "wheel",
+      (e) => {
+        if (!selectedImg) return;
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+        let newScale = scale * zoomFactor;
+        const minS = parseFloat(zoomSlider.min);
+        const maxS = parseFloat(zoomSlider.max);
+        newScale = Math.max(minS, Math.min(maxS, newScale));
+        scale = newScale;
+        zoomSlider.value = scale;
+        renderCanvas();
+        scheduleSizeUpdate(false);
+      },
+      { passive: false }
+    );
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".jpg";
+      extLabel.textContent = ext;
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!nameInput.value) {
+        nameInput.value = baseName || "movie_thumb";
+      }
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
+          cropStage.style.display = "flex";
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (val && !isValid) {
+        nameError.style.display = "block";
+      } else {
+        nameError.style.display = "none";
+      }
+      checkUploadBtnState();
+    };
+
+    // アップロードボタン活性判定
+    const checkUploadBtnState = () => {
+      const nameVal = nameInput.value.trim();
+      const isNameValid = nameVal.length > 0 && /^[a-zA-Z0-9_-]+$/.test(nameVal);
+      uploadBtn.disabled = !selectedImg || !isSizeValid || !isNameValid;
+    };
+
+    // アップロードボタン押下
+    uploadBtn.onclick = async () => {
+      const fileNameRaw = nameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const ext = extLabel.textContent;
+      const fullFileName = `${fileNameRaw}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.movieLibraryCache.includes(fullFileName)) {
+            this.movieLibraryCache.push(fullFileName);
+          }
+          savedState["movieImage"] = fullFileName;
+          savedState["image_mode"] = "library";
+          cleanupListeners();
+          this.openMovieModal(currentRecord, categories, tags, lists, savedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for movie thumbnail via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`${fullFileName} を正常にアップロードしました`);
+
+        if (!this.movieLibraryCache.includes(fullFileName)) {
+          this.movieLibraryCache.push(fullFileName);
+        }
+
+        savedState["movieImage"] = fullFileName;
+        savedState["image_mode"] = "library";
+
+        cleanupListeners();
+        this.openMovieModal(currentRecord, categories, tags, lists, savedState);
+      } catch (err) {
+        console.error("[Upload Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+        this.openMovieModal(currentRecord, categories, tags, lists, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
@@ -6186,6 +7644,9 @@ export class CrudController {
     }
     if (tableName === "gallery") {
       return this.openGalleryModal(record);
+    }
+    if (tableName === "movie") {
+      return this.openMovieModal(record);
     }
 
     const isNew = !record;
