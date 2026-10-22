@@ -260,6 +260,13 @@ export class CrudController {
     };
     this.galleryLibraryCache = null;
 
+    // 動画リスト (movie) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.movieState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
     // 動画リスト (movie) 専用ライブラリキャッシュ
     this.movieLibraryCache = null;
 
@@ -270,7 +277,8 @@ export class CrudController {
         this.eventState?.hasPendingChanges ||
         this.noticeState?.hasPendingChanges ||
         this.scheduleState?.hasPendingChanges ||
-        this.galleryState?.hasPendingChanges
+        this.galleryState?.hasPendingChanges ||
+        this.movieState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -327,6 +335,16 @@ export class CrudController {
       if (!ok) return;
       this.galleryState.hasPendingChanges = false;
       this.galleryState.isInitialized = false;
+    }
+
+    // 動画リスト管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "movie" && tabKey !== "movie" && this.movieState?.hasPendingChanges) {
+      const ok = confirm(
+        "動画リスト管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.movieState.hasPendingChanges = false;
+      this.movieState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -6181,19 +6199,27 @@ export class CrudController {
     let lists = [];
 
     try {
-      const [moviesRes, categoriesRes, tagsRes, listsRes] = await Promise.all([
-        api.getTable("movie").catch(() => []),
+      if (!this.movieState.isInitialized) {
+        const moviesRes = await api.getTable("movie").catch(() => []);
+        const rawList = Array.isArray(moviesRes) ? moviesRes : (moviesRes ? [moviesRes] : []);
+        this.movieState.originalRecords = JSON.parse(JSON.stringify(rawList));
+        this.movieState.currentRecords = JSON.parse(JSON.stringify(rawList));
+        this.movieState.hasPendingChanges = false;
+        this.movieState.isInitialized = true;
+      }
+      movies = this.movieState.currentRecords;
+
+      const [categoriesRes, tagsRes, listsRes] = await Promise.all([
         api.getTable("movieCategory").catch(() => []),
         api.getTable("movieTag").catch(() => []),
         api.getTable("movieList").catch(() => []),
       ]);
-      movies = Array.isArray(moviesRes) ? moviesRes : (moviesRes ? [moviesRes] : []);
       categories = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes ? [categoriesRes] : []);
       tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
       lists = Array.isArray(listsRes) ? listsRes : (listsRes ? [listsRes] : []);
     } catch (err) {
       console.error("[Movie Data Load Error]:", err);
-      movies = [];
+      movies = this.movieState.currentRecords || [];
       categories = [];
       tags = [];
       lists = [];
@@ -6365,8 +6391,47 @@ export class CrudController {
     addBtn.onclick = () => this.openMovieModal(null, categories, tags, lists);
     actions.appendChild(addBtn);
 
+    // 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    const commitBtn = document.createElement("button");
+    commitBtn.id = "movie-commit-btn";
+    commitBtn.className = "app-btn app-btn-orange";
+
+    const changesCount = this.getMovieChangesCount();
+    if (this.movieState.hasPendingChanges && changesCount > 0) {
+      commitBtn.classList.add("has-changes");
+      commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+      commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+      commitBtn.disabled = false;
+    } else {
+      commitBtn.innerHTML = `<span>更新反映</span>`;
+      commitBtn.title = "D1に未反映の変更はありません";
+      commitBtn.disabled = true;
+    }
+
+    commitBtn.onclick = async () => {
+      await this.commitMovieChanges();
+    };
+    actions.appendChild(commitBtn);
+
     header.appendChild(actions);
     card.appendChild(header);
+
+    // 動画リスト管理で未反映の変更がある場合は通知アラートを表示
+    if (this.movieState.hasPendingChanges && changesCount > 0) {
+      const alertBar = document.createElement("div");
+      alertBar.className = "admin-pending-alert";
+      alertBar.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>⚠️</span>
+          <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+        </div>
+        <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+      `;
+      alertBar.querySelector("button").onclick = async () => {
+        await this.commitMovieChanges();
+      };
+      card.appendChild(alertBar);
+    }
 
     // テーブル生成
     const tableContainer = document.createElement("div");
@@ -6427,15 +6492,7 @@ export class CrudController {
         delBtn.textContent = "削除";
         delBtn.onclick = async (e) => {
           e.stopPropagation();
-          const ok = confirm(`ID: ${item.id} の動画を本当に削除しますか？`);
-          if (!ok) return;
-          try {
-            await api.deleteRecord("movie", item.id);
-            Toast.info(`ID: ${item.id} の動画を削除しました`);
-            await this.renderMovieTab();
-          } catch (err) {
-            console.error("[Delete Movie Error]:", err);
-          }
+          await this.deleteRecord("movie", item.id);
         };
 
         actWrap.appendChild(editBtn);
@@ -6548,18 +6605,11 @@ export class CrudController {
         listSelect.onchange = async (e) => {
           e.stopPropagation();
           const newVal = listSelect.value ? Number(listSelect.value) : null;
-          const oldVal = item.movieList;
           item.movieList = newVal;
-          try {
-            await api.saveTable("movie", { ...item, movieList: newVal }, item.id);
-            const selectedListName = newVal ? (listMap.get(String(newVal))?.listName || `ID: ${newVal}`) : "未設定";
-            Toast.success(`ID: ${item.id} の再生リストを「${selectedListName}」に更新しました`);
-          } catch (err) {
-            console.error("[Update MovieList Error]:", err);
-            Toast.error(`再生リストの更新に失敗しました: ${err.message}`);
-            listSelect.value = oldVal ? String(oldVal) : "";
-            item.movieList = oldVal;
-          }
+          this.movieState.hasPendingChanges = true;
+          const selectedListName = newVal ? (listMap.get(String(newVal))?.listName || `ID: ${newVal}`) : "未設定";
+          Toast.info(`ID: ${item.id} の再生リストを「${selectedListName}」に変更しました（※「更新反映」を押すまでD1には保存されません）`);
+          await this.renderMovieTab();
         };
 
         tdList.appendChild(listSelect);
@@ -6591,17 +6641,10 @@ export class CrudController {
         switchInput.onchange = async (e) => {
           e.stopPropagation();
           const newActive = switchInput.checked ? 1 : 0;
-          statusText.textContent = newActive ? "表示" : "非表示";
           item.is_active = newActive;
-          try {
-            await api.saveTable("movie", { ...item, is_active: newActive }, item.id);
-            Toast.success(`ID: ${item.id} の公開フラグを「${newActive ? "表示" : "非表示"}」に更新しました`);
-          } catch (err) {
-            console.error("[Toggle Movie Active Error]:", err);
-            Toast.error(`更新に失敗しました: ${err.message}`);
-            switchInput.checked = !switchInput.checked;
-            statusText.textContent = switchInput.checked ? "表示" : "非表示";
-          }
+          this.movieState.hasPendingChanges = true;
+          Toast.info(`ID: ${item.id} の公開フラグを「${newActive ? "表示" : "非表示"}」に変更しました（※「更新反映」を押すまでD1には保存されません）`);
+          await this.renderMovieTab();
         };
 
         switchLabel.appendChild(switchInput);
@@ -6653,11 +6696,15 @@ export class CrudController {
 
     // 全動画レコード取得 (ID自動採番 & ライブラリキャッシュ用)
     let allMovies = [];
-    try {
-      const res = await api.getTable("movie");
-      allMovies = Array.isArray(res) ? res : (res ? [res] : []);
-    } catch (e) {
-      allMovies = [];
+    if (this.movieState && this.movieState.isInitialized && this.movieState.currentRecords.length > 0) {
+      allMovies = this.movieState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("movie");
+        allMovies = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allMovies = [];
+      }
     }
 
     // 自動採番 (新規時)
@@ -7098,14 +7145,31 @@ export class CrudController {
         is_active: form.querySelector('[name="is_active"]')?.checked ? 1 : 0,
       };
 
-      try {
-        await api.saveTable("movie", payload, isNew ? null : record.id);
-        Modal.close();
-        Toast.success(isNew ? "動画を新規追加しました" : "動画の変更を保存しました");
-        await this.renderMovieTab();
-      } catch (err) {
-        console.error("[Save Movie Error]:", err);
+      // 動画リスト (movie) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.movieState.currentRecords.push(payload);
+      } else {
+        const idx = this.movieState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.movieState.currentRecords[idx] = {
+            ...this.movieState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.movieState.currentRecords.push(payload);
+        }
       }
+
+      this.movieState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "動画を保留リストに追加しました。「更新反映」を押すまで確定されません。"
+          : "動画の変更を保留しました。「更新反映」を押すまで確定されません。"
+      );
+      await this.renderMovieTab();
     };
 
     Modal.open({
@@ -7899,6 +7963,17 @@ export class CrudController {
       return;
     }
 
+    if (tableName === "movie") {
+      if (!confirm(`ID: ${id} の動画データを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.movieState.currentRecords = this.movieState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.movieState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.renderMovieTab();
+      return;
+    }
+
     if (!confirm(`ID: ${id} のレコードを本当に削除しますか？`)) return;
     try {
       await api.deleteRecord(tableName, id);
@@ -8305,6 +8380,95 @@ export class CrudController {
       await this.loadTab("gallery");
     } catch (err) {
       console.error("[Commit Gallery Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * 動画リスト (movie) の未反映変更件数の算出
+   */
+  getMovieChangesCount() {
+    if (!this.movieState || !this.movieState.isInitialized) return 0;
+    const origMap = new Map(this.movieState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.movieState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => {
+          const vCurr = curr[k] === null || curr[k] === undefined ? "" : String(curr[k]);
+          const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+          return vCurr !== vOrig;
+        });
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * 動画リスト (movie) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitMovieChanges() {
+    const count = this.getMovieChangesCount();
+    if (!this.movieState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `動画リスト管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.movieState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.movieState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.movieState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("movie", rec.id);
+      }
+
+      // 2. 新規追加 (POST) および 更新 (PUT) の反映
+      for (const rec of this.movieState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加
+          await api.saveTable("movie", rec, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => {
+            const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+            const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+            return vCurr !== vOrig;
+          });
+          if (hasDiff) {
+            await api.saveTable("movie", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("動画リスト管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.movieState.hasPendingChanges = false;
+      this.movieState.isInitialized = false;
+      await this.loadTab("movie");
+    } catch (err) {
+      console.error("[Commit Movie Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
