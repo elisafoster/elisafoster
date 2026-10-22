@@ -242,12 +242,22 @@ export class CrudController {
     };
     this.noticeLibraryCache = null;
 
+    // スケジュール (schedule) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.scheduleState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+    this.scheduleLibraryCache = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
       if (
         this.visualState?.hasPendingChanges ||
         this.eventState?.hasPendingChanges ||
-        this.noticeState?.hasPendingChanges
+        this.noticeState?.hasPendingChanges ||
+        this.scheduleState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -284,6 +294,16 @@ export class CrudController {
       if (!ok) return;
       this.noticeState.hasPendingChanges = false;
       this.noticeState.isInitialized = false;
+    }
+
+    // スケジュール管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "schedule" && tabKey !== "schedule" && this.scheduleState?.hasPendingChanges) {
+      const ok = confirm(
+        "スケジュール管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.scheduleState.hasPendingChanges = false;
+      this.scheduleState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -3684,15 +3704,21 @@ export class CrudController {
     let tags = [];
 
     try {
-      const [schedulesRes, tagsRes] = await Promise.all([
-        api.getTable("schedule").catch(() => []),
-        api.getTable("scheduleTag").catch(() => []),
-      ]);
-      schedules = Array.isArray(schedulesRes) ? schedulesRes : (schedulesRes ? [schedulesRes] : []);
+      if (!this.scheduleState.isInitialized) {
+        const schedulesRes = await api.getTable("schedule").catch(() => []);
+        const rawList = Array.isArray(schedulesRes) ? schedulesRes : (schedulesRes ? [schedulesRes] : []);
+        this.scheduleState.originalRecords = JSON.parse(JSON.stringify(rawList));
+        this.scheduleState.currentRecords = JSON.parse(JSON.stringify(rawList));
+        this.scheduleState.hasPendingChanges = false;
+        this.scheduleState.isInitialized = true;
+      }
+      schedules = this.scheduleState.currentRecords;
+
+      const tagsRes = await api.getTable("scheduleTag").catch(() => []);
       tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
     } catch (err) {
       console.error("[Schedule Data Load Error]:", err);
-      schedules = [];
+      schedules = this.scheduleState.currentRecords || [];
       tags = [];
     }
 
@@ -3713,8 +3739,8 @@ export class CrudController {
     tagCard.innerHTML = `
       <div class="admin-tag-manager-header" id="tag-manager-toggle-btn">
         <div class="admin-tag-manager-title">
-          <span class="folder-icon">📁</span>
-          <span>区分タグ (scheduleTag)</span>
+          <h2 class="admin-card-title">タグ</h2>
+          <span class="admin-count-badge">${tags.length}件</span>
         </div>
         <span class="admin-tag-manager-arrow" id="tag-manager-arrow">▲</span>
       </div>
@@ -3812,7 +3838,7 @@ export class CrudController {
     container.appendChild(tagCard);
 
     // ========================================================
-    // 2. スケジュール管理テーブル (操作/id/タイトル/タグ/日時・時間/公開フラグ)
+    // 2. スケジュール管理テーブル (操作/id/タイトル/タグ/日にち・時間/公開フラグ)
     // ========================================================
     const card = document.createElement("div");
     card.className = "admin-card";
@@ -3850,8 +3876,47 @@ export class CrudController {
     addBtn.onclick = () => this.openScheduleModal(null, tags);
     actions.appendChild(addBtn);
 
+    // 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    const commitBtn = document.createElement("button");
+    commitBtn.id = "schedule-commit-btn";
+    commitBtn.className = "app-btn app-btn-orange";
+
+    const changesCount = this.getScheduleChangesCount();
+    if (this.scheduleState.hasPendingChanges && changesCount > 0) {
+      commitBtn.classList.add("has-changes");
+      commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+      commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+      commitBtn.disabled = false;
+    } else {
+      commitBtn.innerHTML = `<span>更新反映</span>`;
+      commitBtn.title = "D1に未反映の変更はありません";
+      commitBtn.disabled = true;
+    }
+
+    commitBtn.onclick = async () => {
+      await this.commitScheduleChanges();
+    };
+    actions.appendChild(commitBtn);
+
     header.appendChild(actions);
     card.appendChild(header);
+
+    // スケジュール管理で未反映の変更がある場合は通知アラートを表示
+    if (this.scheduleState.hasPendingChanges && changesCount > 0) {
+      const alertBar = document.createElement("div");
+      alertBar.className = "admin-pending-alert";
+      alertBar.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>⚠️</span>
+          <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+        </div>
+        <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+      `;
+      alertBar.querySelector("button").onclick = async () => {
+        await this.commitScheduleChanges();
+      };
+      card.appendChild(alertBar);
+    }
 
     // テーブル生成
     const tableContainer = document.createElement("div");
@@ -3871,7 +3936,7 @@ export class CrudController {
         <th style="width: 140px;">タグ</th>
         <th class="admin-table-col-notice-time" style="width: 180px;">
           <div class="admin-th-tworow">
-            <span>日時</span>
+            <span>日にち</span>
             <span class="admin-th-sub">時間</span>
           </div>
         </th>
@@ -3922,17 +3987,9 @@ export class CrudController {
         delBtn.type = "button";
         delBtn.className = "app-btn app-btn-danger app-btn-sm";
         delBtn.textContent = "削除";
-        delBtn.onclick = async (e) => {
+        delBtn.onclick = (e) => {
           e.stopPropagation();
-          const ok = confirm(`「${item.title || "スケジュール"}」(ID: ${item.id}) を本当に削除しますか？`);
-          if (!ok) return;
-          try {
-            await api.deleteRecord("schedule", item.id);
-            Toast.info(`ID: ${item.id} のスケジュールを削除しました`);
-            await this.renderScheduleTab();
-          } catch (err) {
-            console.error("[Delete Schedule Error]:", err);
-          }
+          this.deleteRecord("schedule", item.id);
         };
 
         actWrap.appendChild(editBtn);
@@ -3980,13 +4037,13 @@ export class CrudController {
         }
         trMain.appendChild(tdTag);
 
-        // 6. 日時 / 時間 (2段表示)
+        // 6. 日にち / 時間 (2段表示)
         const tdDateTime = document.createElement("td");
         tdDateTime.className = "admin-table-col-notice-time";
         tdDateTime.innerHTML = `
           <div class="admin-table-twoline-datetime">
             <div class="admin-time-row is-created">
-              <span class="admin-time-badge is-created" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3);">日時</span>
+              <span class="admin-time-badge is-created" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3);">日にち</span>
               <span class="admin-time-val">${escapeHtml(item.schedule_at || "-")}</span>
             </div>
             <div class="admin-time-row is-scheduled">
@@ -4020,20 +4077,13 @@ export class CrudController {
         statusText.style.cssText = "font-size: 0.82rem; min-width: 42px; text-align: left;";
         statusText.textContent = isActive ? "表示" : "非表示";
 
-        switchInput.onchange = async (e) => {
+        switchInput.onchange = (e) => {
           e.stopPropagation();
           const newActive = switchInput.checked ? 1 : 0;
           statusText.textContent = newActive ? "表示" : "非表示";
           item.is_active = newActive;
-          try {
-            await api.saveTable("schedule", { ...item, is_active: newActive }, item.id);
-            Toast.success(`「${item.title}」の公開フラグを「${newActive ? "表示" : "非表示"}」に更新しました`);
-          } catch (err) {
-            console.error("[Toggle Active Error]:", err);
-            Toast.error(`更新に失敗しました: ${err.message}`);
-            switchInput.checked = !switchInput.checked;
-            statusText.textContent = switchInput.checked ? "表示" : "非表示";
-          }
+          this.scheduleState.hasPendingChanges = true;
+          this.renderScheduleTab();
         };
 
         // トグルのクリックがアコーディオン開閉をトリガーしないようバブリング防止
@@ -4180,11 +4230,15 @@ export class CrudController {
 
     // 全スケジュール取得 (ID自動採番 & ライブラリキャッシュ用)
     let allSchedules = [];
-    try {
-      const res = await api.getTable("schedule");
-      allSchedules = Array.isArray(res) ? res : (res ? [res] : []);
-    } catch (e) {
-      allSchedules = [];
+    if (this.scheduleState && this.scheduleState.isInitialized && this.scheduleState.currentRecords.length > 0) {
+      allSchedules = this.scheduleState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("schedule");
+        allSchedules = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allSchedules = [];
+      }
     }
 
     // 自動採番 (新規時)
@@ -4286,7 +4340,7 @@ export class CrudController {
 
         <div class="admin-form-group">
           <label class="admin-form-label">
-            タグ (区分)
+            タグ
             <span class="admin-form-label-required">*必須</span>
           </label>
           <select class="admin-form-input" name="scheduleTag_id" required>
@@ -4300,11 +4354,11 @@ export class CrudController {
         </div>
       </div>
 
-      <!-- 行3: 日時 ｜ 時間 -->
+      <!-- 行3: 日にち ｜ 時間 -->
       <div class="admin-form-row admin-form-grid-2">
         <div class="admin-form-group">
           <label class="admin-form-label">
-            日時 (schedule_at)
+            日にち
             <span class="admin-form-label-required">*必須</span>
           </label>
           <input
@@ -4515,7 +4569,7 @@ export class CrudController {
       }
 
       if (!scheduleAtVal) {
-        alert("日時は必須項目です");
+        alert("日にちは必須項目です");
         return;
       }
 
@@ -4540,14 +4594,31 @@ export class CrudController {
         link: fd.get("link")?.toString().trim() || null,
       };
 
-      try {
-        await api.saveTable("schedule", payload, isNew ? null : record.id);
-        Modal.close();
-        Toast.success(isNew ? "スケジュールを新規作成しました" : "スケジュールの変更を保存しました");
-        await this.renderScheduleTab();
-      } catch (err) {
-        console.error("[Save Schedule Error]:", err);
+      // スケジュール (schedule) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.scheduleState.currentRecords.push(payload);
+      } else {
+        const idx = this.scheduleState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.scheduleState.currentRecords[idx] = {
+            ...this.scheduleState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.scheduleState.currentRecords.push(payload);
+        }
       }
+
+      this.scheduleState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "スケジュールを一覧に追加しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+          : "スケジュールの変更を一覧に反映しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+      );
+      await this.renderScheduleTab();
     };
 
     Modal.open({
@@ -5317,12 +5388,13 @@ export class CrudController {
     }
 
     if (tableName === "schedule") {
-      if (!confirm(`ID: ${id} のスケジュールを本当に削除しますか？`)) return;
-      try {
-        await api.deleteRecord("schedule", id);
-        Toast.info(`ID: ${id} のスケジュールを削除しました`);
-        await this.renderScheduleTab();
-      } catch (e) {}
+      if (!confirm(`ID: ${id} のスケジュールデータを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.scheduleState.currentRecords = this.scheduleState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.scheduleState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.renderScheduleTab();
       return;
     }
 
@@ -5570,6 +5642,87 @@ export class CrudController {
       await this.loadTab("notice");
     } catch (err) {
       console.error("[Commit Notice Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * スケジュール (schedule) の未反映変更件数の算出
+   */
+  getScheduleChangesCount() {
+    if (!this.scheduleState || !this.scheduleState.isInitialized) return 0;
+    const origMap = new Map(this.scheduleState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.scheduleState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => curr[k] !== orig[k]);
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * スケジュール (schedule) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitScheduleChanges() {
+    const count = this.getScheduleChangesCount();
+    if (!this.scheduleState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `スケジュール管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.scheduleState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.scheduleState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.scheduleState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("schedule", rec.id);
+      }
+
+      // 2. 新規追加 (POST) および 更新 (PUT) の反映
+      for (const rec of this.scheduleState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加
+          await api.saveTable("schedule", rec, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
+          if (hasDiff) {
+            await api.saveTable("schedule", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("スケジュール管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.scheduleState.hasPendingChanges = false;
+      this.scheduleState.isInitialized = false;
+      await this.renderScheduleTab();
+    } catch (err) {
+      console.error("[Commit Schedule Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
