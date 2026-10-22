@@ -7,6 +7,7 @@ import { api } from "../common/api-client.js";
 import { Modal } from "../common/modal.js";
 import { Toast } from "../common/toast.js";
 import { RichTextEditor } from "./richtext-editor.js";
+import { escapeHtml } from "../common/utils.js";
 
 /**
  * 一体型ドラムロールピッカークラス (iOS風 Wheel Date Picker)
@@ -313,7 +314,28 @@ export class CrudController {
           );
           break;
         case "notice":
-          await this.renderTableListTab("notice", "お知らせ管理", ["id", "created_at", "status", "message", "Image"]);
+          await this.renderTableListTab(
+            "notice",
+            "お知らせ管理",
+            [
+              { key: "actions", label: "操作", isAction: true },
+              { key: "id", label: "id" },
+              {
+                key: "notice_time",
+                label: "送信時刻 / 予約投稿時刻",
+                labelHtml: '<div class="admin-th-tworow"><span>送信時刻</span><span class="admin-th-sub">予約投稿時刻</span></div>',
+                type: "notice_time",
+              },
+              { key: "status", label: "ステータス", type: "status" },
+              { key: "message", label: "お知らせ本文", type: "message" },
+              { key: "Image", label: "画像", type: "image", category: "notice" },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
           break;
         case "schedule":
           await this.renderTableListTab("schedule", "スケジュール管理", ["id", "title", "schedule_at", "time", "is_active"]);
@@ -553,7 +575,11 @@ export class CrudController {
     const headerRow = document.createElement("tr");
     normalizedCols.forEach((col) => {
       const th = document.createElement("th");
-      th.textContent = col.label;
+      if (col.labelHtml) {
+        th.innerHTML = col.labelHtml;
+      } else {
+        th.textContent = col.label;
+      }
       if (col.isAction) {
         th.className = "admin-table-col-actions";
       } else if (col.key === "banner" || col.isBanner) {
@@ -564,8 +590,15 @@ export class CrudController {
         th.className = "admin-table-col-id";
       } else if (col.key === "link" || col.isLink) {
         th.className = "admin-table-col-link";
-      } else if (col.type === "datetime" || col.key === "start_at" || col.key === "end_at" || col.key === "created_at" || col.key === "schedule_at") {
+      } else if (col.type === "datetime" || col.type === "notice_time" || col.key === "start_at" || col.key === "end_at" || col.key === "created_at" || col.key === "schedule_at") {
         th.className = "admin-table-col-datetime";
+        if (col.type === "notice_time") {
+          th.classList.add("admin-table-col-notice-time");
+        }
+      } else if (col.key === "status" || col.type === "status") {
+        th.className = "admin-table-col-status";
+      } else if (col.key === "message" || col.type === "message") {
+        th.className = "admin-table-col-message";
       } else if (col.key === "costumeName") {
         th.className = "admin-table-col-costumeName";
       }
@@ -621,8 +654,15 @@ export class CrudController {
               td.className = "admin-table-col-id";
             } else if (colCfg.key === "link" || colCfg.isLink) {
               td.className = "admin-table-col-link";
-            } else if (colCfg.type === "datetime" || colCfg.key === "start_at" || colCfg.key === "end_at" || colCfg.key === "created_at" || colCfg.key === "schedule_at") {
+            } else if (colCfg.type === "datetime" || colCfg.type === "notice_time" || colCfg.key === "start_at" || colCfg.key === "end_at" || colCfg.key === "created_at" || colCfg.key === "schedule_at") {
               td.className = "admin-table-col-datetime";
+              if (colCfg.type === "notice_time") {
+                td.classList.add("admin-table-col-notice-time");
+              }
+            } else if (colCfg.key === "status" || colCfg.type === "status") {
+              td.className = "admin-table-col-status";
+            } else if (colCfg.key === "message" || colCfg.type === "message") {
+              td.className = "admin-table-col-message";
             } else if (colCfg.key === "costumeName") {
               td.className = "admin-table-col-costumeName";
             }
@@ -632,50 +672,94 @@ export class CrudController {
               val = row[colCfg.fallbackKey];
             }
 
-            const isImage = colCfg.type === "image" ||
-              (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp")));
-
-            if (isImage && val) {
-              const category = colCfg.category || tableName;
-              const imgUrl = api.resolveAssetUrl(val, category);
-              const img = document.createElement("img");
-              img.className = `admin-table-thumb ${colCfg.isBanner || colCfg.key === "banner" ? "is-banner" : ""}`;
-              img.src = imgUrl;
-              img.alt = colCfg.label;
-              const titlePrefix = row.costumeName || row.title || row.name || "";
-              img.title = `${titlePrefix ? titlePrefix + " - " : ""}${colCfg.label} (クリックで拡大)`;
-              img.onclick = () => {
-                const modalTitle = `${titlePrefix ? titlePrefix + "：" : ""}${colCfg.label}`;
-                this.openImageDetailModal(imgUrl, modalTitle, {
-                  costumeName: titlePrefix,
-                  columnLabel: colCfg.label,
-                  path: val,
-                });
+            if (colCfg.type === "notice_time") {
+              const formatNoticeDateTime = (dtStr) => {
+                if (!dtStr) return null;
+                const s = String(dtStr).trim().replace("T", " ");
+                const m = s.match(/^(\d{4}[-\/]\d{2}[-\/]\d{2}\s+\d{2}:\d{2})/);
+                return m ? m[1].replace(/\//g, "-") : s;
               };
-              td.appendChild(img);
-            } else if (val === null || val === undefined || val === "") {
-              td.innerHTML = '<span style="color:#64748b;">-</span>';
-            } else if (colCfg.isLink || colCfg.key === "link") {
-              // リンク列: 全文折り返し表示 (URL形式はクリック可能リンク)
-              const strVal = String(val);
-              if (strVal.startsWith("http://") || strVal.startsWith("https://")) {
-                const linkElem = document.createElement("a");
-                linkElem.className = "admin-table-link-text";
-                linkElem.href = strVal;
-                linkElem.target = "_blank";
-                linkElem.rel = "noopener noreferrer";
-                linkElem.textContent = strVal;
-                td.appendChild(linkElem);
-              } else {
-                td.textContent = strVal;
-                td.style.wordBreak = "break-all";
-                td.style.whiteSpace = "normal";
+              const createdVal = formatNoticeDateTime(row.created_at);
+              const scheduledVal = formatNoticeDateTime(row.scheduled_at);
+              td.innerHTML = `
+                <div class="admin-table-twoline-datetime">
+                  <div class="admin-time-row is-created">
+                    <span class="admin-time-badge is-created">送信</span>
+                    <span class="admin-time-val">${createdVal ? escapeHtml(createdVal) : '<span style="color:#64748b;">-</span>'}</span>
+                  </div>
+                  <div class="admin-time-row is-scheduled">
+                    <span class="admin-time-badge is-scheduled">予約</span>
+                    <span class="admin-time-val">${scheduledVal ? escapeHtml(scheduledVal) : '<span style="color:#64748b;">-</span>'}</span>
+                  </div>
+                </div>
+              `;
+            } else if (colCfg.type === "status" || colCfg.key === "status") {
+              const raw = String(val || "").toLowerCase();
+              let sText = "下書き";
+              let sClass = "is-draft";
+              if (raw === "published" || raw === "公開") {
+                sText = "公開";
+                sClass = "is-published";
+              } else if (raw === "scheduled" || raw === "予約") {
+                sText = "予約";
+                sClass = "is-scheduled";
+              } else if (raw === "draft" || raw === "下書き") {
+                sText = "下書き";
+                sClass = "is-draft";
+              } else if (val) {
+                sText = String(val);
               }
-            } else if (typeof val === "boolean" || colCfg.key === "isFeatured" || colCfg.key === "is_active") {
-              td.textContent = (val === 1 || val === true) ? "✓ 表示" : "✕ 非表示";
+              td.innerHTML = `<span class="admin-status-badge ${sClass}">${escapeHtml(sText)}</span>`;
+            } else if (colCfg.type === "message" || (tableName === "notice" && colCfg.key === "message")) {
+              const msgStr = String(val || "");
+              td.textContent = msgStr.length > 50 ? msgStr.slice(0, 50) + "..." : (msgStr || "-");
+              if (msgStr) td.title = msgStr;
             } else {
-              const str = String(val);
-              td.textContent = str.length > 40 ? str.slice(0, 40) + "..." : str;
+              const isImage = colCfg.type === "image" ||
+                (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp")));
+
+              if (isImage && val) {
+                const category = colCfg.category || tableName;
+                const imgUrl = api.resolveAssetUrl(val, category);
+                const img = document.createElement("img");
+                img.className = `admin-table-thumb ${colCfg.isBanner || colCfg.key === "banner" ? "is-banner" : ""}`;
+                img.src = imgUrl;
+                img.alt = colCfg.label;
+                const titlePrefix = row.costumeName || row.title || row.name || "";
+                img.title = `${titlePrefix ? titlePrefix + " - " : ""}${colCfg.label} (クリックで拡大)`;
+                img.onclick = () => {
+                  const modalTitle = `${titlePrefix ? titlePrefix + "：" : ""}${colCfg.label}`;
+                  this.openImageDetailModal(imgUrl, modalTitle, {
+                    costumeName: titlePrefix,
+                    columnLabel: colCfg.label,
+                    path: val,
+                  });
+                };
+                td.appendChild(img);
+              } else if (val === null || val === undefined || val === "") {
+                td.innerHTML = '<span style="color:#64748b;">-</span>';
+              } else if (colCfg.isLink || colCfg.key === "link") {
+                // リンク列: 全文折り返し表示 (URL形式はクリック可能リンク)
+                const strVal = String(val);
+                if (strVal.startsWith("http://") || strVal.startsWith("https://")) {
+                  const linkElem = document.createElement("a");
+                  linkElem.className = "admin-table-link-text";
+                  linkElem.href = strVal;
+                  linkElem.target = "_blank";
+                  linkElem.rel = "noopener noreferrer";
+                  linkElem.textContent = strVal;
+                  td.appendChild(linkElem);
+                } else {
+                  td.textContent = strVal;
+                  td.style.wordBreak = "break-all";
+                  td.style.whiteSpace = "normal";
+                }
+              } else if (typeof val === "boolean" || colCfg.key === "isFeatured" || colCfg.key === "is_active") {
+                td.textContent = (val === 1 || val === true) ? "✓ 表示" : "✕ 非表示";
+              } else {
+                const str = String(val);
+                td.textContent = str.length > 40 ? str.slice(0, 40) + "..." : str;
+              }
             }
             tr.appendChild(td);
           }
@@ -2649,7 +2733,18 @@ export class CrudController {
       ? Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at")
       : (tableName === "visual"
           ? ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"]
-          : ["name", "priority"]);
+          : tableName === "notice"
+            ? ["status", "scheduled_at", "message", "Image"]
+            : ["name", "priority"]);
+
+    const labelMap = {
+      id: "id",
+      status: "ステータス",
+      scheduled_at: "予約投稿時刻",
+      message: "お知らせ本文",
+      Image: "画像",
+      image: "画像",
+    };
 
     keys.forEach((key) => {
       const group = document.createElement("div");
@@ -2657,7 +2752,7 @@ export class CrudController {
 
       const label = document.createElement("label");
       label.className = "admin-form-label";
-      label.textContent = key;
+      label.textContent = (tableName === "notice" && labelMap[key]) ? labelMap[key] : key;
       group.appendChild(label);
 
       const val = currentData[key] ?? "";
@@ -2669,6 +2764,35 @@ export class CrudController {
         input.value = val;
         input.name = key;
         if (!isNew) input.disabled = true;
+        group.appendChild(input);
+      } else if (key === "status") {
+        const select = document.createElement("select");
+        select.className = "admin-form-input";
+        select.name = key;
+        const opts = [
+          { value: "published", label: "公開 (published)" },
+          { value: "scheduled", label: "予約 (scheduled)" },
+          { value: "draft", label: "下書き (draft)" },
+        ];
+        opts.forEach((o) => {
+          const opt = document.createElement("option");
+          opt.value = o.value;
+          opt.textContent = o.label;
+          select.appendChild(opt);
+        });
+        select.value = val || "published";
+        group.appendChild(select);
+      } else if (key === "scheduled_at") {
+        const input = document.createElement("input");
+        input.className = "admin-form-input";
+        input.type = "datetime-local";
+        let dtVal = "";
+        if (val) {
+          const s = String(val).trim().replace(" ", "T");
+          dtVal = s.substring(0, 16);
+        }
+        input.value = dtVal;
+        input.name = key;
         group.appendChild(input);
       } else if (
         key.toLowerCase().includes("image") ||
@@ -2753,6 +2877,17 @@ export class CrudController {
         }
       });
 
+      // scheduled_at のフォーマット整形
+      if (tableName === "notice" && payload.scheduled_at) {
+        const str = String(payload.scheduled_at).trim();
+        if (str.includes("T")) {
+          const [d, t] = str.split("T");
+          payload.scheduled_at = `${d} ${t.length === 5 ? t + ":00" : t}`;
+        }
+      } else if (tableName === "notice" && !payload.scheduled_at) {
+        payload.scheduled_at = null;
+      }
+
       try {
         await api.saveTable(tableName, payload, isNew ? null : record.id);
         Modal.close();
@@ -2763,7 +2898,7 @@ export class CrudController {
     };
 
     Modal.open({
-      title: `${tableName} の${isNew ? "新規作成" : "編集"}`,
+      title: tableName === "notice" ? `お知らせの${isNew ? "新規作成" : "編集"}` : `${tableName} の${isNew ? "新規作成" : "編集"}`,
       content: form,
       footer: submitBtn,
     });
