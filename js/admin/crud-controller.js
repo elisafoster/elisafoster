@@ -361,7 +361,7 @@ export class CrudController {
           );
           break;
         case "schedule":
-          await this.renderTableListTab("schedule", "スケジュール管理", ["id", "title", "schedule_at", "time", "is_active"]);
+          await this.renderScheduleTab();
           break;
         case "gallery":
           await this.renderTableListTab("gallery", "画像（ギャラリー）管理", ["id", "name", "image"]);
@@ -3677,6 +3677,1395 @@ export class CrudController {
   }
 
   /**
+   * スケジュール管理タブ (scheduleTag 管理アコーディオン + アコーディオン付きスケジュール一覧)
+   */
+  async renderScheduleTab() {
+    let schedules = [];
+    let tags = [];
+
+    try {
+      const [schedulesRes, tagsRes] = await Promise.all([
+        api.getTable("schedule").catch(() => []),
+        api.getTable("scheduleTag").catch(() => []),
+      ]);
+      schedules = Array.isArray(schedulesRes) ? schedulesRes : (schedulesRes ? [schedulesRes] : []);
+      tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
+    } catch (err) {
+      console.error("[Schedule Data Load Error]:", err);
+      schedules = [];
+      tags = [];
+    }
+
+    // タグのマップ (ID -> タグオブジェクト)
+    const tagMap = new Map(tags.map((t) => [String(t.id), t]));
+
+    const container = document.createElement("div");
+    container.style.cssText = "display: flex; flex-direction: column; gap: 20px;";
+
+    // ========================================================
+    // 1. スケジュールタグ (scheduleTag) 管理アコーディオン
+    // ========================================================
+    const tagCard = document.createElement("div");
+    tagCard.className = "admin-tag-manager-card";
+
+    let isTagOpen = true;
+
+    tagCard.innerHTML = `
+      <div class="admin-tag-manager-header" id="tag-manager-toggle-btn">
+        <div class="admin-tag-manager-title">
+          <span class="folder-icon">📁</span>
+          <span>区分タグ (scheduleTag)</span>
+        </div>
+        <span class="admin-tag-manager-arrow" id="tag-manager-arrow">▲</span>
+      </div>
+      <div class="admin-tag-manager-body" id="tag-manager-body">
+        <div class="admin-tag-input-row">
+          <input
+            type="text"
+            class="admin-form-input"
+            id="new-tag-name-input"
+            placeholder="新しいタグ名 (例: 配信、イベント、グッズ)"
+          />
+          <button type="button" class="app-btn app-btn-primary" id="add-tag-btn" style="white-space: nowrap; padding: 8px 20px;">
+            追加
+          </button>
+        </div>
+        <div class="admin-tag-chips-container" id="tag-chips-container">
+          ${tags.length === 0 ? '<span style="color: #64748b; font-size: 0.85rem;">登録されているタグはありません</span>' : ""}
+          ${tags.map((t) => `
+            <div class="admin-tag-chip" data-id="${escapeHtml(t.id)}">
+              <span>${escapeHtml(t.tagName)} <span class="admin-tag-chip-id">(ID: ${escapeHtml(t.id)})</span></span>
+              <button type="button" class="admin-tag-chip-del" data-id="${escapeHtml(t.id)}" title="削除">×</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    // アコーディオン開閉トグル
+    const toggleBtn = tagCard.querySelector("#tag-manager-toggle-btn");
+    const tagBody = tagCard.querySelector("#tag-manager-body");
+    const tagArrow = tagCard.querySelector("#tag-manager-arrow");
+    toggleBtn.onclick = () => {
+      isTagOpen = !isTagOpen;
+      tagBody.style.display = isTagOpen ? "flex" : "none";
+      tagArrow.textContent = isTagOpen ? "▲" : "▼";
+    };
+
+    // タグ追加処理
+    const tagInput = tagCard.querySelector("#new-tag-name-input");
+    const addTagBtn = tagCard.querySelector("#add-tag-btn");
+
+    const handleAddTag = async () => {
+      const val = tagInput.value.trim();
+      if (!val) {
+        alert("タグ名を入力してください");
+        tagInput.focus();
+        return;
+      }
+
+      addTagBtn.disabled = true;
+      try {
+        const nextId = tags.length > 0 ? Math.max(...tags.map((t) => Number(t.id) || 0)) + 1 : 1;
+        await api.saveTable("scheduleTag", { id: nextId, tagName: val }, null);
+        Toast.success(`タグ「${val}」を追加しました`);
+        await this.renderScheduleTab();
+      } catch (e) {
+        console.error("[Add Tag Error]:", e);
+        Toast.error(`タグの追加に失敗しました: ${e.message}`);
+        addTagBtn.disabled = false;
+      }
+    };
+
+    addTagBtn.onclick = handleAddTag;
+    tagInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddTag();
+      }
+    };
+
+    // タグ削除処理
+    tagCard.querySelectorAll(".admin-tag-chip-del").forEach((delBtn) => {
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const tagId = delBtn.dataset.id;
+        const targetTag = tags.find((t) => String(t.id) === String(tagId));
+        const tagName = targetTag?.tagName || tagId;
+
+        const ok = confirm(
+          `タグ「${tagName}」を削除しますか？\n\n※このタグを使用しているスケジュールがある場合、タグ表示に影響する可能性があります。`
+        );
+        if (!ok) return;
+
+        try {
+          await api.deleteRecord("scheduleTag", tagId);
+          Toast.info(`タグ「${tagName}」を削除しました`);
+          await this.renderScheduleTab();
+        } catch (err) {
+          console.error("[Delete Tag Error]:", err);
+          Toast.error(`タグの削除に失敗しました: ${err.message}`);
+        }
+      };
+    });
+
+    container.appendChild(tagCard);
+
+    // ========================================================
+    // 2. スケジュール管理テーブル (操作/id/タイトル/タグ/日時・時間/公開フラグ)
+    // ========================================================
+    const card = document.createElement("div");
+    card.className = "admin-card";
+
+    // ヘッダー
+    const header = document.createElement("div");
+    header.className = "admin-card-header";
+
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "admin-card-title-group";
+
+    const titleRow = document.createElement("div");
+    titleRow.style.cssText = "display: flex; align-items: center; gap: 12px; flex-wrap: wrap;";
+
+    const h2 = document.createElement("h2");
+    h2.className = "admin-card-title";
+    h2.textContent = "スケジュール管理";
+    titleRow.appendChild(h2);
+
+    const countBadge = document.createElement("span");
+    countBadge.className = "admin-count-badge";
+    countBadge.textContent = `${schedules.length}件`;
+    titleRow.appendChild(countBadge);
+
+    titleGroup.appendChild(titleRow);
+    header.appendChild(titleGroup);
+
+    const actions = document.createElement("div");
+    actions.className = "admin-card-actions";
+    actions.style.cssText = "display: flex; align-items: center; gap: 10px;";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "app-btn app-btn-primary";
+    addBtn.innerHTML = "+ 新規追加";
+    addBtn.onclick = () => this.openScheduleModal(null, tags);
+    actions.appendChild(addBtn);
+
+    header.appendChild(actions);
+    card.appendChild(header);
+
+    // テーブル生成
+    const tableContainer = document.createElement("div");
+    tableContainer.className = "admin-table-container";
+
+    const table = document.createElement("table");
+    table.className = "admin-table";
+
+    // thead
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr>
+        <th class="admin-table-col-actions" style="width: 80px; text-align: center;">操作</th>
+        <th style="width: 60px; text-align: center;">id</th>
+        <th>タイトル</th>
+        <th style="width: 140px;">タグ</th>
+        <th class="admin-table-col-notice-time" style="width: 180px;">
+          <div class="admin-th-tworow">
+            <span>日時</span>
+            <span class="admin-th-sub">時間</span>
+          </div>
+        </th>
+        <th style="width: 120px; text-align: center;">公開フラグ</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    if (schedules.length === 0) {
+      const emptyTr = document.createElement("tr");
+      emptyTr.innerHTML = `
+        <td colspan="6" style="text-align: center; color: #64748b; padding: 36px 16px;">
+          スケジュールデータがありません。「+ 新規追加」ボタンから登録してください。
+        </td>
+      `;
+      tbody.appendChild(emptyTr);
+    } else {
+      schedules.forEach((item) => {
+        const trMain = document.createElement("tr");
+        trMain.className = "admin-schedule-row";
+
+        const trDetail = document.createElement("tr");
+        trDetail.className = "admin-schedule-detail-row";
+        trDetail.style.display = "none";
+
+        let isRowOpen = false;
+
+        // 1. 操作列 (縦並び「編集」「削除」)
+        const tdActions = document.createElement("td");
+        tdActions.className = "admin-table-col-actions";
+        tdActions.style.textAlign = "center";
+
+        const actWrap = document.createElement("div");
+        actWrap.className = "admin-table-actions-vertical";
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "app-btn app-btn-secondary app-btn-sm admin-table-btn-block";
+        editBtn.textContent = "編集";
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.openScheduleModal(item, tags);
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "app-btn app-btn-danger app-btn-sm admin-table-btn-block";
+        delBtn.textContent = "削除";
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const ok = confirm(`「${item.title || "スケジュール"}」(ID: ${item.id}) を本当に削除しますか？`);
+          if (!ok) return;
+          try {
+            await api.deleteRecord("schedule", item.id);
+            Toast.info(`ID: ${item.id} のスケジュールを削除しました`);
+            await this.renderScheduleTab();
+          } catch (err) {
+            console.error("[Delete Schedule Error]:", err);
+          }
+        };
+
+        actWrap.appendChild(editBtn);
+        actWrap.appendChild(delBtn);
+        tdActions.appendChild(actWrap);
+        trMain.appendChild(tdActions);
+
+        // 2. id列
+        const tdId = document.createElement("td");
+        tdId.style.textAlign = "center";
+        tdId.textContent = item.id;
+        trMain.appendChild(tdId);
+
+        // 3. タイトル列 (アコーディオン開閉インジケータ付き)
+        const tdTitle = document.createElement("td");
+        tdTitle.innerHTML = `
+          <div class="admin-schedule-title-cell">
+            <span class="admin-schedule-title-text">${escapeHtml(item.title || "")}</span>
+            <span class="admin-accordion-toggle-indicator" id="toggle-indicator-${item.id}">開く ▼</span>
+          </div>
+        `;
+        trMain.appendChild(tdTitle);
+
+        // 4. タグ列 (scheduleTag_id -> tagName)
+        const tdTag = document.createElement("td");
+        const tagObj = tagMap.get(String(item.scheduleTag_id));
+        if (tagObj) {
+          tdTag.innerHTML = `<span class="admin-schedule-tag-badge">${escapeHtml(tagObj.tagName)}</span>`;
+        } else if (item.scheduleTag_id) {
+          tdTag.innerHTML = `<span class="admin-schedule-tag-badge" style="opacity: 0.7;">ID: ${escapeHtml(item.scheduleTag_id)}</span>`;
+        } else {
+          tdTag.innerHTML = `<span style="color: #64748b;">-</span>`;
+        }
+        trMain.appendChild(tdTag);
+
+        // 5. 日時 / 時間 (2段表示)
+        const tdDateTime = document.createElement("td");
+        tdDateTime.className = "admin-table-col-notice-time";
+        tdDateTime.innerHTML = `
+          <div class="admin-table-twoline-datetime">
+            <div class="admin-time-row is-created">
+              <span class="admin-time-badge is-created" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border-color: rgba(59, 130, 246, 0.3);">日時</span>
+              <span class="admin-time-val">${escapeHtml(item.schedule_at || "-")}</span>
+            </div>
+            <div class="admin-time-row is-scheduled">
+              <span class="admin-time-badge is-scheduled" style="background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.3);">時間</span>
+              <span class="admin-time-val">${escapeHtml(item.time || "-")}</span>
+            </div>
+          </div>
+        `;
+        trMain.appendChild(tdDateTime);
+
+        // 6. 公開フラグ (トグルスイッチ表示)
+        const tdActive = document.createElement("td");
+        tdActive.style.textAlign = "center";
+
+        const isActive = item.is_active === 1 || item.is_active === true || item.is_active === "1";
+
+        const switchLabel = document.createElement("label");
+        switchLabel.className = "admin-switch-label";
+        switchLabel.style.cssText = "justify-content: center; margin: 0 auto;";
+
+        const switchInput = document.createElement("input");
+        switchInput.type = "checkbox";
+        switchInput.className = "admin-switch-input";
+        switchInput.checked = isActive;
+
+        const switchSlider = document.createElement("span");
+        switchSlider.className = "admin-switch-slider";
+
+        const statusText = document.createElement("span");
+        statusText.className = "admin-switch-status-text";
+        statusText.style.cssText = "font-size: 0.82rem; min-width: 42px; text-align: left;";
+        statusText.textContent = isActive ? "表示" : "非表示";
+
+        switchInput.onchange = async (e) => {
+          e.stopPropagation();
+          const newActive = switchInput.checked ? 1 : 0;
+          statusText.textContent = newActive ? "表示" : "非表示";
+          item.is_active = newActive;
+          try {
+            await api.saveTable("schedule", { ...item, is_active: newActive }, item.id);
+            Toast.success(`「${item.title}」の公開フラグを「${newActive ? "表示" : "非表示"}」に更新しました`);
+          } catch (err) {
+            console.error("[Toggle Active Error]:", err);
+            Toast.error(`更新に失敗しました: ${err.message}`);
+            switchInput.checked = !switchInput.checked;
+            statusText.textContent = switchInput.checked ? "表示" : "非表示";
+          }
+        };
+
+        // トグルのクリックがアコーディオン開閉をトリガーしないようバブリング防止
+        switchLabel.onclick = (e) => e.stopPropagation();
+
+        switchLabel.appendChild(switchInput);
+        switchLabel.appendChild(switchSlider);
+        switchLabel.appendChild(statusText);
+        tdActive.appendChild(switchLabel);
+        trMain.appendChild(tdActive);
+
+        // ========================================================
+        // アコーディオン詳細行 (detail / Image / link)
+        // ========================================================
+        const tdDetailCell = document.createElement("td");
+        tdDetailCell.colSpan = 6;
+        tdDetailCell.className = "admin-schedule-detail-cell";
+
+        const detailBox = document.createElement("div");
+        detailBox.className = "admin-schedule-detail-box";
+
+        // 詳細 (detail)
+        const secDetail = document.createElement("div");
+        secDetail.className = "admin-schedule-detail-section";
+        secDetail.innerHTML = `
+          <div class="admin-schedule-detail-heading">
+            <span>📝 詳細</span>
+          </div>
+          <div class="admin-schedule-detail-body is-text">
+            ${item.detail ? escapeHtml(item.detail) : '<span style="color: #64748b;">(詳細なし)</span>'}
+          </div>
+        `;
+        detailBox.appendChild(secDetail);
+
+        // 画像 (Image)
+        const secImage = document.createElement("div");
+        secImage.className = "admin-schedule-detail-section";
+        const hasImg = item.Image || item.image;
+        if (hasImg) {
+          const imgUrl = api.resolveAssetUrl(hasImg, "schedule");
+          secImage.innerHTML = `
+            <div class="admin-schedule-detail-heading">
+              <span>🖼️ 画像</span>
+            </div>
+            <div class="admin-schedule-detail-body">
+              <div class="admin-schedule-img-wrap">
+                <img src="${escapeHtml(imgUrl)}" alt="スケジュール画像" class="admin-schedule-detail-img" title="クリックで拡大表示" />
+                <span class="admin-schedule-img-name">${escapeHtml(hasImg)}</span>
+              </div>
+            </div>
+          `;
+          secImage.querySelector("img").onclick = (e) => {
+            e.stopPropagation();
+            this.openImageDetailModal(imgUrl, item.title || "スケジュール画像", {
+              costumeName: item.title,
+              columnLabel: "スケジュール画像",
+              path: hasImg,
+            });
+          };
+        } else {
+          secImage.innerHTML = `
+            <div class="admin-schedule-detail-heading">
+              <span>🖼️ 画像</span>
+            </div>
+            <div class="admin-schedule-detail-body">
+              <span style="color: #64748b;">(画像なし)</span>
+            </div>
+          `;
+        }
+        detailBox.appendChild(secImage);
+
+        // リンク (link)
+        const secLink = document.createElement("div");
+        secLink.className = "admin-schedule-detail-section";
+        if (item.link) {
+          secLink.innerHTML = `
+            <div class="admin-schedule-detail-heading">
+              <span>🔗 リンク</span>
+            </div>
+            <div class="admin-schedule-detail-body">
+              <a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="admin-schedule-link-anchor" title="${escapeHtml(item.link)}">
+                ${escapeHtml(item.link)} ↗
+              </a>
+            </div>
+          `;
+        } else {
+          secLink.innerHTML = `
+            <div class="admin-schedule-detail-heading">
+              <span>🔗 リンク</span>
+            </div>
+            <div class="admin-schedule-detail-body">
+              <span style="color: #64748b;">(リンクなし)</span>
+            </div>
+          `;
+        }
+        detailBox.appendChild(secLink);
+
+        tdDetailCell.appendChild(detailBox);
+        trDetail.appendChild(tdDetailCell);
+
+        // 行クリックでアコーディオン開閉
+        const toggleAccordion = () => {
+          isRowOpen = !isRowOpen;
+          trDetail.style.display = isRowOpen ? "table-row" : "none";
+          const indicator = trMain.querySelector(`#toggle-indicator-${item.id}`);
+          if (indicator) {
+            indicator.textContent = isRowOpen ? "閉じる ▲" : "開く ▼";
+            indicator.style.background = isRowOpen ? "rgba(56, 189, 248, 0.25)" : "rgba(56, 189, 248, 0.12)";
+          }
+        };
+
+        trMain.onclick = toggleAccordion;
+
+        tbody.appendChild(trMain);
+        tbody.appendChild(trDetail);
+      });
+    }
+
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    card.appendChild(tableContainer);
+    container.appendChild(card);
+
+    this.container.innerHTML = "";
+    this.container.appendChild(container);
+  }
+
+  /**
+   * スケジュール (schedule) 専用の新規・編集モーダル
+   */
+  async openScheduleModal(record, tags = null, restoreState = null) {
+    const isNew = !record;
+
+    // タグ一覧の取得 (渡されていない場合)
+    let allTags = tags;
+    if (!allTags || !Array.isArray(allTags) || allTags.length === 0) {
+      try {
+        const res = await api.getTable("scheduleTag");
+        allTags = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allTags = [];
+      }
+    }
+
+    // 全スケジュール取得 (ID自動採番 & ライブラリキャッシュ用)
+    let allSchedules = [];
+    try {
+      const res = await api.getTable("schedule");
+      allSchedules = Array.isArray(res) ? res : (res ? [res] : []);
+    } catch (e) {
+      allSchedules = [];
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allSchedules.length > 0 ? Math.max(...allSchedules.map((s) => Number(s.id) || 0)) + 1 : 1;
+
+    // 現在のデータ
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      title: record?.title || "",
+      scheduleTag_id: record?.scheduleTag_id || (allTags[0]?.id || ""),
+      schedule_at: record?.schedule_at || "",
+      time: record?.time || "",
+      is_active: record ? (record.is_active === 1 || record.is_active === true || record.is_active === "1") : true,
+      detail: record?.detail || "",
+      Image: record?.Image || record?.image || "",
+      link: record?.link || "",
+      ...restoreState,
+    };
+
+    // ライブラリ候補の集約
+    if (!this.scheduleLibraryCache) {
+      this.scheduleLibraryCache = [];
+    }
+    const librarySet = new Set(["schedulesample.png", ...this.scheduleLibraryCache]);
+    allSchedules.forEach((row) => {
+      const img = row.Image || row.image;
+      if (img && typeof img === "string" && !img.startsWith("http")) {
+        librarySet.add(img.split("/").pop());
+      }
+    });
+    this.scheduleLibraryCache = Array.from(librarySet);
+
+    // GoogleドライブURL変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode =
+      currentData.image_mode ||
+      (currentData.Image && (currentData.Image.startsWith("http://") || currentData.Image.startsWith("https://"))
+        ? "url"
+        : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ 公開フラグ -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${escapeHtml(currentData.id)}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">公開フラグ (表示/非表示)</label>
+          <div style="padding-top: 6px;">
+            <label class="admin-switch-label">
+              <input type="checkbox" name="is_active" class="admin-switch-input" ${currentData.is_active ? "checked" : ""} />
+              <span class="admin-switch-slider"></span>
+              <span class="admin-switch-status-text">${currentData.is_active ? "表示" : "非表示"}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行2: タイトル ｜ タグ -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            タイトル
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="title"
+            type="text"
+            value="${escapeHtml(currentData.title)}"
+            placeholder="例: 定期配信 #42"
+            required
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            タグ (区分)
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <select class="admin-form-input" name="scheduleTag_id" required>
+            ${allTags.length === 0 ? '<option value="">(タグが未登録です)</option>' : ""}
+            ${allTags.map((t) => `
+              <option value="${escapeHtml(t.id)}" ${String(currentData.scheduleTag_id) === String(t.id) ? "selected" : ""}>
+                ${escapeHtml(t.tagName)} (ID: ${escapeHtml(t.id)})
+              </option>
+            `).join("")}
+          </select>
+        </div>
+      </div>
+
+      <!-- 行3: 日時 ｜ 時間 -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            日時 (schedule_at)
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="schedule_at"
+            type="date"
+            value="${escapeHtml(currentData.schedule_at)}"
+            required
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            時間 (time)
+            <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(任意)</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="time"
+            type="time"
+            value="${escapeHtml(currentData.time)}"
+          />
+        </div>
+      </div>
+
+      <!-- 行4: 外部リンク -->
+      <div class="admin-form-group">
+        <label class="admin-form-label">
+          リンク (link)
+          <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(YouTube・配信ページ等)</span>
+        </label>
+        <input
+          class="admin-form-input"
+          name="link"
+          type="url"
+          value="${escapeHtml(currentData.link)}"
+          placeholder="https://..."
+        />
+      </div>
+
+      <!-- 行5: 詳細 -->
+      <div class="admin-form-group">
+        <label class="admin-form-label">詳細 (detail)</label>
+        <textarea
+          class="admin-form-textarea"
+          name="detail"
+          rows="3"
+          placeholder="スケジュールの詳細情報を入力してください"
+        >${escapeHtml(currentData.detail)}</textarea>
+      </div>
+
+      <!-- 行6: 画像選択 (Image) -->
+      <div class="admin-visual-field-card" style="margin-top: 4px;">
+        <div class="admin-visual-field-header">
+          <label class="admin-form-label" style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            画像選択 (Image)
+          </label>
+          <div class="admin-visual-mode-toggle">
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="library" ${initialMode === "library" ? "checked" : ""}>
+              <span>ライブラリ参照</span>
+            </label>
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="url" ${initialMode === "url" ? "checked" : ""}>
+              <span>直URL指定</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-visual-field-body">
+          <div class="admin-visual-input-col">
+            <!-- ライブラリ選択UI -->
+            <div id="mode-library-schedule" class="admin-visual-mode-panel" style="${initialMode === "library" ? "" : "display: none;"}">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="admin-form-input admin-visual-file-select" data-field="Image" style="flex: 1;">
+                  <option value="">-- 画像を選択しない (なし) --</option>
+                  ${this.scheduleLibraryCache.map((fn) => `
+                    <option value="${escapeHtml(fn)}" ${currentData.Image === fn ? "selected" : ""}>${escapeHtml(fn)}</option>
+                  `).join("")}
+                </select>
+                <button type="button" class="app-btn app-btn-secondary admin-schedule-upload-btn" data-field="Image" style="white-space: nowrap;">
+                  📤 アップロード
+                </button>
+              </div>
+              <span class="admin-form-hint">assets/schedule 配下の画像をプルダウンで選択、または新規アップロードできます</span>
+            </div>
+
+            <!-- 直URL指定UI -->
+            <div id="mode-url-schedule" class="admin-visual-mode-panel" style="${initialMode === "url" ? "" : "display: none;"}">
+              <input
+                class="admin-form-input admin-visual-url-input"
+                data-field="Image"
+                type="url"
+                value="${initialMode === "url" ? escapeHtml(currentData.Image || "") : ""}"
+                placeholder="https://drive.google.com/file/d/... または画像URL"
+              />
+              <span class="admin-form-hint">Googleドライブの共有URL、または画像の直接URLを入力してください（ドライブURLは自動変換されます）</span>
+            </div>
+          </div>
+
+          <!-- プレビュー枠 (16:9) -->
+          <div class="admin-visual-preview-col" style="min-width: 240px; max-width: 280px;">
+            <div id="preview-box-schedule-image" class="admin-visual-preview-box is-schedule-box">
+              <span class="admin-visual-preview-empty">プレビューなし</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // スイッチのラベル切り替え
+    const swInput = form.querySelector('[name="is_active"]');
+    const swText = form.querySelector('.admin-switch-status-text');
+    if (swInput && swText) {
+      swInput.onchange = () => {
+        swText.textContent = swInput.checked ? "表示" : "非表示";
+      };
+    }
+
+    // プレビュー更新関数
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-schedule-image");
+      if (!pBox) return;
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imgVal = "";
+      if (mode === "library") {
+        imgVal = form.querySelector('.admin-visual-file-select[data-field="Image"]')?.value || "";
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="Image"]')?.value?.trim() || "";
+        imgVal = convertGoogleDriveUrl(raw);
+      }
+
+      if (imgVal) {
+        const fullUrl = api.resolveAssetUrl(imgVal, "schedule");
+        pBox.innerHTML = `
+          <img src="${escapeHtml(fullUrl)}" alt="スケジュール画像プレビュー" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\' style=\\'color:#ef4444;\\'>読込失敗</span>';" />
+        `;
+      } else {
+        pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
+      }
+    };
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="image_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-schedule");
+        const urlPanel = form.querySelector("#mode-url-schedule");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    // プルダウン変更
+    form.querySelector('.admin-visual-file-select[data-field="Image"]').onchange = updatePreview;
+
+    // URL入力変更
+    const urlInput = form.querySelector('.admin-visual-url-input[data-field="Image"]');
+    urlInput.oninput = () => {
+      const converted = convertGoogleDriveUrl(urlInput.value.trim());
+      if (converted !== urlInput.value.trim()) {
+        urlInput.value = converted;
+      }
+      updatePreview();
+    };
+
+    // アップロードボタン押下
+    form.querySelector('.admin-schedule-upload-btn[data-field="Image"]').onclick = () => {
+      const savedState = this.collectScheduleFormData(form);
+      const cfg = {
+        label: "スケジュール画像",
+        category: "schedule",
+        uploadPath: "assets/schedule",
+        accept: ".png,.jpg,.jpeg,.webp",
+        maxSizeBytes: 2097152, // 2MB
+        maxSizeMB: 2,
+        aspectRatio: "16:9",
+        displayMode: "contain",
+        maxLongEdge: 1280,
+      };
+      this.openScheduleUploadModal("Image", record, savedState, cfg, allTags);
+    };
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const titleVal = fd.get("title")?.toString().trim();
+      const scheduleAtVal = fd.get("schedule_at")?.toString().trim();
+
+      if (!titleVal) {
+        alert("タイトルは必須項目です");
+        return;
+      }
+
+      if (!scheduleAtVal) {
+        alert("日時は必須項目です");
+        return;
+      }
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imageVal = null;
+      if (mode === "library") {
+        imageVal = form.querySelector('.admin-visual-file-select[data-field="Image"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="Image"]')?.value?.trim() || null;
+        imageVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const payload = {
+        id: Number(fd.get("id")),
+        title: titleVal,
+        scheduleTag_id: fd.get("scheduleTag_id") ? Number(fd.get("scheduleTag_id")) : null,
+        schedule_at: scheduleAtVal,
+        time: fd.get("time")?.toString().trim() || null,
+        is_active: form.querySelector('[name="is_active"]')?.checked ? 1 : 0,
+        detail: fd.get("detail")?.toString().trim() || null,
+        Image: imageVal || null,
+        link: fd.get("link")?.toString().trim() || null,
+      };
+
+      try {
+        await api.saveTable("schedule", payload, isNew ? null : record.id);
+        Modal.close();
+        Toast.success(isNew ? "スケジュールを新規作成しました" : "スケジュールの変更を保存しました");
+        await this.renderScheduleTab();
+      } catch (err) {
+        console.error("[Save Schedule Error]:", err);
+      }
+    };
+
+    Modal.open({
+      title: isNew ? "スケジュールの新規追加" : `スケジュールの編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * スケジュール 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectScheduleFormData(form) {
+    if (!form) return {};
+    const fd = new FormData(form);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+      data[k] = v;
+    }
+    data["is_active"] = form.querySelector('[name="is_active"]')?.checked;
+    const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+    data["image_mode"] = mode;
+    if (mode === "library") {
+      data["Image"] = form.querySelector('.admin-visual-file-select[data-field="Image"]')?.value || "";
+    } else {
+      data["Image"] = form.querySelector('.admin-visual-url-input[data-field="Image"]')?.value || "";
+    }
+    return data;
+  }
+
+  /**
+   * スケジュール 画像アップロードモーダル (インタラクティブ・クロッパー 16:9)
+   */
+  async openScheduleUploadModal(field, currentRecord, savedState, cfg, tags) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    let targetW = 1280;
+    let targetH = 720;
+    const headerTitleText = `トリミング調整 (横長 16:9 (1280×720))`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${escapeHtml(cfg.label)}</strong> (保存先: <code>${escapeHtml(cfg.uploadPath)}</code>)</div>
+        <div>対応形式: <code>${escapeHtml(cfg.accept)}</code> ｜ 容量上限: <code>${escapeHtml(cfg.maxSizeMB)}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${escapeHtml(cfg.aspectRatio)} (${escapeHtml(cfg.displayMode)})</code></div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-schedule">
+        <input type="file" id="upload-file-input-schedule" accept="${escapeHtml(cfg.accept)}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCからスケジュール画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-schedule" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${escapeHtml(headerTitleText)}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas-schedule" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-schedule" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-schedule" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-schedule" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-schedule" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input-schedule" placeholder="例: schedule_banner_01" style="flex: 1;" />
+          <span id="upload-ext-label-schedule" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.jpg</span>
+        </div>
+        <span id="upload-name-error-schedule" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    cancelBtn.onclick = () => {
+      this.openScheduleModal(currentRecord, tags, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone-schedule");
+    const fileInput = wrap.querySelector("#upload-file-input-schedule");
+    const cropStage = wrap.querySelector("#crop-stage-schedule");
+    const cropCanvas = wrap.querySelector("#crop-canvas-schedule");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-schedule");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-schedule");
+    const centerBtn = wrap.querySelector("#crop-center-btn-schedule");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-schedule");
+    const nameInput = wrap.querySelector("#upload-filename-input-schedule");
+    const extLabel = wrap.querySelector("#upload-ext-label-schedule");
+    const nameError = wrap.querySelector("#upload-name-error-schedule");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const checkUploadBtnState = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      uploadBtn.disabled = !selectedImg || !isValid || !isSizeValid;
+    };
+
+    const renderCanvas = () => {
+      if (!selectedImg) return;
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        if (!selectedImg) return;
+        const ext = extLabel.textContent.toLowerCase();
+        let mimeType = "image/jpeg";
+        let quality = 0.85;
+        if (ext === ".png") {
+          mimeType = "image/png";
+          quality = undefined;
+        } else if (ext === ".webp") {
+          mimeType = "image/webp";
+          quality = 0.85;
+        }
+
+        cropCanvas.toBlob(
+          (blob) => {
+            if (!blob) return;
+            currentBlob = blob;
+            const sizeKB = (blob.size / 1024).toFixed(1);
+            const limitKB = Math.round(cfg.maxSizeBytes / 1024);
+            const isOver = blob.size > cfg.maxSizeBytes;
+
+            if (isOver) {
+              sizeBadge.className = "crop-size-badge is-over";
+              sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB 超過`;
+              isSizeValid = false;
+            } else {
+              sizeBadge.className = "crop-size-badge is-ok";
+              sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB OK`;
+              isSizeValid = true;
+            }
+            checkUploadBtnState();
+          },
+          mimeType,
+          quality
+        );
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 90);
+      }
+    };
+
+    // ドラッグ移動制御
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startCenterX = 0;
+    let startCenterY = 0;
+
+    const onDragStart = (clientX, clientY) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      startCenterX = centerX;
+      startCenterY = centerY;
+      cropCanvas.classList.add("is-dragging");
+    };
+
+    const onDragMove = (clientX, clientY) => {
+      if (!isDragging || !selectedImg) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const factorX = targetW / rect.width;
+      const factorY = targetH / rect.height;
+      const dx = (clientX - startX) * factorX;
+      const dy = (clientY - startY) * factorY;
+      centerX = startCenterX + dx;
+      centerY = startCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      cropCanvas.classList.remove("is-dragging");
+      scheduleSizeUpdate(true);
+    };
+
+    cropCanvas.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      onDragStart(e.clientX, e.clientY);
+    });
+
+    const handleWindowMouseMove = (e) => {
+      if (isDragging) onDragMove(e.clientX, e.clientY);
+    };
+
+    const handleWindowMouseUp = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    // タッチ対応
+    cropCanvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 1) {
+          onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      },
+      { passive: false }
+    );
+
+    const handleWindowTouchMove = (e) => {
+      if (isDragging && e.touches.length === 1) {
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleWindowTouchEnd = () => {
+      if (isDragging) onDragEnd();
+    };
+
+    window.addEventListener("touchmove", handleWindowTouchMove, { passive: false });
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // ホイールズーム
+    cropCanvas.addEventListener(
+      "wheel",
+      (e) => {
+        if (!selectedImg) return;
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
+        let newScale = scale * zoomFactor;
+        const minS = parseFloat(zoomSlider.min);
+        const maxS = parseFloat(zoomSlider.max);
+        newScale = Math.max(minS, Math.min(maxS, newScale));
+        scale = newScale;
+        zoomSlider.value = scale;
+        renderCanvas();
+        scheduleSizeUpdate(false);
+      },
+      { passive: false }
+    );
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || ".jpg";
+      extLabel.textContent = ext;
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!nameInput.value) {
+        nameInput.value = baseName || "schedule_image";
+      }
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
+          cropStage.style.display = "flex";
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (val && !isValid) {
+        nameError.style.display = "block";
+      } else {
+        nameError.style.display = "none";
+      }
+      checkUploadBtnState();
+    };
+
+    // アップロードボタン押下
+    uploadBtn.onclick = async () => {
+      const fileNameRaw = nameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const ext = extLabel.textContent;
+      const fullFileName = `${fileNameRaw}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.scheduleLibraryCache.includes(fullFileName)) {
+            this.scheduleLibraryCache.push(fullFileName);
+          }
+          savedState["Image"] = fullFileName;
+          savedState["image_mode"] = "library";
+          cleanupListeners();
+          this.openScheduleModal(currentRecord, tags, savedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for schedule image via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`${fullFileName} を正常にアップロードしました`);
+
+        if (!this.scheduleLibraryCache.includes(fullFileName)) {
+          this.scheduleLibraryCache.push(fullFileName);
+        }
+
+        savedState["Image"] = fullFileName;
+        savedState["image_mode"] = "library";
+
+        cleanupListeners();
+        this.openScheduleModal(currentRecord, tags, savedState);
+      } catch (err) {
+        console.error("[Upload Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+        this.openScheduleModal(currentRecord, tags, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
@@ -3688,6 +5077,9 @@ export class CrudController {
     }
     if (tableName === "notice") {
       return this.openNoticeModal(record);
+    }
+    if (tableName === "schedule") {
+      return this.openScheduleModal(record);
     }
 
     const isNew = !record;
@@ -3908,6 +5300,16 @@ export class CrudController {
       this.noticeState.hasPendingChanges = true;
       Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
       await this.loadTab("notice");
+      return;
+    }
+
+    if (tableName === "schedule") {
+      if (!confirm(`ID: ${id} のスケジュールを本当に削除しますか？`)) return;
+      try {
+        await api.deleteRecord("schedule", id);
+        Toast.info(`ID: ${id} のスケジュールを削除しました`);
+        await this.renderScheduleTab();
+      } catch (e) {}
       return;
     }
 
