@@ -6244,12 +6244,141 @@ export class CrudController {
     container.style.cssText = "display: flex; flex-direction: column; gap: 20px;";
 
     // ========================================================
+    // 0. 動画タイプ (movieCategory) 管理アコーディオン
+    // ========================================================
+    const categoryCard = document.createElement("div");
+    categoryCard.className = "admin-tag-manager-card";
+
+    if (this._isMovieCategoryOpen === undefined) {
+      this._isMovieCategoryOpen = true;
+    }
+
+    categoryCard.innerHTML = `
+      <div class="admin-tag-manager-header" id="movie-category-manager-toggle-btn">
+        <div class="admin-tag-manager-title">
+          <h2 class="admin-card-title">動画タイプ</h2>
+          <span class="admin-count-badge">${categories.length}件</span>
+        </div>
+        <span class="admin-tag-manager-arrow" id="movie-category-manager-arrow">${this._isMovieCategoryOpen ? "▲" : "▼"}</span>
+      </div>
+      <div class="admin-tag-manager-body" id="movie-category-manager-body" style="display: ${this._isMovieCategoryOpen ? "flex" : "none"};">
+        <div class="admin-tag-input-row" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <input
+            type="text"
+            class="admin-form-input"
+            id="new-movie-category-name-input"
+            placeholder="新しい動画タイプ名 (例: Shorts、配信アーカイブ、MV)"
+            style="flex: 2; min-width: 200px;"
+          />
+          <select class="admin-form-input" id="new-movie-category-ratio-select" style="flex: 1; min-width: 140px;" title="動画のアスペクト比">
+            <option value="wide">横長（16:9）</option>
+            <option value="tall">縦長（9:16）</option>
+          </select>
+          <button type="button" class="app-btn app-btn-primary" id="add-movie-category-btn" style="white-space: nowrap; padding: 8px 20px;">
+            追加
+          </button>
+        </div>
+        <div class="admin-tag-chips-container" id="movie-category-chips-container">
+          ${categories.length === 0 ? '<span style="color: #64748b; font-size: 0.85rem;">登録されている動画タイプはありません</span>' : ""}
+          ${categories.map((c) => `
+            <div class="admin-tag-chip admin-category-chip" data-id="${escapeHtml(c.id)}">
+              <span>${escapeHtml(c.categoryName)} <span class="admin-tag-chip-id">(ID: ${escapeHtml(c.id)}${c.aspectRatio === "tall" ? "・縦長" : "・横長"})</span></span>
+              <button type="button" class="admin-tag-chip-del admin-category-chip-del" data-id="${escapeHtml(c.id)}" title="削除">×</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    // アコーディオン開閉トグル
+    const catToggleBtn = categoryCard.querySelector("#movie-category-manager-toggle-btn");
+    const catBody = categoryCard.querySelector("#movie-category-manager-body");
+    const catArrow = categoryCard.querySelector("#movie-category-manager-arrow");
+    catToggleBtn.onclick = () => {
+      this._isMovieCategoryOpen = !this._isMovieCategoryOpen;
+      catBody.style.display = this._isMovieCategoryOpen ? "flex" : "none";
+      catArrow.textContent = this._isMovieCategoryOpen ? "▲" : "▼";
+    };
+
+    // 動画タイプ追加処理
+    const catInput = categoryCard.querySelector("#new-movie-category-name-input");
+    const catRatio = categoryCard.querySelector("#new-movie-category-ratio-select");
+    const addCatBtn = categoryCard.querySelector("#add-movie-category-btn");
+
+    const handleAddCategory = async () => {
+      const val = catInput.value.trim();
+      if (!val) {
+        alert("動画タイプ名を入力してください");
+        catInput.focus();
+        return;
+      }
+
+      addCatBtn.disabled = true;
+      try {
+        const nextId = categories.length > 0 ? Math.max(...categories.map((c) => Number(c.id) || 0)) + 1 : 1;
+        const nextPriority = categories.length > 0 ? Math.max(...categories.map((c) => Number(c.priority) || 0)) + 10 : 10;
+        await api.saveTable(
+          "movieCategory",
+          {
+            id: nextId,
+            categoryName: val,
+            aspectRatio: catRatio.value || "wide",
+            priority: nextPriority,
+          },
+          null
+        );
+        Toast.success(`動画タイプ「${val}」を追加しました`);
+        await this.renderMovieTab();
+      } catch (e) {
+        console.error("[Add Movie Category Error]:", e);
+        Toast.error(`動画タイプの追加に失敗しました: ${e.message}`);
+        addCatBtn.disabled = false;
+      }
+    };
+
+    addCatBtn.onclick = handleAddCategory;
+    catInput.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddCategory();
+      }
+    };
+
+    // 動画タイプ削除処理
+    categoryCard.querySelectorAll(".admin-category-chip-del").forEach((delBtn) => {
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const catId = delBtn.dataset.id;
+        const targetCat = categories.find((c) => String(c.id) === String(catId));
+        const catName = targetCat?.categoryName || catId;
+
+        const ok = confirm(
+          `動画タイプ「${catName}」を削除しますか？\n\n※この動画タイプを使用している動画がある場合、動画タイプ表示に影響する可能性があります。`
+        );
+        if (!ok) return;
+
+        try {
+          await api.deleteRecord("movieCategory", catId);
+          Toast.info(`動画タイプ「${catName}」を削除しました`);
+          await this.renderMovieTab();
+        } catch (err) {
+          console.error("[Delete Movie Category Error]:", err);
+          Toast.error(`動画タイプの削除に失敗しました: ${err.message}`);
+        }
+      };
+    });
+
+    container.appendChild(categoryCard);
+
+    // ========================================================
     // 1. 動画タグ (movieTag) 管理アコーディオン
     // ========================================================
     const tagCard = document.createElement("div");
     tagCard.className = "admin-tag-manager-card";
 
-    let isTagOpen = true;
+    if (this._isMovieTagOpen === undefined) {
+      this._isMovieTagOpen = true;
+    }
 
     tagCard.innerHTML = `
       <div class="admin-tag-manager-header" id="movie-tag-manager-toggle-btn">
@@ -6257,9 +6386,9 @@ export class CrudController {
           <h2 class="admin-card-title">タグ</h2>
           <span class="admin-count-badge">${tags.length}件</span>
         </div>
-        <span class="admin-tag-manager-arrow" id="movie-tag-manager-arrow">▲</span>
+        <span class="admin-tag-manager-arrow" id="movie-tag-manager-arrow">${this._isMovieTagOpen ? "▲" : "▼"}</span>
       </div>
-      <div class="admin-tag-manager-body" id="movie-tag-manager-body">
+      <div class="admin-tag-manager-body" id="movie-tag-manager-body" style="display: ${this._isMovieTagOpen ? "flex" : "none"};">
         <div class="admin-tag-input-row">
           <input
             type="text"
@@ -6288,9 +6417,9 @@ export class CrudController {
     const tagBody = tagCard.querySelector("#movie-tag-manager-body");
     const tagArrow = tagCard.querySelector("#movie-tag-manager-arrow");
     toggleBtn.onclick = () => {
-      isTagOpen = !isTagOpen;
-      tagBody.style.display = isTagOpen ? "flex" : "none";
-      tagArrow.textContent = isTagOpen ? "▲" : "▼";
+      this._isMovieTagOpen = !this._isMovieTagOpen;
+      tagBody.style.display = this._isMovieTagOpen ? "flex" : "none";
+      tagArrow.textContent = this._isMovieTagOpen ? "▲" : "▼";
     };
 
     // タグ追加処理
@@ -6449,7 +6578,7 @@ export class CrudController {
         <th style="width: 130px;">動画タイプ</th>
         <th style="width: 130px;">タグ</th>
         <th style="min-width: 260px;">動画</th>
-        <th style="width: 190px;">再生リスト</th>
+        <th style="width: 240px; min-width: 200px;">再生リスト</th>
         <th style="width: 120px; text-align: center;">公開フラグ</th>
       </tr>
     `;
@@ -6579,10 +6708,12 @@ export class CrudController {
             };
           }
         }
+        tdMovie.style.paddingRight = "16px";
         tr.appendChild(tdMovie);
 
         // 6. 再生リスト (movieList > listName、プルダウンで変更可能)
         const tdList = document.createElement("td");
+        tdList.style.minWidth = "200px";
         const listSelect = document.createElement("select");
         listSelect.className = "admin-form-input admin-table-select";
         listSelect.title = "クリックして再生リストを変更できます";
