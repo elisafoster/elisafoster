@@ -270,6 +270,13 @@ export class CrudController {
     // 動画リスト (movie) 専用ライブラリキャッシュ
     this.movieLibraryCache = null;
 
+    // ショップグッズ (shop) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.shopState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
     // ショップグッズ (shop) 専用ライブラリキャッシュ
     this.shopLibraryCache = null;
 
@@ -281,7 +288,8 @@ export class CrudController {
         this.noticeState?.hasPendingChanges ||
         this.scheduleState?.hasPendingChanges ||
         this.galleryState?.hasPendingChanges ||
-        this.movieState?.hasPendingChanges
+        this.movieState?.hasPendingChanges ||
+        this.shopState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -348,6 +356,16 @@ export class CrudController {
       if (!ok) return;
       this.movieState.hasPendingChanges = false;
       this.movieState.isInitialized = false;
+    }
+
+    // ショップグッズ管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "shop" && tabKey !== "shop" && this.shopState?.hasPendingChanges) {
+      const ok = confirm(
+        "ショップグッズ管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.shopState.hasPendingChanges = false;
+      this.shopState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -7832,15 +7850,21 @@ export class CrudController {
     let tags = [];
 
     try {
-      const [shopsRes, tagsRes] = await Promise.all([
-        api.getTable("shop").catch(() => []),
-        api.getTable("shopTag").catch(() => []),
-      ]);
-      shops = Array.isArray(shopsRes) ? shopsRes : (shopsRes ? [shopsRes] : []);
+      if (!this.shopState.isInitialized) {
+        const shopsRes = await api.getTable("shop").catch(() => []);
+        const rawList = Array.isArray(shopsRes) ? shopsRes : (shopsRes ? [shopsRes] : []);
+        this.shopState.originalRecords = JSON.parse(JSON.stringify(rawList));
+        this.shopState.currentRecords = JSON.parse(JSON.stringify(rawList));
+        this.shopState.hasPendingChanges = false;
+        this.shopState.isInitialized = true;
+      }
+      shops = this.shopState.currentRecords;
+
+      const tagsRes = await api.getTable("shopTag").catch(() => []);
       tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
     } catch (err) {
       console.error("[Shop Data Load Error]:", err);
-      shops = [];
+      shops = this.shopState.currentRecords || [];
       tags = [];
     }
 
@@ -7970,7 +7994,7 @@ export class CrudController {
     const card = document.createElement("div");
     card.className = "admin-card";
 
-    // ヘッダー: 「ショップグッズ管理」+ 件数チップ + 「+ 新規追加」
+    // ヘッダー: 「ショップグッズ管理」+ 件数チップ + 「+ 新規追加」+ 「更新反映」
     // ※「テーブル: shop (7件)」のテキストは非表示
     const header = document.createElement("div");
     header.className = "admin-card-header";
@@ -8004,8 +8028,47 @@ export class CrudController {
     addBtn.onclick = () => this.openShopModal(null, tags);
     actions.appendChild(addBtn);
 
+    // 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    const commitBtn = document.createElement("button");
+    commitBtn.id = "shop-commit-btn";
+    commitBtn.className = "app-btn app-btn-orange";
+
+    const changesCount = this.getShopChangesCount();
+    if (this.shopState.hasPendingChanges && changesCount > 0) {
+      commitBtn.classList.add("has-changes");
+      commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+      commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+      commitBtn.disabled = false;
+    } else {
+      commitBtn.innerHTML = `<span>更新反映</span>`;
+      commitBtn.title = "D1に未反映の変更はありません";
+      commitBtn.disabled = true;
+    }
+
+    commitBtn.onclick = async () => {
+      await this.commitShopChanges();
+    };
+    actions.appendChild(commitBtn);
+
     header.appendChild(actions);
     card.appendChild(header);
+
+    // ショップグッズ管理で未反映の変更がある場合は通知アラートを表示
+    if (this.shopState.hasPendingChanges && changesCount > 0) {
+      const alertBar = document.createElement("div");
+      alertBar.className = "admin-pending-alert";
+      alertBar.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>⚠️</span>
+          <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+        </div>
+        <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+      `;
+      alertBar.querySelector("button").onclick = async () => {
+        await this.commitShopChanges();
+      };
+      card.appendChild(alertBar);
+    }
 
     // テーブル生成
     // ヘッダーカラム: 操作｜id｜商品名/価格(2段表示)｜タグ｜商品画像｜表示順
@@ -8169,11 +8232,15 @@ export class CrudController {
 
     // 全ショップレコード取得 (ID自動採番 & 表示順設定 & ライブラリキャッシュ用)
     let allShops = [];
-    try {
-      const res = await api.getTable("shop");
-      allShops = Array.isArray(res) ? res : (res ? [res] : []);
-    } catch (e) {
-      allShops = [];
+    if (this.shopState && this.shopState.isInitialized && this.shopState.currentRecords.length > 0) {
+      allShops = this.shopState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("shop");
+        allShops = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allShops = [];
+      }
     }
 
     // 自動採番 (新規時)
@@ -8617,14 +8684,31 @@ export class CrudController {
         freeshop: fd.get("freeshop")?.toString().trim() || null,
       };
 
-      try {
-        await api.saveTable("shop", payload, isNew ? null : record.id);
-        Modal.close();
-        Toast.success(isNew ? "商品を新規追加しました" : "商品の変更を保存しました");
-        await this.renderShopTab();
-      } catch (err) {
-        console.error("[Save Shop Error]:", err);
+      // ショップグッズ (shop) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.shopState.currentRecords.push(payload);
+      } else {
+        const idx = this.shopState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.shopState.currentRecords[idx] = {
+            ...this.shopState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.shopState.currentRecords.push(payload);
+        }
       }
+
+      this.shopState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "商品を保留リストに追加しました。「更新反映」を押すまで確定されません。"
+          : "商品の変更を保留しました。「更新反映」を押すまで確定されません。"
+      );
+      await this.renderShopTab();
     };
 
     Modal.open({
@@ -9325,14 +9409,13 @@ export class CrudController {
     }
 
     if (tableName === "shop") {
-      if (!confirm(`ID: ${id} のショップ商品を本当に削除しますか？`)) return;
-      try {
-        await api.deleteRecord("shop", id);
-        Toast.info(`ID: ${id} の商品を削除しました`);
-        await this.renderShopTab();
-      } catch (err) {
-        console.error("[Delete Shop Error]:", err);
-      }
+      if (!confirm(`ID: ${id} のショップ商品データを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.shopState.currentRecords = this.shopState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.shopState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.renderShopTab();
       return;
     }
 
@@ -9831,6 +9914,95 @@ export class CrudController {
       await this.loadTab("movie");
     } catch (err) {
       console.error("[Commit Movie Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * ショップグッズ (shop) の未反映変更件数の算出
+   */
+  getShopChangesCount() {
+    if (!this.shopState || !this.shopState.isInitialized) return 0;
+    const origMap = new Map(this.shopState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.shopState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => {
+          const vCurr = curr[k] === null || curr[k] === undefined ? "" : String(curr[k]);
+          const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+          return vCurr !== vOrig;
+        });
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * ショップグッズ (shop) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitShopChanges() {
+    const count = this.getShopChangesCount();
+    if (!this.shopState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `ショップグッズ管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.shopState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.shopState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.shopState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("shop", rec.id);
+      }
+
+      // 2. 新規追加 (POST) および 更新 (PUT) の反映
+      for (const rec of this.shopState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加
+          await api.saveTable("shop", rec, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => {
+            const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+            const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+            return vCurr !== vOrig;
+          });
+          if (hasDiff) {
+            await api.saveTable("shop", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("ショップグッズ管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.shopState.hasPendingChanges = false;
+      this.shopState.isInitialized = false;
+      await this.loadTab("shop");
+    } catch (err) {
+      console.error("[Commit Shop Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
