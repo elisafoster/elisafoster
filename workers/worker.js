@@ -17,6 +17,30 @@ const SINGLETON_TABLES = ["profile", "guideline", "themeConfig", "githubPAT"];
 // 機密テーブル（読み込みにも認可が必要）
 const PROTECTED_TABLES = ["whitelist", "githubPAT"];
 
+// 各ロールごとの書き込み許可テーブルマッピング
+const ROLE_WRITE_PERMISSIONS = {
+  owner: [
+    "profile", "guideline", "event", "gallery", "linkList",
+    "movieCategory", "movieTag", "movieList", "movie", "notice",
+    "scheduleTag", "schedule", "shopTag", "shop", "section",
+    "themeConfig", "visual", "whitelist", "githubPAT"
+  ],
+  admin: [
+    "profile", "guideline", "event", "gallery", "linkList",
+    "movieCategory", "movieTag", "movieList", "movie", "notice",
+    "scheduleTag", "schedule", "shopTag", "shop", "section",
+    "themeConfig", "visual", "whitelist"
+  ],
+  editor: [
+    "event", "notice", "scheduleTag", "schedule", "gallery",
+    "movieCategory", "movieTag", "movieList", "movie",
+    "shopTag", "shop", "linkList"
+  ],
+  writer: [
+    "event", "notice", "scheduleTag", "schedule"
+  ]
+};
+
 // レスポンスヘルパー
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +58,13 @@ const jsonResponse = (data, status = 200) => {
 const notFoundResponse = () => {
   return new Response(JSON.stringify({ error: "Not Found" }), {
     status: 404,
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
+  });
+};
+
+const forbiddenResponse = (message = "権限がありません (Forbidden)") => {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 403,
     headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 };
@@ -104,7 +135,9 @@ export default {
     // ============================================================
     if (pathParts[0] === "api" && pathParts[1] === "export") {
       const authUser = await isAuthorized();
-      if (!authUser) return notFoundResponse();
+      if (!authUser || authUser.role !== "owner") {
+        return forbiddenResponse("管理者（owner）権限が必要です");
+      }
 
       const format = pathParts[2]; // "json" または "sql"
       const dump = {};
@@ -170,6 +203,14 @@ export default {
         if (!authorized) {
           return notFoundResponse(); // 存在を悟らせないため404
         }
+        // admin は githubPAT の参照不可
+        if (tableName === "githubPAT" && authorized.role !== "owner") {
+          return forbiddenResponse("GitHub PAT 設定へのアクセス権限がありません");
+        }
+        // editor / writer は whitelist, githubPAT などの管理テーブル参照不可
+        if (tableName === "whitelist" && !["owner", "admin"].includes(authorized.role)) {
+          return forbiddenResponse("アカウント管理へのアクセス権限がありません");
+        }
       }
 
       // 単一レコードテーブル または ID指定の場合
@@ -213,6 +254,26 @@ export default {
       return notFoundResponse(); // 改ざん・不正アクセスを404で遮断
     }
 
+    const userRole = authorized.role || "writer";
+    const allowedTables = ROLE_WRITE_PERMISSIONS[userRole] || [];
+
+    // ロールごとのテーブル書き込み権限チェック
+    if (!allowedTables.includes(tableName)) {
+      return forbiddenResponse(`ロール「${userRole}」にはテーブル「${tableName}」の変更権限がありません`);
+    }
+
+    // アカウント管理 (whitelist) に対する admin ロールの追加制約
+    if (tableName === "whitelist" && userRole === "admin") {
+      if (method === "DELETE" && recordId) {
+        const target = await env.DB.prepare(
+          "SELECT role FROM whitelist WHERE id = ?"
+        ).bind(recordId).first();
+        if (target && (target.role === "owner" || target.role === "admin")) {
+          return forbiddenResponse("admin権限ではownerまたはadminアカウントを削除できません");
+        }
+      }
+    }
+
     // --- DELETE ---
     if (method === "DELETE") {
       if (!recordId || SINGLETON_TABLES.includes(tableName)) {
@@ -232,6 +293,21 @@ export default {
         body = await request.json();
       } catch (e) {
         return notFoundResponse();
+      }
+
+      // アカウント管理 (whitelist) に対する admin ロールの追加制約
+      if (tableName === "whitelist" && userRole === "admin") {
+        if (body.role === "owner" || body.role === "admin") {
+          return forbiddenResponse("admin権限ではownerまたはadmin権限を付与・設定できません");
+        }
+        if (method === "PUT" && recordId) {
+          const target = await env.DB.prepare(
+            "SELECT role FROM whitelist WHERE id = ?"
+          ).bind(recordId).first();
+          if (target && (target.role === "owner" || target.role === "admin")) {
+            return forbiddenResponse("admin権限ではownerまたはadminアカウントを変更できません");
+          }
+        }
       }
 
       // 単一レコードテーブル (id=1) のUPSERT処理
