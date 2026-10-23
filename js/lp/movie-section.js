@@ -900,6 +900,7 @@ export class MovieSection {
 
     // 3. TikTok
     if (url.includes("tiktok.com")) {
+      imgEl.setAttribute("referrerpolicy", "no-referrer");
       // 初期状態として美しい TikTok ブランドポスターを設定
       imgEl.src = TIKTOK_PLACEHOLDER_SVG;
 

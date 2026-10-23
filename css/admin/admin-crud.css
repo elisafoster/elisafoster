@@ -3328,6 +3328,159 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   cursor: not-allowed;
 }
 
+/* ========================================================
+ * 再生リスト サムネイルスタック (未設定時に動画上位3件を重ねて表示)
+ * ======================================================== */
+.admin-playlist-thumb-stack {
+  position: relative;
+  width: 96px;
+  height: 64px;
+  display: inline-block;
+  margin: 0 auto;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-playlist-thumb-stack-item {
+  position: absolute;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, filter 0.2s ease;
+  background: #090d16;
+}
+
+/* 3枚重ねの場合: DOM順 [3番目(奥), 2番目(中), 1番目(手前)] */
+.admin-playlist-thumb-stack[data-count="3"] .admin-playlist-thumb-stack-item:nth-child(1) {
+  top: 0px;
+  left: 20px;
+  width: 68px;
+  height: 42px;
+  z-index: 1;
+  opacity: 0.65;
+  filter: brightness(0.65);
+}
+
+.admin-playlist-thumb-stack[data-count="3"] .admin-playlist-thumb-stack-item:nth-child(2) {
+  top: 7px;
+  left: 10px;
+  width: 72px;
+  height: 44px;
+  z-index: 2;
+  opacity: 0.85;
+  filter: brightness(0.85);
+}
+
+.admin-playlist-thumb-stack[data-count="3"] .admin-playlist-thumb-stack-item:nth-child(3) {
+  top: 14px;
+  left: 0px;
+  width: 76px;
+  height: 46px;
+  z-index: 3;
+  opacity: 1;
+  filter: brightness(1);
+}
+
+/* 2枚重ねの場合: DOM順 [2番目(奥), 1番目(手前)] */
+.admin-playlist-thumb-stack[data-count="2"] .admin-playlist-thumb-stack-item:nth-child(1) {
+  top: 3px;
+  left: 14px;
+  width: 72px;
+  height: 44px;
+  z-index: 1;
+  opacity: 0.75;
+  filter: brightness(0.75);
+}
+
+.admin-playlist-thumb-stack[data-count="2"] .admin-playlist-thumb-stack-item:nth-child(2) {
+  top: 12px;
+  left: 0px;
+  width: 76px;
+  height: 46px;
+  z-index: 2;
+  opacity: 1;
+}
+
+/* 1枚の場合 */
+.admin-playlist-thumb-stack[data-count="1"] .admin-playlist-thumb-stack-item:nth-child(1) {
+  top: 9px;
+  left: 10px;
+  width: 76px;
+  height: 46px;
+  z-index: 1;
+  opacity: 1;
+}
+
+/* ホバー時の展開（カードが少し外側に広がるインタラクション） */
+.admin-playlist-thumb-stack:hover[data-count="3"] .admin-playlist-thumb-stack-item:nth-child(1) {
+  transform: translate(6px, -4px);
+  opacity: 0.85;
+  filter: brightness(0.8);
+}
+.admin-playlist-thumb-stack:hover[data-count="3"] .admin-playlist-thumb-stack-item:nth-child(2) {
+  transform: translate(3px, -2px);
+  opacity: 0.95;
+  filter: brightness(0.95);
+}
+.admin-playlist-thumb-stack:hover[data-count="3"] .admin-playlist-thumb-stack-item:nth-child(3) {
+  transform: scale(1.04);
+}
+
+.admin-playlist-thumb-stack:hover[data-count="2"] .admin-playlist-thumb-stack-item:nth-child(1) {
+  transform: translate(5px, -3px);
+  opacity: 0.9;
+}
+.admin-playlist-thumb-stack:hover[data-count="2"] .admin-playlist-thumb-stack-item:nth-child(2) {
+  transform: scale(1.04);
+}
+
+.admin-playlist-thumb-stack:hover[data-count="1"] .admin-playlist-thumb-stack-item:nth-child(1) {
+  transform: scale(1.04);
+}
+
+/* スタック内の動画件数バッジ */
+.admin-playlist-stack-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 5px;
+  z-index: 5;
+  line-height: 1.2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* TikTok サムネイルローディング／バッジ */
+.admin-movie-thumb-loading {
+  position: relative;
+  display: inline-block;
+}
+.admin-movie-thumb-loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(56, 189, 248, 0.3);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: adminThumbSpin 0.7s linear infinite;
+  pointer-events: none;
+}
+@keyframes adminThumbSpin {
+  to { transform: rotate(360deg); }
+}
+
 
 
 

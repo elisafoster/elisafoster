@@ -10,6 +10,82 @@ import { RichTextEditor } from "./richtext-editor.js";
 import { escapeHtml } from "../common/utils.js";
 import { ROLE_PERMISSIONS } from "./menu-manager.js";
 
+// ========================================================
+// 動画サムネイル関連ヘルパー (YouTube / TikTok 自動解決)
+// ========================================================
+const TIKTOK_THUMB_PLACEHOLDER = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280" width="720" height="1280"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23010101"/><stop offset="50%" stop-color="%23121212"/><stop offset="100%" stop-color="%231a1a1a"/></linearGradient><linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="%2325F4EE"/><stop offset="100%" stop-color="%23FE2C55"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23bg)"/><circle cx="360" cy="560" r="160" fill="%2325F4EE" opacity="0.12"/><circle cx="380" cy="580" r="160" fill="%23FE2C55" opacity="0.12"/><g transform="translate(240, 430) scale(4)"><path fill="%2325F4EE" d="M38.5 13.5c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V4h-6v26.5c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3v-6.2c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5S11.7 41.7 18.1 41.7s11.5-5.1 11.5-11.5V17.7c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z" opacity="0.85"/><path fill="%23FE2C55" d="M40.5 14.5c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V5h-6v26.5c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3V20.6c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5S13.7 43.5 20.1 43.5s11.5-5.1 11.5-11.5V18.7c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z" opacity="0.85"/><path fill="%23ffffff" d="M39.5 14c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V4.5h-6V31c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3v-6.2c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5s5.1 11.5 11.5 11.5 11.5-5.1 11.5-11.5V18.2c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z"/></g><text x="360" y="780" fill="%23ffffff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" letter-spacing="4">TikTok Video</text><rect x="260" y="830" width="200" height="4" rx="2" fill="url(%23accent)"/></svg>`;
+
+const GENERIC_VIDEO_PLACEHOLDER = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360"><rect width="100%" height="100%" fill="%231e293b"/><circle cx="320" cy="180" r="44" fill="%2338bdf8" opacity="0.25"/><polygon points="312,162 338,180 312,198" fill="%23ffffff"/></svg>`;
+
+const tiktokOembedCache = new Map();
+
+function isTikTokUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  return /tiktok\.com/i.test(url);
+}
+
+function getCachedTikTokThumbnail(url) {
+  if (!url) return null;
+  if (tiktokOembedCache.has(url)) return tiktokOembedCache.get(url);
+  try {
+    const saved = localStorage.getItem("elisa_tiktok_thumb_" + url);
+    if (saved) {
+      tiktokOembedCache.set(url, saved);
+      return saved;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function setCachedTikTokThumbnail(url, thumbUrl) {
+  if (!url || !thumbUrl) return;
+  tiktokOembedCache.set(url, thumbUrl);
+  try {
+    localStorage.setItem("elisa_tiktok_thumb_" + url, thumbUrl);
+  } catch (e) {}
+}
+
+async function fetchTikTokThumbnail(url) {
+  if (!url || !isTikTokUrl(url)) return null;
+  const cached = getCachedTikTokThumbnail(url);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.thumbnail_url) {
+      setCachedTikTokThumbnail(url, data.thumbnail_url);
+      return data.thumbnail_url;
+    }
+  } catch (err) {
+    console.warn("[TikTok Thumbnail Fetch Error]:", err);
+  }
+  return null;
+}
+
+function getYouTubeThumbnail(url) {
+  if (!url || typeof url !== "string") return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+  if (match && match[1]) {
+    return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+  }
+  return null;
+}
+
+function getMovieThumbnailUrlSync(movie, resolveFn) {
+  if (!movie) return null;
+  const img = movie.movieImage || movie.image;
+  if (img) return resolveFn ? resolveFn(img, "movie") : img;
+  const yt = getYouTubeThumbnail(movie.movieUrl);
+  if (yt) return yt;
+  if (isTikTokUrl(movie.movieUrl)) {
+    const tt = getCachedTikTokThumbnail(movie.movieUrl);
+    if (tt) return tt;
+  }
+  return null;
+}
+
 /**
  * 一体型ドラムロールピッカークラス (iOS風 Wheel Date Picker)
  */
@@ -7090,13 +7166,27 @@ export class CrudController {
         if (hasImg) {
           imgDisplayUrl = api.resolveAssetUrl(hasImg, "movie");
           thumbHtml = `
-            <img src="${escapeHtml(imgDisplayUrl)}" alt="動画サムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" />
+            <img src="${escapeHtml(imgDisplayUrl)}" alt="動画サムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" referrerpolicy="no-referrer" />
           `;
         } else if (ytThumb) {
           imgDisplayUrl = ytThumb;
           thumbHtml = `
-            <img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" />
+            <img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" referrerpolicy="no-referrer" />
           `;
+        } else if (isTikTokUrl(item.movieUrl)) {
+          const cached = getCachedTikTokThumbnail(item.movieUrl);
+          if (cached) {
+            imgDisplayUrl = cached;
+            thumbHtml = `
+              <img src="${escapeHtml(cached)}" alt="TikTokサムネイル" class="admin-table-thumb is-movie-thumb" title="クリックで拡大表示" referrerpolicy="no-referrer" />
+            `;
+          } else {
+            thumbHtml = `
+              <div class="admin-movie-thumb-loading">
+                <img src="${TIKTOK_THUMB_PLACEHOLDER}" alt="TikTokサムネイル" class="admin-table-thumb is-movie-thumb" style="opacity: 0.7;" referrerpolicy="no-referrer" />
+              </div>
+            `;
+          }
         } else {
           thumbHtml = `<span style="color: #64748b; font-size: 0.78rem;">(画像なし)</span>`;
         }
@@ -7128,6 +7218,25 @@ export class CrudController {
               });
             };
           }
+        } else if (isTikTokUrl(item.movieUrl)) {
+          const imgEl = tdMovie.querySelector("img");
+          fetchTikTokThumbnail(item.movieUrl).then((thumbUrl) => {
+            if (thumbUrl && imgEl) {
+              imgEl.src = thumbUrl;
+              imgEl.style.opacity = "1";
+              imgEl.style.cursor = "pointer";
+              const loadingWrap = tdMovie.querySelector(".admin-movie-thumb-loading");
+              if (loadingWrap) loadingWrap.classList.remove("admin-movie-thumb-loading");
+              imgEl.onclick = (e) => {
+                e.stopPropagation();
+                this.openImageDetailModal(thumbUrl, `TikTok動画サムネイル (ID: ${item.id})`, {
+                  costumeName: `動画 ID: ${item.id}`,
+                  columnLabel: "動画サムネイル",
+                  path: item.movieUrl,
+                });
+              };
+            }
+          });
         }
         tdMovie.style.paddingRight = "16px";
         tr.appendChild(tdMovie);
@@ -7602,6 +7711,26 @@ export class CrudController {
           pBox.innerHTML = `
             <img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイルプレビュー" />
           `;
+        } else if (isTikTokUrl(mUrl)) {
+          const cached = getCachedTikTokThumbnail(mUrl);
+          if (cached) {
+            pBox.innerHTML = `
+              <img src="${escapeHtml(cached)}" alt="TikTokサムネイルプレビュー" referrerpolicy="no-referrer" />
+            `;
+          } else {
+            pBox.innerHTML = `
+              <div class="admin-movie-thumb-loading">
+                <img src="${TIKTOK_THUMB_PLACEHOLDER}" alt="TikTokプレビュー読込中" style="opacity: 0.6;" referrerpolicy="no-referrer" />
+              </div>
+            `;
+            fetchTikTokThumbnail(mUrl).then((thumb) => {
+              if (thumb && form.querySelector('[name="movieUrl"]')?.value?.trim() === mUrl) {
+                pBox.innerHTML = `
+                  <img src="${escapeHtml(thumb)}" alt="TikTokサムネイルプレビュー" referrerpolicy="no-referrer" />
+                `;
+              }
+            });
+          }
         } else {
           pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
         }
@@ -7689,6 +7818,14 @@ export class CrudController {
       } else {
         const raw = form.querySelector('.admin-visual-url-input[data-field="movieImage"]')?.value?.trim() || null;
         imageVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      // 動画画像が未指定かつTikTokのURLの場合、自動取得キャッシュがあれば補完
+      if (!imageVal && isTikTokUrl(urlVal)) {
+        const cachedThumb = getCachedTikTokThumbnail(urlVal);
+        if (cachedThumb) {
+          imageVal = cachedThumb;
+        }
       }
 
       const listVal = fd.get("movieList") ? Number(fd.get("movieList")) : null;
@@ -8897,6 +9034,16 @@ export class CrudController {
         tdName.innerHTML = `<span style="font-weight: 600; color: #f1f5f9;">${escapeHtml(item.listName || "")}</span>`;
         trMain.appendChild(tdName);
 
+        // この再生リストに紐づく動画を抽出（movieList_order 昇順ソート）
+        const matchedMovies = movies
+          .filter((m) => String(m.movieList) === String(item.id))
+          .sort((a, b) => {
+            const oA = a.movieList_order != null && a.movieList_order !== "" ? Number(a.movieList_order) : 999999;
+            const oB = b.movieList_order != null && b.movieList_order !== "" ? Number(b.movieList_order) : 999999;
+            if (oA !== oB) return oA - oB;
+            return Number(a.id) - Number(b.id);
+          });
+
         // 5. 画像列
         const tdImage = document.createElement("td");
         tdImage.className = "admin-table-col-image";
@@ -8918,6 +9065,51 @@ export class CrudController {
             });
           };
           tdImage.appendChild(img);
+        } else if (matchedMovies.length > 0) {
+          // 画像未設定時: 設定されている動画一覧の上位最大3つのサムネイルを重ねて表示
+          const topMovies = matchedMovies.slice(0, 3);
+          const stackWrap = document.createElement("div");
+          stackWrap.className = "admin-playlist-thumb-stack";
+          stackWrap.dataset.count = String(topMovies.length);
+          stackWrap.title = `${item.listName ? item.listName + "：" : ""}設定動画の上位${topMovies.length}件のサムネイル (クリックでアコーディオン開閉)`;
+          stackWrap.onclick = (e) => {
+            e.stopPropagation();
+            toggleAccordion();
+          };
+
+          // 奥から手前の順 (DOM順: [3番目, 2番目, 1番目]) で追加
+          const reversedTopMovies = [...topMovies].reverse();
+          reversedTopMovies.forEach((m) => {
+            const imgEl = document.createElement("img");
+            imgEl.className = "admin-playlist-thumb-stack-item";
+            imgEl.alt = `動画 ${m.id}`;
+            imgEl.setAttribute("referrerpolicy", "no-referrer");
+
+            const syncThumb = getMovieThumbnailUrlSync(m, api.resolveAssetUrl.bind(api));
+            if (syncThumb) {
+              imgEl.src = syncThumb;
+            } else if (isTikTokUrl(m.movieUrl)) {
+              imgEl.src = TIKTOK_THUMB_PLACEHOLDER;
+              fetchTikTokThumbnail(m.movieUrl).then((thumb) => {
+                if (thumb && imgEl) {
+                  imgEl.src = thumb;
+                }
+              });
+            } else {
+              imgEl.src = GENERIC_VIDEO_PLACEHOLDER;
+            }
+            stackWrap.appendChild(imgEl);
+          });
+
+          // 件数バッジ
+          if (matchedMovies.length > 1) {
+            const badge = document.createElement("span");
+            badge.className = "admin-playlist-stack-badge";
+            badge.textContent = `▶ ${matchedMovies.length}`;
+            stackWrap.appendChild(badge);
+          }
+
+          tdImage.appendChild(stackWrap);
         } else {
           tdImage.innerHTML = `<span style="color: #64748b;">-</span>`;
         }
@@ -8930,16 +9122,6 @@ export class CrudController {
         tdDetailCell.colSpan = 5;
         tdDetailCell.className = "admin-schedule-detail-cell";
         tdDetailCell.style.padding = "16px 20px";
-
-        // この再生リストに紐づく動画を抽出（movieList_order 昇順ソート）
-        const matchedMovies = movies
-          .filter((m) => String(m.movieList) === String(item.id))
-          .sort((a, b) => {
-            const oA = a.movieList_order != null && a.movieList_order !== "" ? Number(a.movieList_order) : 999999;
-            const oB = b.movieList_order != null && b.movieList_order !== "" ? Number(b.movieList_order) : 999999;
-            if (oA !== oB) return oA - oB;
-            return Number(a.id) - Number(b.id);
-          });
 
         const detailBox = document.createElement("div");
         detailBox.style.cssText = "display: flex; flex-direction: column; gap: 12px;";
@@ -9158,14 +9340,23 @@ export class CrudController {
 
             if (mImg) {
               mImgDisplayUrl = api.resolveAssetUrl(mImg, "movie");
-              mThumbHtml = `<img src="${escapeHtml(mImgDisplayUrl)}" alt="動画サムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" />`;
+              mThumbHtml = `<img src="${escapeHtml(mImgDisplayUrl)}" alt="動画サムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" referrerpolicy="no-referrer" />`;
             } else if (ytThumb) {
               mImgDisplayUrl = ytThumb;
-              mThumbHtml = `<img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" />`;
+              mThumbHtml = `<img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" referrerpolicy="no-referrer" />`;
+            } else if (isTikTokUrl(m.movieUrl)) {
+              const cached = getCachedTikTokThumbnail(m.movieUrl);
+              if (cached) {
+                mImgDisplayUrl = cached;
+                mThumbHtml = `<img src="${escapeHtml(cached)}" alt="TikTokサムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" referrerpolicy="no-referrer" />`;
+              } else {
+                mThumbHtml = `<div class="admin-movie-thumb-loading"><img src="${TIKTOK_THUMB_PLACEHOLDER}" alt="TikTokサムネイル" class="admin-table-thumb is-movie-thumb" style="max-height: 44px; object-fit: cover; opacity: 0.7;" referrerpolicy="no-referrer" /></div>`;
+              }
             } else {
               mThumbHtml = `<span style="color: #64748b; font-size: 0.78rem;">(なし)</span>`;
             }
             subTdThumb.innerHTML = mThumbHtml;
+
             if (mImgDisplayUrl) {
               const imgEl = subTdThumb.querySelector("img");
               if (imgEl) {
@@ -9178,6 +9369,25 @@ export class CrudController {
                   });
                 };
               }
+            } else if (isTikTokUrl(m.movieUrl)) {
+              const imgEl = subTdThumb.querySelector("img");
+              fetchTikTokThumbnail(m.movieUrl).then((thumbUrl) => {
+                if (thumbUrl && imgEl) {
+                  imgEl.src = thumbUrl;
+                  imgEl.style.opacity = "1";
+                  imgEl.style.cursor = "pointer";
+                  const loadingWrap = subTdThumb.querySelector(".admin-movie-thumb-loading");
+                  if (loadingWrap) loadingWrap.classList.remove("admin-movie-thumb-loading");
+                  imgEl.onclick = (e) => {
+                    e.stopPropagation();
+                    this.openImageDetailModal(thumbUrl, `TikTok動画サムネイル (ID: ${m.id})`, {
+                      costumeName: `動画 ID: ${m.id}`,
+                      columnLabel: "動画サムネイル",
+                      path: m.movieUrl,
+                    });
+                  };
+                }
+              });
             }
             subTr.appendChild(subTdThumb);
 
