@@ -2604,6 +2604,23 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   margin-bottom: 4px;
 }
 
+.admin-section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.admin-section-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
 .admin-section-header-title-group {
   display: flex;
   flex-direction: column;
@@ -2990,17 +3007,51 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 .admin-section-combined-stage {
   position: relative;
   width: 100%;
-  min-height: 200px;
+  min-height: 190px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(56, 189, 248, 0.25);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background-color: #0f172a;
+}
+
+/* 画像アップロードモーダル内のカテゴリー選択タブ */
+.admin-upload-category-bar {
+  display: flex;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.admin-upload-category-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
-  box-sizing: border-box;
-  background-color: #0f172a;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-upload-category-btn:hover:not(.is-active) {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-upload-category-btn.is-active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
 }
 
 .admin-section-preview-bg-layer {

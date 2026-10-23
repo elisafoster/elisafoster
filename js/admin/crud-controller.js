@@ -290,6 +290,15 @@ export class CrudController {
     // リンクリスト (linkList) 専用ライブラリキャッシュ
     this.linkListLibraryCache = null;
 
+    // セクション設定 (section) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.sectionState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+    this.sectionImageCache = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
       if (
@@ -300,7 +309,8 @@ export class CrudController {
         this.galleryState?.hasPendingChanges ||
         this.movieState?.hasPendingChanges ||
         this.shopState?.hasPendingChanges ||
-        this.linkListState?.hasPendingChanges
+        this.linkListState?.hasPendingChanges ||
+        this.sectionState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -387,6 +397,16 @@ export class CrudController {
       if (!ok) return;
       this.linkListState.hasPendingChanges = false;
       this.linkListState.isInitialized = false;
+    }
+
+    // セクション設定管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "section" && tabKey !== "section" && this.sectionState?.hasPendingChanges) {
+      const ok = confirm(
+        "セクション設定管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.sectionState.hasPendingChanges = false;
+      this.sectionState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -13111,10 +13131,17 @@ export class CrudController {
       sectionBackground: sec.sectionBackground ? String(sec.sectionBackground).split("/").pop() : "",
     }));
 
+    // 初回初期化または未初期化時の元データ保存
+    if (!this.sectionState.isInitialized) {
+      this.sectionState.originalRecords = JSON.parse(JSON.stringify(this.sectionDraftList));
+      this.sectionState.isInitialized = true;
+      this.sectionState.hasPendingChanges = false;
+    }
+
     const wrapper = document.createElement("div");
     wrapper.className = "admin-section-setting-wrapper";
 
-    // 1. ヘッダーバー
+    // 1. ヘッダーバー (左: タイトル、右: 画像アップロード ＋ 更新反映ボタン)
     const headerBar = document.createElement("div");
     headerBar.className = "admin-section-header-bar";
     headerBar.innerHTML = `
@@ -13127,9 +13154,14 @@ export class CrudController {
           トップページ（LP）のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出し、装飾画像を編集できます。
         </p>
       </div>
-      <button type="button" class="admin-theme-save-btn" id="sec-save-btn">
-        <span>💾</span> 変更保存
-      </button>
+      <div class="admin-section-header-actions">
+        <button type="button" class="app-btn app-btn-secondary admin-section-upload-btn" id="sec-open-upload-btn">
+          <span>📤 画像アップロード</span>
+        </button>
+        <button type="button" class="app-btn app-btn-orange" id="sec-commit-btn">
+          <span>更新反映</span>
+        </button>
+      </div>
     `;
     wrapper.appendChild(headerBar);
 
@@ -13169,6 +13201,52 @@ export class CrudController {
       });
     };
 
+    // 未反映変更件数の計算
+    const getChangesCount = () => {
+      if (!this.sectionState?.originalRecords) return 0;
+      let count = 0;
+      this.sectionDraftList.forEach((draft, idx) => {
+        const orig = this.sectionState.originalRecords.find((o) => o.id === draft.id);
+        if (!orig) {
+          count++;
+          return;
+        }
+        if (
+          orig.priority !== draft.priority ||
+          Boolean(orig.isFeatured) !== Boolean(draft.isFeatured) ||
+          (orig.headerName || "") !== (draft.headerName || "") ||
+          (orig.sectionName || "") !== (draft.sectionName || "") ||
+          (orig.comment || "") !== (draft.comment || "") ||
+          (orig.topLine || "") !== (draft.topLine || "") ||
+          (orig.outLine || "") !== (draft.outLine || "") ||
+          (orig.sectionBackground || "") !== (draft.sectionBackground || "")
+        ) {
+          count++;
+        }
+      });
+      return count;
+    };
+
+    // 更新反映ボタンの状態更新
+    const commitBtn = headerBar.querySelector("#sec-commit-btn");
+    const updateCommitBtnState = () => {
+      syncCurrentInputs();
+      const count = getChangesCount();
+      if (count > 0) {
+        this.sectionState.hasPendingChanges = true;
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${count}</span>`;
+        commitBtn.title = `${count}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        this.sectionState.hasPendingChanges = false;
+        commitBtn.classList.remove("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+    };
+
     // ハイライト点滅
     const flashCard = (targetIdx) => {
       requestAnimationFrame(() => {
@@ -13180,13 +13258,11 @@ export class CrudController {
       });
     };
 
-    // 組み合わせプレビュー更新
+    // 組み合わせプレビュー更新 (セクション背景 + topLine + outLine のみ表示)
     const updateCombinedPreview = (cardEl, secData) => {
       const bgLayer = cardEl.querySelector(".admin-section-preview-bg-layer");
       const topImg = cardEl.querySelector(".admin-section-preview-topline img");
       const outImg = cardEl.querySelector(".admin-section-preview-outline img");
-      const mockTitle = cardEl.querySelector(".admin-section-preview-mock-title");
-      const mockSub = cardEl.querySelector(".admin-section-preview-mock-sub");
 
       // 背景 (sectionBackground)
       if (secData.sectionBackground && secData.sectionBackground.trim()) {
@@ -13217,14 +13293,6 @@ export class CrudController {
         outImg.removeAttribute("src");
         outImg.style.display = "none";
       }
-
-      // テキスト
-      if (mockTitle) {
-        mockTitle.textContent = secData.sectionName || "SECTION";
-      }
-      if (mockSub) {
-        mockSub.textContent = secData.comment || "セクション説明";
-      }
     };
 
     // 各カードの開閉状態キャッシュ
@@ -13253,7 +13321,7 @@ export class CrudController {
         card.dataset.id = String(sec.id);
         card.dataset.index = String(idx);
 
-        // 各画像ライブラリオプション生成
+        // 各画像ライブラリオプション生成 (プルダウン選択のみ)
         const topLineOpts = Array.from(this.sectionImageCache.topLine)
           .map((fn) => `<option value="${escapeHtml(fn)}" ${sec.topLine === fn ? "selected" : ""}>${escapeHtml(fn)}</option>`)
           .join("");
@@ -13296,66 +13364,51 @@ export class CrudController {
 
           <div class="admin-section-form-content">
             <div class="admin-section-content-layout">
-              <!-- 左カラム: ヘッダー項目名 ＋ 画像3項目の縦並び配置 -->
+              <!-- 左カラム: ヘッダー項目名 ＋ 画像3項目のプルダウンのみ縦並び配置 -->
               <div class="admin-section-left-col">
                 <div class="admin-section-form-group">
                   <label class="admin-section-form-label">ヘッダー項目名 (ジャンプ名)</label>
                   <input type="text" class="admin-form-input sec-input-header" value="${escapeHtml(sec.headerName || "")}" placeholder="項目名" />
                 </div>
 
-                <!-- トップライン画像 (topLine) -->
+                <!-- トップライン画像 (topLine) - プルダウンのみ -->
                 <div class="admin-section-image-box">
                   <div class="admin-section-image-label-bar">
                     <label class="admin-section-form-label">トップライン画像 (topLine)</label>
                     <span class="admin-section-image-path-hint">assets/section/topLine</span>
                   </div>
-                  <div class="admin-section-image-control-row">
-                    <select class="admin-form-input sec-select-topline" style="flex: 1;">
-                      <option value="">-- 未設定 (なし) --</option>
-                      ${topLineOpts}
-                    </select>
-                    <button type="button" class="app-btn app-btn-secondary sec-upload-btn" data-field="topLine">
-                      📁 変更
-                    </button>
-                  </div>
+                  <select class="admin-form-input sec-select-topline" style="width: 100%;">
+                    <option value="">-- 未設定 (なし) --</option>
+                    ${topLineOpts}
+                  </select>
                 </div>
 
-                <!-- アウトライン画像 (outLine) -->
+                <!-- アウトライン画像 (outLine) - プルダウンのみ -->
                 <div class="admin-section-image-box">
                   <div class="admin-section-image-label-bar">
                     <label class="admin-section-form-label">アウトライン画像 (outLine)</label>
                     <span class="admin-section-image-path-hint">assets/section/outLine</span>
                   </div>
-                  <div class="admin-section-image-control-row">
-                    <select class="admin-form-input sec-select-outline" style="flex: 1;">
-                      <option value="">-- 未設定 (なし) --</option>
-                      ${outLineOpts}
-                    </select>
-                    <button type="button" class="app-btn app-btn-secondary sec-upload-btn" data-field="outLine">
-                      📁 変更
-                    </button>
-                  </div>
+                  <select class="admin-form-input sec-select-outline" style="width: 100%;">
+                    <option value="">-- 未設定 (なし) --</option>
+                    ${outLineOpts}
+                  </select>
                 </div>
 
-                <!-- セクション背景画像 (sectionBackground) -->
+                <!-- セクション背景画像 (sectionBackground) - プルダウンのみ -->
                 <div class="admin-section-image-box">
                   <div class="admin-section-image-label-bar">
                     <label class="admin-section-form-label">セクション背景画像 (sectionBackground)</label>
                     <span class="admin-section-image-path-hint">assets/section/sectionBackground</span>
                   </div>
-                  <div class="admin-section-image-control-row">
-                    <select class="admin-form-input sec-select-bg" style="flex: 1;">
-                      <option value="">-- 未設定 (なし) --</option>
-                      ${bgOpts}
-                    </select>
-                    <button type="button" class="app-btn app-btn-secondary sec-upload-btn" data-field="sectionBackground">
-                      📁 変更
-                    </button>
-                  </div>
+                  <select class="admin-form-input sec-select-bg" style="width: 100%;">
+                    <option value="">-- 未設定 (なし) --</option>
+                    ${bgOpts}
+                  </select>
                 </div>
               </div>
 
-              <!-- 右カラム: 見出し設定 ＋ 組み合わせプレビュー -->
+              <!-- 右カラム: 見出し設定 ＋ 組み合わせプレビュー (カードモックなし) -->
               <div class="admin-section-right-col">
                 ${isStaticSection ? `
                   <!-- プロフィール(id:1) または イベントバナー(id:2) 専用表示 -->
@@ -13380,7 +13433,7 @@ export class CrudController {
                   </div>
                 `}
 
-                <!-- 組み合わせリアルタイムプレビュー -->
+                <!-- 組み合わせリアルタイムプレビュー (内部カードモックなし) -->
                 <div class="admin-section-preview-wrapper">
                   <div class="admin-section-preview-title">
                     <span>👁️</span> <span>セクション装飾プレビュー (topLine + outLine + 背景)</span>
@@ -13392,22 +13445,6 @@ export class CrudController {
                     </div>
                     <div class="admin-section-preview-outline">
                       <img src="" alt="" style="display: none;" />
-                    </div>
-
-                    <div class="admin-section-preview-inner-mock">
-                      ${isStaticSection ? `
-                        <div class="admin-section-preview-mock-badge">${escapeHtml(sec.item)}</div>
-                        <div class="admin-section-preview-mock-desc">セクションコンテンツ表示エリア</div>
-                      ` : `
-                        <div class="admin-section-preview-mock-header">
-                          <span class="admin-section-preview-mock-title">${escapeHtml(sec.sectionName || "SECTION")}</span>
-                          <span class="admin-section-preview-mock-sub">${escapeHtml(sec.comment || "セクション説明")}</span>
-                        </div>
-                        <div class="admin-section-preview-mock-card">
-                          <div class="admin-section-preview-mock-line"></div>
-                          <div class="admin-section-preview-mock-line short"></div>
-                        </div>
-                      `}
                     </div>
                   </div>
                   <div class="admin-section-preview-footer-note">
@@ -13435,6 +13472,7 @@ export class CrudController {
             updatePriorities();
             renderCards();
             flashCard(idx - 1);
+            updateCommitBtnState();
           }
         });
 
@@ -13447,6 +13485,7 @@ export class CrudController {
             updatePriorities();
             renderCards();
             flashCard(idx + 1);
+            updateCommitBtnState();
           }
         });
 
@@ -13454,6 +13493,7 @@ export class CrudController {
         const toggleSwitch = card.querySelector(".sec-toggle-switch");
         toggleSwitch?.addEventListener("change", (e) => {
           sec.isFeatured = e.target.checked;
+          updateCommitBtnState();
         });
 
         // 3. アコーディオン開閉
@@ -13471,53 +13511,44 @@ export class CrudController {
         const inputHeader = card.querySelector(".sec-input-header");
         inputHeader?.addEventListener("input", (e) => {
           sec.headerName = e.target.value;
+          updateCommitBtnState();
         });
 
         const inputTitle = card.querySelector(".sec-input-title");
         inputTitle?.addEventListener("input", (e) => {
           sec.sectionName = e.target.value;
-          updateCombinedPreview(card, sec);
+          updateCommitBtnState();
         });
 
         const inputDesc = card.querySelector(".sec-input-desc");
         inputDesc?.addEventListener("input", (e) => {
           sec.comment = e.target.value;
-          updateCombinedPreview(card, sec);
+          updateCommitBtnState();
         });
 
-        // 5. 画像セレクトボックスイベント
+        // 5. 画像セレクトボックスイベント (プルダウン選択のみ)
         const selectTopLine = card.querySelector(".sec-select-topline");
         selectTopLine?.addEventListener("change", (e) => {
           sec.topLine = e.target.value;
           updateCombinedPreview(card, sec);
+          updateCommitBtnState();
         });
 
         const selectOutLine = card.querySelector(".sec-select-outline");
         selectOutLine?.addEventListener("change", (e) => {
           sec.outLine = e.target.value;
           updateCombinedPreview(card, sec);
+          updateCommitBtnState();
         });
 
         const selectBg = card.querySelector(".sec-select-bg");
         selectBg?.addEventListener("change", (e) => {
           sec.sectionBackground = e.target.value;
           updateCombinedPreview(card, sec);
+          updateCommitBtnState();
         });
 
-        // 6. 画像変更ボタンイベント
-        card.querySelectorAll(".sec-upload-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const field = btn.dataset.field;
-            this.openSectionImageUploadModal(field, sec, (newFileName) => {
-              sec[field] = newFileName;
-              syncCurrentInputs();
-              renderCards();
-              flashCard(idx);
-            });
-          });
-        });
-
-        // 7. ドラッグ＆ドロップ並び替え
+        // 6. ドラッグ＆ドロップ並び替え
         const dragHandle = card.querySelector(".admin-section-drag-handle");
         dragHandle?.addEventListener("dragstart", (e) => {
           draggedIndex = idx;
@@ -13549,6 +13580,7 @@ export class CrudController {
             updatePriorities();
             renderCards();
             flashCard(idx);
+            updateCommitBtnState();
           }
         });
 
@@ -13564,22 +13596,43 @@ export class CrudController {
 
     // 初期描画
     renderCards();
+    updateCommitBtnState();
 
-    // 3. 変更保存ボタンイベント
-    const saveBtn = headerBar.querySelector("#sec-save-btn");
-    saveBtn?.addEventListener("click", async () => {
+    // 3. 画像アップロードボタン (ヘッダー左側ボタン)
+    const openUploadBtn = headerBar.querySelector("#sec-open-upload-btn");
+    openUploadBtn?.addEventListener("click", () => {
+      this.openSectionGlobalUploadModal((category, newFileName) => {
+        // 新画像をライブラリに追加し、カードの選択肢を再描画
+        syncCurrentInputs();
+        renderCards();
+        updateCommitBtnState();
+      });
+    });
+
+    // 4. 更新反映ボタン (他の設定画面と同じ仕様・押すまでD1に反映されない)
+    commitBtn.addEventListener("click", async () => {
       syncCurrentInputs();
       updatePriorities();
 
-      saveBtn.disabled = true;
-      saveBtn.style.opacity = "0.7";
-      saveBtn.innerHTML = `<span>⏳</span> 保存中...`;
+      const count = getChangesCount();
+      if (!this.sectionState.hasPendingChanges || count === 0) {
+        Toast.info("D1に未反映の変更はありません");
+        return;
+      }
+
+      const ok = confirm(
+        `セクション表示設定の変更内容（${count}件）をD1データベースに更新反映しますか？\n\nこの操作によりD1データベースが最新の状態に保存されます。`
+      );
+      if (!ok) return;
+
+      api.showLoading();
+      commitBtn.disabled = true;
 
       try {
-        const savePromises = this.sectionDraftList.map((sec) => {
+        const savePromises = this.sectionDraftList.map((sec, idx) => {
           const payload = {
             ...sec,
-            priority: Number(sec.priority),
+            priority: idx + 1,
             isFeatured: sec.isFeatured ? 1 : 0,
             sectionName: sec.sectionName || "-",
             comment: sec.comment || "",
@@ -13591,14 +13644,16 @@ export class CrudController {
         });
 
         await Promise.all(savePromises);
-        Toast.success("セクション表示設定を保存しました");
+        this.sectionState.originalRecords = JSON.parse(JSON.stringify(this.sectionDraftList));
+        this.sectionState.hasPendingChanges = false;
+        updateCommitBtnState();
+        Toast.success("セクション設定を更新反映しました");
       } catch (err) {
-        console.error("[Section Setting Save Error]:", err);
-        Toast.error(`保存に失敗しました: ${err.message}`);
+        console.error("[Section Setting Commit Error]:", err);
+        Toast.error(`更新反映に失敗しました: ${err.message}`);
       } finally {
-        saveBtn.disabled = false;
-        saveBtn.style.opacity = "1";
-        saveBtn.innerHTML = `<span>💾</span> 変更保存`;
+        api.hideLoading();
+        updateCommitBtnState();
       }
     });
 
@@ -13607,13 +13662,15 @@ export class CrudController {
   }
 
   /**
-   * セクション画像アップロードモーダル (schema/section.yaml 準拠)
+   * セクション装飾画像一括アップロードモーダル (topLine / outLine / sectionBackground)
    */
-  async openSectionImageUploadModal(field, currentSec, onUploaded) {
-    // YAML設定値 (schema/section.yaml)
-    const fieldConfigs = {
+  async openSectionGlobalUploadModal(onUploaded) {
+    // 各カテゴリーのYAML仕様定義 (schema/section.yaml 準拠)
+    const categoryConfigs = {
       topLine: {
-        label: "トップライン画像",
+        key: "topLine",
+        label: "トップライン画像 (topLine)",
+        shortLabel: "トップライン",
         uploadPath: "assets/section/topLine",
         accept: ".png",
         maxSizeBytes: 1048576, // 1MB
@@ -13622,7 +13679,9 @@ export class CrudController {
         maxLongEdge: 2000,
       },
       outLine: {
-        label: "アウトライン画像",
+        key: "outLine",
+        label: "アウトライン画像 (outLine)",
+        shortLabel: "アウトライン",
         uploadPath: "assets/section/outLine",
         accept: ".png",
         maxSizeBytes: 1048576, // 1MB
@@ -13631,7 +13690,9 @@ export class CrudController {
         maxLongEdge: 2000,
       },
       sectionBackground: {
-        label: "セクション背景画像",
+        key: "sectionBackground",
+        label: "セクション背景画像 (sectionBackground)",
+        shortLabel: "セクション背景",
         uploadPath: "assets/section/sectionBackground",
         accept: ".png,.jpg,.jpeg",
         maxSizeBytes: 2097152, // 2MB
@@ -13640,23 +13701,35 @@ export class CrudController {
       },
     };
 
-    const cfg = fieldConfigs[field] || fieldConfigs.sectionBackground;
-    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+    let activeCategory = "topLine";
+    let cfg = categoryConfigs[activeCategory];
 
     const wrap = document.createElement("div");
     wrap.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
 
     wrap.innerHTML = `
-      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
-        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
-        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${Math.round(cfg.maxSizeBytes / 1024 / 1024 * 10) / 10}MB (${maxKB} KB)</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (contain)</code>` : "｜ 規格比率: <code>元画像比率維持</code>"}</div>
+      <!-- カテゴリ切り替えタブ -->
+      <div class="admin-upload-category-bar">
+        <button type="button" class="admin-upload-category-btn is-active" data-cat="topLine">
+          <span>📐 トップライン (topLine)</span>
+        </button>
+        <button type="button" class="admin-upload-category-btn" data-cat="outLine">
+          <span>📐 アウトライン (outLine)</span>
+        </button>
+        <button type="button" class="admin-upload-category-btn" data-cat="sectionBackground">
+          <span>🖼️ セクション背景</span>
+        </button>
+      </div>
+
+      <!-- カテゴリー説明・仕様情報 -->
+      <div id="cat-info-sec" style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
       </div>
 
       <!-- 画像選択ドロップゾーン -->
       <div class="admin-upload-dropzone" id="upload-dropzone-sec" style="border: 2px dashed rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; background: rgba(15, 23, 42, 0.4); transition: border-color 0.2s;">
         <input type="file" id="upload-file-input-sec" accept="${cfg.accept}" style="display: none;" />
         <span style="font-size: 2.2rem; display: block; margin-bottom: 6px;">📁</span>
-        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;" id="dropzone-text-sec">画像ファイルを選択</div>
         <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">クリックまたはドラッグ＆ドロップで新しい画像を選択してください</div>
       </div>
 
@@ -13665,9 +13738,9 @@ export class CrudController {
         <div class="crop-header">
           <div class="crop-header-title">
             <span>✂</span>
-            <span>${cfg.aspectRatio ? `トリミング調整 (${cfg.aspectRatio})` : "画像プレビュー (元比率)"}</span>
+            <span id="crop-header-text-sec">トリミング調整</span>
           </div>
-          <div class="crop-header-hint">${cfg.aspectRatio ? "ドラッグで移動 / スライダーでズーム" : "画像表示確認"}</div>
+          <div class="crop-header-hint" id="crop-hint-sec">ドラッグで移動 / スライダーでズーム</div>
         </div>
 
         <div class="admin-upload-crop-container">
@@ -13676,14 +13749,12 @@ export class CrudController {
           </div>
         </div>
 
-        ${cfg.aspectRatio ? `
-          <div class="crop-controls">
-            <div class="crop-zoom-label"><span>🔍</span> <span>ズーム:</span></div>
-            <input type="range" id="crop-zoom-slider-sec" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
-            <button type="button" id="crop-fit-btn-sec" class="crop-btn">フィット</button>
-            <button type="button" id="crop-center-btn-sec" class="crop-btn">中央揃え</button>
-          </div>
-        ` : ""}
+        <div class="crop-controls" id="crop-controls-sec">
+          <div class="crop-zoom-label"><span>🔍</span> <span>ズーム:</span></div>
+          <input type="range" id="crop-zoom-slider-sec" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-sec" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-sec" class="crop-btn">中央揃え</button>
+        </div>
 
         <div class="crop-status-card">
           <div class="crop-status-col">
@@ -13691,7 +13762,7 @@ export class CrudController {
             <span id="crop-res-text-sec" class="crop-status-val">-</span>
           </div>
           <div class="crop-status-col right">
-            <span id="crop-size-badge-sec" class="crop-size-badge is-valid">0 KB / ${maxKB} KB OK</span>
+            <span id="crop-size-badge-sec" class="crop-size-badge is-valid">0 KB OK</span>
           </div>
         </div>
       </div>
@@ -13707,7 +13778,7 @@ export class CrudController {
             id="upload-filename-sec"
             class="admin-form-input"
             style="flex: 1; font-family: monospace;"
-            placeholder="例: section_${field}_${currentSec.id}"
+            placeholder="例: section_line_01"
           />
           <span id="upload-ext-sec" style="color: #60a5fa; font-weight: 700; font-family: monospace; padding: 0 4px;">.png</span>
         </div>
@@ -13727,24 +13798,29 @@ export class CrudController {
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "app-btn app-btn-primary";
-    saveBtn.textContent = "アップロードして反映";
+    saveBtn.textContent = "アップロードしてライブラリに追加";
     saveBtn.disabled = true;
 
     footer.appendChild(cancelBtn);
     footer.appendChild(saveBtn);
 
-    // ロジック制御
+    // 要素参照
+    const catInfo = wrap.querySelector("#cat-info-sec");
     const dropzone = wrap.querySelector("#upload-dropzone-sec");
     const fileInput = wrap.querySelector("#upload-file-input-sec");
     const cropStage = wrap.querySelector("#crop-stage-sec");
     const canvas = wrap.querySelector("#crop-canvas-sec");
+    const cropControls = wrap.querySelector("#crop-controls-sec");
+    const cropHeaderText = wrap.querySelector("#crop-header-text-sec");
+    const cropHint = wrap.querySelector("#crop-hint-sec");
     const filenameInput = wrap.querySelector("#upload-filename-sec");
     const extSpan = wrap.querySelector("#upload-ext-sec");
     const sizeBadge = wrap.querySelector("#crop-size-badge-sec");
     const resText = wrap.querySelector("#crop-res-text-sec");
 
     let loadedImage = null;
-    let selectedExt = cfg.accept.split(",")[0].trim();
+    let selectedFile = null;
+    let selectedExt = ".png";
     let zoom = 1;
     let panX = 0;
     let panY = 0;
@@ -13753,7 +13829,53 @@ export class CrudController {
     let dragStartY = 0;
 
     let targetW = 1000;
-    let targetH = cfg.isRatioFixed ? 100 : 600;
+    let targetH = 100;
+
+    // カテゴリ情報更新
+    const updateCategoryUI = () => {
+      cfg = categoryConfigs[activeCategory];
+      const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+      catInfo.innerHTML = `
+        <div>アップロード先: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${Math.round(cfg.maxSizeBytes / 1024 / 1024 * 10) / 10}MB (${maxKB} KB)</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (contain)</code>` : "｜ 規格比率: <code>元画像比率維持</code>"}</div>
+      `;
+      fileInput.accept = cfg.accept;
+      selectedExt = cfg.accept.split(",")[0].trim();
+      extSpan.textContent = selectedExt;
+
+      if (cfg.aspectRatio) {
+        cropControls.style.display = "flex";
+        cropHeaderText.textContent = `トリミング調整 (${cfg.aspectRatio})`;
+        cropHint.textContent = "ドラッグで移動 / スライダーでズーム";
+      } else {
+        cropControls.style.display = "none";
+        cropHeaderText.textContent = "画像プレビュー (元比率)";
+        cropHint.textContent = "画像表示確認";
+      }
+
+      if (loadedImage) {
+        if (!cfg.isRatioFixed) {
+          targetW = Math.min(loadedImage.width, cfg.maxLongEdge || 2000);
+          targetH = Math.round((targetW / loadedImage.width) * loadedImage.height);
+        } else {
+          targetW = 1000;
+          targetH = 100;
+        }
+        fitImage();
+      }
+    };
+
+    updateCategoryUI();
+
+    // カテゴリ切り替えタブイベント
+    wrap.querySelectorAll(".admin-upload-category-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        wrap.querySelectorAll(".admin-upload-category-btn").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        activeCategory = btn.dataset.cat;
+        updateCategoryUI();
+      });
+    });
 
     const redraw = () => {
       if (!loadedImage) return;
@@ -13791,6 +13913,7 @@ export class CrudController {
     fileInput.onchange = (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      selectedFile = file;
 
       const dotIdx = file.name.lastIndexOf(".");
       if (dotIdx !== -1) {
@@ -13815,9 +13938,9 @@ export class CrudController {
 
           cropStage.style.display = "block";
           fitImage();
-          saveBtn.disabled = false;
 
           // 容量チェック
+          const maxKB = Math.round(cfg.maxSizeBytes / 1024);
           const estSize = Math.round(file.size);
           const kb = Math.round(estSize / 1024);
           if (estSize > cfg.maxSizeBytes) {
@@ -13836,33 +13959,32 @@ export class CrudController {
     };
 
     // ドラッグ＆ズーム
-    if (cfg.aspectRatio) {
-      canvas.onmousedown = (e) => {
-        isDragging = true;
-        dragStartX = e.clientX - panX;
-        dragStartY = e.clientY - panY;
-      };
-      window.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
-        panX = e.clientX - dragStartX;
-        panY = e.clientY - dragStartY;
-        redraw();
-      });
-      window.addEventListener("mouseup", () => {
-        isDragging = false;
-      });
+    canvas.onmousedown = (e) => {
+      if (!cfg.aspectRatio) return;
+      isDragging = true;
+      dragStartX = e.clientX - panX;
+      dragStartY = e.clientY - panY;
+    };
+    window.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - dragStartX;
+      panY = e.clientY - dragStartY;
+      redraw();
+    });
+    window.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
 
-      wrap.querySelector("#crop-zoom-slider-sec")?.addEventListener("input", (e) => {
-        zoom = parseFloat(e.target.value);
-        redraw();
-      });
-      wrap.querySelector("#crop-fit-btn-sec")?.addEventListener("click", fitImage);
-      wrap.querySelector("#crop-center-btn-sec")?.addEventListener("click", () => {
-        panX = 0;
-        panY = 0;
-        redraw();
-      });
-    }
+    wrap.querySelector("#crop-zoom-slider-sec")?.addEventListener("input", (e) => {
+      zoom = parseFloat(e.target.value);
+      redraw();
+    });
+    wrap.querySelector("#crop-fit-btn-sec")?.addEventListener("click", fitImage);
+    wrap.querySelector("#crop-center-btn-sec")?.addEventListener("click", () => {
+      panX = 0;
+      panY = 0;
+      redraw();
+    });
 
     // アップロード実行
     saveBtn.onclick = async () => {
@@ -13909,7 +14031,7 @@ export class CrudController {
           } catch (e) {}
 
           const putBody = {
-            message: `Upload ${fullFileName} for section ${field} via admin`,
+            message: `Upload ${fullFileName} for section ${activeCategory} via admin`,
             content: base64Data,
             branch: "main",
           };
@@ -13932,23 +14054,23 @@ export class CrudController {
         }
 
         // ライブラリキャッシュに追加
-        this.sectionImageCache[field].add(fullFileName);
+        this.sectionImageCache[activeCategory].add(fullFileName);
 
-        Toast.success(`画像「${fullFileName}」を正常に反映しました`);
+        Toast.success(`画像「${fullFileName}」を正常にアップロードしました`);
         Modal.close();
         if (typeof onUploaded === "function") {
-          onUploaded(fullFileName);
+          onUploaded(activeCategory, fullFileName);
         }
       } catch (err) {
-        console.error("[Section Image Upload Error]:", err);
+        console.error("[Section Global Image Upload Error]:", err);
         Toast.error(`アップロードに失敗しました: ${err.message}`);
         saveBtn.disabled = false;
-        saveBtn.textContent = "アップロードして反映";
+        saveBtn.textContent = "アップロードしてライブラリに追加";
       }
     };
 
     Modal.open({
-      title: `${cfg.label} の変更・アップロード`,
+      title: "セクション装飾画像のアップロード",
       content: wrap,
       footer: footer,
       isLarge: true,
