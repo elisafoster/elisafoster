@@ -13064,7 +13064,7 @@ export class CrudController {
 
   /**
    * 4.5. セクション表示設定タブ (section)
-   * トップページ(LP)のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出しを編集
+   * トップページ(LP)のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出し、装飾画像の編集
    */
   async renderSectionSettingTab() {
     let rawSections = [];
@@ -13080,6 +13080,24 @@ export class CrudController {
     // priority昇順でソート
     rawSections.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
 
+    // 画像ライブラリキャッシュ初期化
+    if (!this.sectionImageCache) {
+      this.sectionImageCache = {
+        topLine: new Set(["sample_topLine.png", "sample_topLine2.png"]),
+        outLine: new Set(["sample_outLine.png", "sample_outLine2.png"]),
+        sectionBackground: new Set([
+          "sample_sectionBackground.png",
+          "sample_sectionBackground2.jpg",
+          "sample_sectionBackground3.jpg",
+        ]),
+      };
+    }
+    rawSections.forEach((s) => {
+      if (s.topLine) this.sectionImageCache.topLine.add(String(s.topLine).split("/").pop());
+      if (s.outLine) this.sectionImageCache.outLine.add(String(s.outLine).split("/").pop());
+      if (s.sectionBackground) this.sectionImageCache.sectionBackground.add(String(s.sectionBackground).split("/").pop());
+    });
+
     // ドラフトデータ初期化
     this.sectionDraftList = rawSections.map((sec, idx) => ({
       ...sec,
@@ -13088,37 +13106,10 @@ export class CrudController {
       headerName: sec.headerName || "",
       sectionName: sec.sectionName === "-" ? "" : (sec.sectionName || ""),
       comment: sec.comment === "-" ? "" : (sec.comment || ""),
+      topLine: sec.topLine ? String(sec.topLine).split("/").pop() : "",
+      outLine: sec.outLine ? String(sec.outLine).split("/").pop() : "",
+      sectionBackground: sec.sectionBackground ? String(sec.sectionBackground).split("/").pop() : "",
     }));
-
-    // セクションタイトル・ハッシュタグ判定
-    const getSectionMeta = (sec) => {
-      const item = String(sec.item || "");
-      if (sec.id === 1 || item.includes("プロフィール")) {
-        return { title: "プロフィール / メインビジュアル", hash: "#hero" };
-      }
-      if (sec.id === 2 || item.includes("イベント") || item.includes("注目")) {
-        return { title: "注目の作品 (スライドショー)", hash: "#featured" };
-      }
-      if (sec.id === 3 || item.includes("お知らせ")) {
-        return { title: "お知らせ (インフォメーション)", hash: "#notice" };
-      }
-      if (sec.id === 4 || item.includes("スケジュール")) {
-        return { title: "スケジュール (配信・イベント予定)", hash: "#schedule" };
-      }
-      if (sec.id === 5 || item.includes("画像") || item.includes("ギャラリー")) {
-        return { title: "ギャラリー (作品一覧)", hash: "#gallery" };
-      }
-      if (sec.id === 6 || item.includes("動画") || item.includes("ムービー")) {
-        return { title: "動画 (ムービーリスト)", hash: "#movie" };
-      }
-      if (sec.id === 7 || item.includes("ショップ") || item.includes("グッズ")) {
-        return { title: "ショップ (グッズ・アイテム)", hash: "#shop" };
-      }
-      if (sec.id === 8 || item.includes("リンク")) {
-        return { title: "リンクリスト (各種リンク・窓口)", hash: "#links" };
-      }
-      return { title: sec.item || `セクション ${sec.id}`, hash: `#section-${sec.id}` };
-    };
 
     const wrapper = document.createElement("div");
     wrapper.className = "admin-section-setting-wrapper";
@@ -13133,7 +13124,7 @@ export class CrudController {
           <h2 class="admin-section-header-title">ページのセクション表示設定</h2>
         </div>
         <p class="admin-section-header-desc">
-          トップページ（LP）のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出しを編集できます。
+          トップページ（LP）のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出し、装飾画像を編集できます。
         </p>
       </div>
       <button type="button" class="admin-theme-save-btn" id="sec-save-btn">
@@ -13161,6 +13152,12 @@ export class CrudController {
           if (d) this.sectionDraftList[idx].comment = d.value;
           const sw = card.querySelector(".sec-toggle-switch");
           if (sw) this.sectionDraftList[idx].isFeatured = sw.checked;
+          const tl = card.querySelector(".sec-select-topline");
+          if (tl) this.sectionDraftList[idx].topLine = tl.value;
+          const ol = card.querySelector(".sec-select-outline");
+          if (ol) this.sectionDraftList[idx].outLine = ol.value;
+          const bg = card.querySelector(".sec-select-bg");
+          if (bg) this.sectionDraftList[idx].sectionBackground = bg.value;
         }
       });
     };
@@ -13183,6 +13180,53 @@ export class CrudController {
       });
     };
 
+    // 組み合わせプレビュー更新
+    const updateCombinedPreview = (cardEl, secData) => {
+      const bgLayer = cardEl.querySelector(".admin-section-preview-bg-layer");
+      const topImg = cardEl.querySelector(".admin-section-preview-topline img");
+      const outImg = cardEl.querySelector(".admin-section-preview-outline img");
+      const mockTitle = cardEl.querySelector(".admin-section-preview-mock-title");
+      const mockSub = cardEl.querySelector(".admin-section-preview-mock-sub");
+
+      // 背景 (sectionBackground)
+      if (secData.sectionBackground && secData.sectionBackground.trim()) {
+        const bgUrl = api.resolveAssetUrl(secData.sectionBackground, "section/sectionBackground");
+        bgLayer.style.backgroundImage = `url("${bgUrl}")`;
+        bgLayer.style.backgroundColor = "transparent";
+      } else {
+        bgLayer.style.backgroundImage = "none";
+        bgLayer.style.backgroundColor = "#131e31";
+      }
+
+      // トップライン (topLine)
+      if (secData.topLine && secData.topLine.trim()) {
+        const topUrl = api.resolveAssetUrl(secData.topLine, "section/topLine");
+        topImg.src = topUrl;
+        topImg.style.display = "block";
+      } else {
+        topImg.removeAttribute("src");
+        topImg.style.display = "none";
+      }
+
+      // アウトライン (outLine)
+      if (secData.outLine && secData.outLine.trim()) {
+        const outUrl = api.resolveAssetUrl(secData.outLine, "section/outLine");
+        outImg.src = outUrl;
+        outImg.style.display = "block";
+      } else {
+        outImg.removeAttribute("src");
+        outImg.style.display = "none";
+      }
+
+      // テキスト
+      if (mockTitle) {
+        mockTitle.textContent = secData.sectionName || "SECTION";
+      }
+      if (mockSub) {
+        mockSub.textContent = secData.comment || "セクション説明";
+      }
+    };
+
     // 各カードの開閉状態キャッシュ
     const closedStateMap = new Set();
 
@@ -13196,8 +13240,12 @@ export class CrudController {
       this.sectionDraftList.forEach((sec, idx) => {
         const isFirst = idx === 0;
         const isLast = idx === this.sectionDraftList.length - 1;
-        const meta = getSectionMeta(sec);
-        const isProfile = sec.id === 1 || String(sec.item || "").includes("プロフィール");
+        // プロフィール(id:1)およびイベントバナー(id:2)は固定表示判定
+        const isStaticSection =
+          sec.id === 1 ||
+          sec.id === 2 ||
+          String(sec.item || "").includes("プロフィール") ||
+          String(sec.item || "").includes("イベント");
         const isClosed = closedStateMap.has(sec.id);
 
         const card = document.createElement("div");
@@ -13205,14 +13253,24 @@ export class CrudController {
         card.dataset.id = String(sec.id);
         card.dataset.index = String(idx);
 
+        // 各画像ライブラリオプション生成
+        const topLineOpts = Array.from(this.sectionImageCache.topLine)
+          .map((fn) => `<option value="${escapeHtml(fn)}" ${sec.topLine === fn ? "selected" : ""}>${escapeHtml(fn)}</option>`)
+          .join("");
+        const outLineOpts = Array.from(this.sectionImageCache.outLine)
+          .map((fn) => `<option value="${escapeHtml(fn)}" ${sec.outLine === fn ? "selected" : ""}>${escapeHtml(fn)}</option>`)
+          .join("");
+        const bgOpts = Array.from(this.sectionImageCache.sectionBackground)
+          .map((fn) => `<option value="${escapeHtml(fn)}" ${sec.sectionBackground === fn ? "selected" : ""}>${escapeHtml(fn)}</option>`)
+          .join("");
+
         card.innerHTML = `
           <div class="admin-section-card-header">
             <div class="admin-section-card-header-left">
               <span class="admin-section-drag-handle" title="ドラッグして並び替え" draggable="true">☰</span>
               <div class="admin-section-order-badge">${idx + 1}</div>
               <div class="admin-section-title-wrap">
-                <div class="admin-section-title">${escapeHtml(meta.title)}</div>
-                <div class="admin-section-hash">${escapeHtml(meta.hash)}</div>
+                <div class="admin-section-title">${escapeHtml(sec.item || "セクション " + sec.id)}</div>
               </div>
             </div>
             <div class="admin-section-card-header-right">
@@ -13237,38 +13295,132 @@ export class CrudController {
           </div>
 
           <div class="admin-section-form-content">
-            ${isProfile ? `
-              <div class="admin-section-form-grid is-profile">
-                <div class="admin-section-form-group">
-                  <label class="admin-section-form-label">ヘッダー項目名 (ジャンプ名)</label>
-                  <input type="text" class="admin-form-input sec-input-header" value="${escapeHtml(sec.headerName || "")}" placeholder="基本" />
-                </div>
-                <div class="admin-section-form-group">
-                  <label class="admin-section-form-label">ページ内セクション名・説明</label>
-                  <div class="admin-section-static-notice">
-                    <span class="admin-section-static-pill">プロフィール</span>
-                    <span class="admin-section-static-text">※サイト側にセクション名・説明の表示枠はありません（固定表示）</span>
-                  </div>
-                </div>
-              </div>
-            ` : `
-              <div class="admin-section-form-grid">
+            <div class="admin-section-content-layout">
+              <!-- 左カラム: ヘッダー項目名 ＋ 画像3項目の縦並び配置 -->
+              <div class="admin-section-left-col">
                 <div class="admin-section-form-group">
                   <label class="admin-section-form-label">ヘッダー項目名 (ジャンプ名)</label>
                   <input type="text" class="admin-form-input sec-input-header" value="${escapeHtml(sec.headerName || "")}" placeholder="項目名" />
                 </div>
-                <div class="admin-section-form-group">
-                  <label class="admin-section-form-label">ページ内セクション名</label>
-                  <input type="text" class="admin-form-input sec-input-title" value="${escapeHtml(sec.sectionName || "")}" placeholder="セクション名" />
+
+                <!-- トップライン画像 (topLine) -->
+                <div class="admin-section-image-box">
+                  <div class="admin-section-image-label-bar">
+                    <label class="admin-section-form-label">トップライン画像 (topLine)</label>
+                    <span class="admin-section-image-path-hint">assets/section/topLine</span>
+                  </div>
+                  <div class="admin-section-image-control-row">
+                    <select class="admin-form-input sec-select-topline" style="flex: 1;">
+                      <option value="">-- 未設定 (なし) --</option>
+                      ${topLineOpts}
+                    </select>
+                    <button type="button" class="app-btn app-btn-secondary sec-upload-btn" data-field="topLine">
+                      📁 変更
+                    </button>
+                  </div>
                 </div>
-                <div class="admin-section-form-group">
-                  <label class="admin-section-form-label">ページ内セクション説明</label>
-                  <input type="text" class="admin-form-input sec-input-desc" value="${escapeHtml(sec.comment || "")}" placeholder="セクション説明" />
+
+                <!-- アウトライン画像 (outLine) -->
+                <div class="admin-section-image-box">
+                  <div class="admin-section-image-label-bar">
+                    <label class="admin-section-form-label">アウトライン画像 (outLine)</label>
+                    <span class="admin-section-image-path-hint">assets/section/outLine</span>
+                  </div>
+                  <div class="admin-section-image-control-row">
+                    <select class="admin-form-input sec-select-outline" style="flex: 1;">
+                      <option value="">-- 未設定 (なし) --</option>
+                      ${outLineOpts}
+                    </select>
+                    <button type="button" class="app-btn app-btn-secondary sec-upload-btn" data-field="outLine">
+                      📁 変更
+                    </button>
+                  </div>
+                </div>
+
+                <!-- セクション背景画像 (sectionBackground) -->
+                <div class="admin-section-image-box">
+                  <div class="admin-section-image-label-bar">
+                    <label class="admin-section-form-label">セクション背景画像 (sectionBackground)</label>
+                    <span class="admin-section-image-path-hint">assets/section/sectionBackground</span>
+                  </div>
+                  <div class="admin-section-image-control-row">
+                    <select class="admin-form-input sec-select-bg" style="flex: 1;">
+                      <option value="">-- 未設定 (なし) --</option>
+                      ${bgOpts}
+                    </select>
+                    <button type="button" class="app-btn app-btn-secondary sec-upload-btn" data-field="sectionBackground">
+                      📁 変更
+                    </button>
+                  </div>
                 </div>
               </div>
-            `}
+
+              <!-- 右カラム: 見出し設定 ＋ 組み合わせプレビュー -->
+              <div class="admin-section-right-col">
+                ${isStaticSection ? `
+                  <!-- プロフィール(id:1) または イベントバナー(id:2) 専用表示 -->
+                  <div class="admin-section-form-group">
+                    <label class="admin-section-form-label">ページ内セクション名・説明</label>
+                    <div class="admin-section-static-notice">
+                      <span class="admin-section-static-pill">${escapeHtml(sec.item)}</span>
+                      <span class="admin-section-static-text">※サイト側にセクション名・説明の表示枠はありません（固定表示）</span>
+                    </div>
+                  </div>
+                ` : `
+                  <!-- 通常セクション -->
+                  <div class="admin-section-names-grid">
+                    <div class="admin-section-form-group">
+                      <label class="admin-section-form-label">ページ内セクション名</label>
+                      <input type="text" class="admin-form-input sec-input-title" value="${escapeHtml(sec.sectionName || "")}" placeholder="セクション名" />
+                    </div>
+                    <div class="admin-section-form-group">
+                      <label class="admin-section-form-label">ページ内セクション説明</label>
+                      <input type="text" class="admin-form-input sec-input-desc" value="${escapeHtml(sec.comment || "")}" placeholder="セクション説明" />
+                    </div>
+                  </div>
+                `}
+
+                <!-- 組み合わせリアルタイムプレビュー -->
+                <div class="admin-section-preview-wrapper">
+                  <div class="admin-section-preview-title">
+                    <span>👁️</span> <span>セクション装飾プレビュー (topLine + outLine + 背景)</span>
+                  </div>
+                  <div class="admin-section-combined-stage">
+                    <div class="admin-section-preview-bg-layer"></div>
+                    <div class="admin-section-preview-topline">
+                      <img src="" alt="" style="display: none;" />
+                    </div>
+                    <div class="admin-section-preview-outline">
+                      <img src="" alt="" style="display: none;" />
+                    </div>
+
+                    <div class="admin-section-preview-inner-mock">
+                      ${isStaticSection ? `
+                        <div class="admin-section-preview-mock-badge">${escapeHtml(sec.item)}</div>
+                        <div class="admin-section-preview-mock-desc">セクションコンテンツ表示エリア</div>
+                      ` : `
+                        <div class="admin-section-preview-mock-header">
+                          <span class="admin-section-preview-mock-title">${escapeHtml(sec.sectionName || "SECTION")}</span>
+                          <span class="admin-section-preview-mock-sub">${escapeHtml(sec.comment || "セクション説明")}</span>
+                        </div>
+                        <div class="admin-section-preview-mock-card">
+                          <div class="admin-section-preview-mock-line"></div>
+                          <div class="admin-section-preview-mock-line short"></div>
+                        </div>
+                      `}
+                    </div>
+                  </div>
+                  <div class="admin-section-preview-footer-note">
+                    ※上部トップライン・下部アウトライン・セクション背景画像が合成され、実際のLPと同じ配置で確認できます。
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         `;
+
+        // 初期プレビュー適用
+        updateCombinedPreview(card, sec);
 
         // 1. 上下移動ボタン
         const btnUp = card.querySelector(".btn-up");
@@ -13324,14 +13476,48 @@ export class CrudController {
         const inputTitle = card.querySelector(".sec-input-title");
         inputTitle?.addEventListener("input", (e) => {
           sec.sectionName = e.target.value;
+          updateCombinedPreview(card, sec);
         });
 
         const inputDesc = card.querySelector(".sec-input-desc");
         inputDesc?.addEventListener("input", (e) => {
           sec.comment = e.target.value;
+          updateCombinedPreview(card, sec);
         });
 
-        // 5. ドラッグ＆ドロップ並び替え
+        // 5. 画像セレクトボックスイベント
+        const selectTopLine = card.querySelector(".sec-select-topline");
+        selectTopLine?.addEventListener("change", (e) => {
+          sec.topLine = e.target.value;
+          updateCombinedPreview(card, sec);
+        });
+
+        const selectOutLine = card.querySelector(".sec-select-outline");
+        selectOutLine?.addEventListener("change", (e) => {
+          sec.outLine = e.target.value;
+          updateCombinedPreview(card, sec);
+        });
+
+        const selectBg = card.querySelector(".sec-select-bg");
+        selectBg?.addEventListener("change", (e) => {
+          sec.sectionBackground = e.target.value;
+          updateCombinedPreview(card, sec);
+        });
+
+        // 6. 画像変更ボタンイベント
+        card.querySelectorAll(".sec-upload-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const field = btn.dataset.field;
+            this.openSectionImageUploadModal(field, sec, (newFileName) => {
+              sec[field] = newFileName;
+              syncCurrentInputs();
+              renderCards();
+              flashCard(idx);
+            });
+          });
+        });
+
+        // 7. ドラッグ＆ドロップ並び替え
         const dragHandle = card.querySelector(".admin-section-drag-handle");
         dragHandle?.addEventListener("dragstart", (e) => {
           draggedIndex = idx;
@@ -13397,6 +13583,9 @@ export class CrudController {
             isFeatured: sec.isFeatured ? 1 : 0,
             sectionName: sec.sectionName || "-",
             comment: sec.comment || "",
+            topLine: sec.topLine || "",
+            outLine: sec.outLine || "",
+            sectionBackground: sec.sectionBackground || "",
           };
           return api.saveTable("section", payload, sec.id);
         });
@@ -13417,6 +13606,354 @@ export class CrudController {
     this.container.appendChild(wrapper);
   }
 
+  /**
+   * セクション画像アップロードモーダル (schema/section.yaml 準拠)
+   */
+  async openSectionImageUploadModal(field, currentSec, onUploaded) {
+    // YAML設定値 (schema/section.yaml)
+    const fieldConfigs = {
+      topLine: {
+        label: "トップライン画像",
+        uploadPath: "assets/section/topLine",
+        accept: ".png",
+        maxSizeBytes: 1048576, // 1MB
+        aspectRatio: "10:1",
+        isRatioFixed: true,
+        maxLongEdge: 2000,
+      },
+      outLine: {
+        label: "アウトライン画像",
+        uploadPath: "assets/section/outLine",
+        accept: ".png",
+        maxSizeBytes: 1048576, // 1MB
+        aspectRatio: "10:1",
+        isRatioFixed: true,
+        maxLongEdge: 2000,
+      },
+      sectionBackground: {
+        label: "セクション背景画像",
+        uploadPath: "assets/section/sectionBackground",
+        accept: ".png,.jpg,.jpeg",
+        maxSizeBytes: 2097152, // 2MB
+        aspectRatio: null,
+        isRatioFixed: false,
+      },
+    };
+
+    const cfg = fieldConfigs[field] || fieldConfigs.sectionBackground;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${Math.round(cfg.maxSizeBytes / 1024 / 1024 * 10) / 10}MB (${maxKB} KB)</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (contain)</code>` : "｜ 規格比率: <code>元画像比率維持</code>"}</div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-sec" style="border: 2px dashed rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; background: rgba(15, 23, 42, 0.4); transition: border-color 0.2s;">
+        <input type="file" id="upload-file-input-sec" accept="${cfg.accept}" style="display: none;" />
+        <span style="font-size: 2.2rem; display: block; margin-bottom: 6px;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">クリックまたはドラッグ＆ドロップで新しい画像を選択してください</div>
+      </div>
+
+      <!-- プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-sec" class="admin-upload-crop-wrapper" style="display: none;">
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${cfg.aspectRatio ? `トリミング調整 (${cfg.aspectRatio})` : "画像プレビュー (元比率)"}</span>
+          </div>
+          <div class="crop-header-hint">${cfg.aspectRatio ? "ドラッグで移動 / スライダーでズーム" : "画像表示確認"}</div>
+        </div>
+
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas-sec" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        ${cfg.aspectRatio ? `
+          <div class="crop-controls">
+            <div class="crop-zoom-label"><span>🔍</span> <span>ズーム:</span></div>
+            <input type="range" id="crop-zoom-slider-sec" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+            <button type="button" id="crop-fit-btn-sec" class="crop-btn">フィット</button>
+            <button type="button" id="crop-center-btn-sec" class="crop-btn">中央揃え</button>
+          </div>
+        ` : ""}
+
+        <div class="crop-status-card">
+          <div class="crop-status-col">
+            <span class="crop-status-label">仕上がり解像度:</span>
+            <span id="crop-res-text-sec" class="crop-status-val">-</span>
+          </div>
+          <div class="crop-status-col right">
+            <span id="crop-size-badge-sec" class="crop-size-badge is-valid">0 KB / ${maxKB} KB OK</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 保存ファイル名設定 -->
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label class="admin-form-label" style="font-size: 0.88rem; font-weight: 700;">
+          保存ファイル名 <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 400;">(半角英数字、ハイフン、アンダースコア)</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <input
+            type="text"
+            id="upload-filename-sec"
+            class="admin-form-input"
+            style="flex: 1; font-family: monospace;"
+            placeholder="例: section_${field}_${currentSec.id}"
+          />
+          <span id="upload-ext-sec" style="color: #60a5fa; font-weight: 700; font-family: monospace; padding: 0 4px;">.png</span>
+        </div>
+      </div>
+    `;
+
+    // フッター
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; gap: 10px; justify-content: flex-end; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+    cancelBtn.onclick = () => Modal.close();
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "app-btn app-btn-primary";
+    saveBtn.textContent = "アップロードして反映";
+    saveBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(saveBtn);
+
+    // ロジック制御
+    const dropzone = wrap.querySelector("#upload-dropzone-sec");
+    const fileInput = wrap.querySelector("#upload-file-input-sec");
+    const cropStage = wrap.querySelector("#crop-stage-sec");
+    const canvas = wrap.querySelector("#crop-canvas-sec");
+    const filenameInput = wrap.querySelector("#upload-filename-sec");
+    const extSpan = wrap.querySelector("#upload-ext-sec");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-sec");
+    const resText = wrap.querySelector("#crop-res-text-sec");
+
+    let loadedImage = null;
+    let selectedExt = cfg.accept.split(",")[0].trim();
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    let targetW = 1000;
+    let targetH = cfg.isRatioFixed ? 100 : 600;
+
+    const redraw = () => {
+      if (!loadedImage) return;
+      const ctx = canvas.getContext("2d");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      ctx.clearRect(0, 0, targetW, targetH);
+
+      const drawW = loadedImage.width * zoom;
+      const drawH = loadedImage.height * zoom;
+      const x = targetW / 2 + panX - drawW / 2;
+      const y = targetH / 2 + panY - drawH / 2;
+
+      ctx.drawImage(loadedImage, x, y, drawW, drawH);
+      resText.textContent = `${targetW} × ${targetH} px`;
+    };
+
+    const fitImage = () => {
+      if (!loadedImage) return;
+      if (cfg.isRatioFixed) {
+        const scaleW = targetW / loadedImage.width;
+        const scaleH = targetH / loadedImage.height;
+        zoom = Math.min(scaleW, scaleH);
+      } else {
+        zoom = 1;
+      }
+      panX = 0;
+      panY = 0;
+      const zoomSlider = wrap.querySelector("#crop-zoom-slider-sec");
+      if (zoomSlider) zoomSlider.value = zoom;
+      redraw();
+    };
+
+    dropzone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const dotIdx = file.name.lastIndexOf(".");
+      if (dotIdx !== -1) {
+        selectedExt = file.name.substring(dotIdx).toLowerCase();
+        extSpan.textContent = selectedExt;
+        const base = file.name.substring(0, dotIdx).replace(/[^a-zA-Z0-9_-]/g, "_");
+        filenameInput.value = base;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedImage = img;
+          if (!cfg.isRatioFixed) {
+            targetW = Math.min(img.width, cfg.maxLongEdge || 2000);
+            targetH = Math.round((targetW / img.width) * img.height);
+          } else {
+            targetW = 1000;
+            targetH = 100;
+          }
+
+          cropStage.style.display = "block";
+          fitImage();
+          saveBtn.disabled = false;
+
+          // 容量チェック
+          const estSize = Math.round(file.size);
+          const kb = Math.round(estSize / 1024);
+          if (estSize > cfg.maxSizeBytes) {
+            sizeBadge.textContent = `${kb} KB / ${maxKB} KB (容量超過)`;
+            sizeBadge.className = "crop-size-badge is-error";
+            saveBtn.disabled = true;
+          } else {
+            sizeBadge.textContent = `${kb} KB / ${maxKB} KB OK`;
+            sizeBadge.className = "crop-size-badge is-valid";
+            saveBtn.disabled = false;
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    // ドラッグ＆ズーム
+    if (cfg.aspectRatio) {
+      canvas.onmousedown = (e) => {
+        isDragging = true;
+        dragStartX = e.clientX - panX;
+        dragStartY = e.clientY - panY;
+      };
+      window.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        panX = e.clientX - dragStartX;
+        panY = e.clientY - dragStartY;
+        redraw();
+      });
+      window.addEventListener("mouseup", () => {
+        isDragging = false;
+      });
+
+      wrap.querySelector("#crop-zoom-slider-sec")?.addEventListener("input", (e) => {
+        zoom = parseFloat(e.target.value);
+        redraw();
+      });
+      wrap.querySelector("#crop-fit-btn-sec")?.addEventListener("click", fitImage);
+      wrap.querySelector("#crop-center-btn-sec")?.addEventListener("click", () => {
+        panX = 0;
+        panY = 0;
+        redraw();
+      });
+    }
+
+    // アップロード実行
+    saveBtn.onclick = async () => {
+      const rawName = filenameInput.value.trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+      if (!rawName) {
+        alert("保存ファイル名を入力してください（半角英数字、ハイフン、アンダースコア）");
+        return;
+      }
+      const fullFileName = `${rawName}${selectedExt}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "アップロード中...";
+
+      try {
+        const mime = selectedExt === ".jpg" || selectedExt === ".jpeg" ? "image/jpeg" : "image/png";
+        const dataUrl = canvas.toDataURL(mime, 0.92);
+        const base64Data = dataUrl.split(",")[1];
+
+        // GitHub PAT取得
+        let patInfo = null;
+        try {
+          patInfo = await api.getTable("githubPAT", 1);
+        } catch (e) {}
+
+        const pat = patInfo?.github_pat;
+        const owner = patInfo?.github_repo_owner || "elisafoster";
+        const repo = patInfo?.github_repo_name || "elisafoster";
+
+        if (pat) {
+          const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+          let sha = null;
+          try {
+            const checkRes = await fetch(ghUrl, {
+              headers: {
+                Authorization: `token ${pat}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            });
+            if (checkRes.ok) {
+              const fileInfo = await checkRes.json();
+              sha = fileInfo.sha;
+            }
+          } catch (e) {}
+
+          const putBody = {
+            message: `Upload ${fullFileName} for section ${field} via admin`,
+            content: base64Data,
+            branch: "main",
+          };
+          if (sha) putBody.sha = sha;
+
+          const putRes = await fetch(ghUrl, {
+            method: "PUT",
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(putBody),
+          });
+
+          if (!putRes.ok) {
+            const errJson = await putRes.json().catch(() => ({}));
+            throw new Error(errJson.message || `HTTP ${putRes.status}`);
+          }
+        }
+
+        // ライブラリキャッシュに追加
+        this.sectionImageCache[field].add(fullFileName);
+
+        Toast.success(`画像「${fullFileName}」を正常に反映しました`);
+        Modal.close();
+        if (typeof onUploaded === "function") {
+          onUploaded(fullFileName);
+        }
+      } catch (err) {
+        console.error("[Section Image Upload Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+        saveBtn.disabled = false;
+        saveBtn.textContent = "アップロードして反映";
+      }
+    };
+
+    Modal.open({
+      title: `${cfg.label} の変更・アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+    });
+  }
 
   /**
    * 5. GitHub PAT設定タブ (githubPAT)
