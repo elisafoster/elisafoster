@@ -1807,15 +1807,47 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 /* ========================================================
    リンクリスト管理 (linkList) 専用スタイル
    ======================================================== */
-/* 文字色カラービュー */
+/* 文字色カラーUIセル */
 .admin-color-cell {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background: rgba(15, 23, 42, 0.6);
   padding: 3px 8px;
   border-radius: var(--radius-sm, 6px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* カラーUI (カラーピッカーinput) */
+.admin-color-input-ui {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.admin-color-input-ui::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 3px;
+}
+
+.admin-color-input-ui::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.admin-color-input-ui::-moz-color-swatch {
+  border: none;
+  border-radius: 3px;
 }
 
 .admin-color-swatch {
@@ -1840,32 +1872,54 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 
 /* ボタン画像サムネイル (5:1 横長バナー) */
 .admin-table-thumb.is-button-banner {
-  width: 90px;
-  height: 22px;
-  min-width: 90px;
-  min-height: 22px;
-  aspect-ratio: 5 / 1;
-  object-fit: contain;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-sm, 4px);
-  margin: 0 auto;
-  display: block;
-  cursor: pointer;
+  width: 110px !important;
+  height: 26px !important;
+  min-width: 110px !important;
+  min-height: 26px !important;
+  max-width: 120px !important;
+  max-height: 30px !important;
+  aspect-ratio: 5 / 1 !important;
+  object-fit: contain !important;
+  padding: 0 !important;
+  background: rgba(15, 23, 42, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: var(--radius-sm, 4px) !important;
+  margin: 0 auto !important;
+  display: block !important;
+  cursor: zoom-in !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   transition: transform var(--transition-fast, 0.2s), border-color var(--transition-fast, 0.2s);
 }
 
 .admin-table-thumb.is-button-banner:hover {
   transform: scale(1.06);
-  border-color: rgba(56, 189, 248, 0.6);
+  border-color: rgba(56, 189, 248, 0.7) !important;
 }
 
-.admin-table-col-color {
-  width: 130px;
+.admin-button-banner-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0 auto;
 }
 
-.admin-table-col-button-banner {
-  width: 120px;
+/* カラム幅定義 */
+.admin-table th.admin-table-col-color,
+.admin-table td.admin-table-col-color {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+  text-align: center;
+}
+
+.admin-table th.admin-table-col-button-banner,
+.admin-table td.admin-table-col-button-banner,
+.admin-table td:has(.admin-table-thumb.is-button-banner) {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
   text-align: center;
 }
 

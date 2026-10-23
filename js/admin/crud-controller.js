@@ -476,9 +476,9 @@ export class CrudController {
               { key: "actions", label: "操作", isAction: true, style: { width: "80px", textAlign: "center" } },
               { key: "id", label: "id", style: { width: "60px", textAlign: "center" } },
               { key: "title", label: "ボタンテキスト", style: { minWidth: "160px" } },
-              { key: "buttonTextColor", label: "文字色", type: "color", style: { width: "140px" } },
+              { key: "buttonTextColor", label: "文字色", type: "color", style: { width: "140px", textAlign: "center" } },
               { key: "link", label: "リンク", isLink: true, style: { minWidth: "220px" } },
-              { key: "buttonImage", label: "ボタン画像", type: "image", category: "link", isButtonBanner: true, style: { width: "130px", textAlign: "center" } },
+              { key: "buttonImage", label: "ボタン画像", type: "image", category: "link", isButtonBanner: true, style: { width: "140px", textAlign: "center" } },
               { key: "priority", label: "表示順", style: { width: "80px", textAlign: "center" } },
             ],
             {
@@ -980,13 +980,84 @@ export class CrudController {
               td.textContent = msgStr.length > 50 ? msgStr.slice(0, 50) + "..." : (msgStr || "-");
               if (msgStr) td.title = msgStr;
             } else if (colCfg.type === "color" || colCfg.key === "buttonTextColor") {
-              const colorVal = val ? String(val).trim() : "#ffffff";
-              td.innerHTML = `
-                <div class="admin-color-cell">
-                  <span class="admin-color-swatch" style="background-color: ${escapeHtml(colorVal)};"></span>
-                  <span class="admin-color-code">${escapeHtml(colorVal)}</span>
-                </div>
-              `;
+              const rawColor = val ? String(val).trim() : "#ffffff";
+              const colorVal = rawColor.startsWith("#") ? rawColor : `#${rawColor}`;
+              const isValidHex = /^#[0-9a-fA-F]{6}$/.test(colorVal);
+
+              const colorCell = document.createElement("div");
+              colorCell.className = "admin-color-cell";
+              colorCell.style.cssText = "display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: rgba(15, 23, 42, 0.6); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); margin: 0 auto;";
+              colorCell.onclick = (e) => e.stopPropagation();
+
+              // カラーUI (カラーピッカーinput)
+              const colorInput = document.createElement("input");
+              colorInput.type = "color";
+              colorInput.className = "admin-color-input-ui";
+              colorInput.value = isValidHex ? colorVal : "#ffffff";
+              colorInput.title = "クリックして文字色を変更";
+              colorInput.style.cssText = "width: 28px; height: 26px; padding: 0; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; background: transparent; cursor: pointer; vertical-align: middle;";
+
+              const codeSpan = document.createElement("span");
+              codeSpan.className = "admin-color-code";
+              codeSpan.style.cssText = "font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.82rem; color: #e2e8f0; font-weight: 500; letter-spacing: 0.02em;";
+              codeSpan.textContent = colorVal;
+
+              colorInput.oninput = () => {
+                codeSpan.textContent = colorInput.value;
+              };
+
+              colorInput.onchange = async () => {
+                const newColor = colorInput.value;
+                codeSpan.textContent = newColor;
+                row.buttonTextColor = newColor;
+                try {
+                  await api.saveTable(tableName, { ...row, buttonTextColor: newColor }, row.id);
+                } catch (err) {
+                  console.error("文字色の保存に失敗しました:", err);
+                }
+              };
+
+              colorCell.appendChild(colorInput);
+              colorCell.appendChild(codeSpan);
+              td.appendChild(colorCell);
+            } else if (colCfg.isButtonBanner || (tableName === "linkList" && (colCfg.key === "buttonImage" || colCfg.type === "image"))) {
+              // ボタン画像列: デフォルト画像も含めて常にプレビュー表示
+              const isDefault = !val;
+              const imgPath = val || "assets/link/defaultbutton_typeA.svg";
+              const imgUrl = api.resolveAssetUrl(imgPath, "link");
+
+              const bannerCell = document.createElement("div");
+              bannerCell.className = "admin-button-banner-cell";
+              bannerCell.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; margin: 0 auto;";
+
+              const img = document.createElement("img");
+              img.className = "admin-table-thumb is-button-banner";
+              img.src = imgUrl;
+              img.alt = colCfg.label;
+              const titlePrefix = row.title || row.name || "";
+              img.title = `${titlePrefix ? titlePrefix + " - " : ""}${colCfg.label}${isDefault ? " (デフォルト画像)" : ""} (クリックで拡大)`;
+              img.style.cssText = "width: 110px; height: 26px; min-width: 110px; min-height: 26px; max-width: 120px; max-height: 30px; aspect-ratio: 5 / 1; object-fit: contain; padding: 0; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 4px; display: block; margin: 0 auto; cursor: zoom-in;";
+
+              img.onclick = (e) => {
+                e.stopPropagation();
+                const modalTitle = `${titlePrefix ? titlePrefix + "：" : ""}${colCfg.label}${isDefault ? " (デフォルト)" : ""}`;
+                this.openImageDetailModal(imgUrl, modalTitle, {
+                  costumeName: titlePrefix,
+                  columnLabel: colCfg.label,
+                  path: imgPath,
+                });
+              };
+
+              bannerCell.appendChild(img);
+
+              if (isDefault) {
+                const defSpan = document.createElement("span");
+                defSpan.style.cssText = "font-size: 0.72rem; color: #94a3b8; letter-spacing: 0.02em;";
+                defSpan.textContent = "(デフォルト画像)";
+                bannerCell.appendChild(defSpan);
+              }
+
+              td.appendChild(bannerCell);
             } else {
               const isImage = colCfg.type === "image" ||
                 (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp") || val.endsWith(".svg")));
@@ -1020,11 +1091,7 @@ export class CrudController {
                 };
                 td.appendChild(img);
               } else if (val === null || val === undefined || val === "") {
-                if (colCfg.isButtonBanner || colCfg.key === "buttonImage") {
-                  td.innerHTML = '<span style="color:#64748b; font-size: 0.78rem;">(デフォルト画像)</span>';
-                } else {
-                  td.innerHTML = '<span style="color:#64748b;">-</span>';
-                }
+                td.innerHTML = '<span style="color:#64748b;">-</span>';
               } else if (colCfg.isLink || colCfg.key === "link") {
                 // リンク列: 全文折り返し表示 (URL形式はクリック可能リンク)
                 const strVal = String(val);
@@ -9313,6 +9380,28 @@ export class CrudController {
           hint.style.cssText = "font-size: 0.78rem; color: #94a3b8; margin-top: 4px; display: block;";
           hint.textContent = "未入力の場合はデフォルト画像 (assets/link/defaultbutton_typeA.svg) が使用されます";
           group.appendChild(hint);
+
+          const previewWrap = document.createElement("div");
+          previewWrap.style.cssText = "margin-top: 8px; display: flex; align-items: center; gap: 10px; background: rgba(15, 23, 42, 0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);";
+
+          const previewImg = document.createElement("img");
+          previewImg.style.cssText = "width: 130px; height: 30px; aspect-ratio: 5 / 1; object-fit: contain; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(15, 23, 42, 0.7); display: block;";
+
+          const previewText = document.createElement("span");
+          previewText.style.cssText = "font-size: 0.76rem; color: #94a3b8;";
+
+          const syncPreview = () => {
+            const curVal = input.value.trim();
+            const src = curVal || "assets/link/defaultbutton_typeA.svg";
+            previewImg.src = api.resolveAssetUrl(src, "link");
+            previewText.textContent = curVal ? "プレビュー (カスタム画像)" : "プレビュー (デフォルト画像)";
+          };
+          syncPreview();
+          input.addEventListener("input", syncPreview);
+
+          previewWrap.appendChild(previewImg);
+          previewWrap.appendChild(previewText);
+          group.appendChild(previewWrap);
         }
       } else if (key === "buttonTextColor" || key === "color") {
         const colorWrap = document.createElement("div");
