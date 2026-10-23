@@ -513,7 +513,7 @@ export class CrudController {
           await this.renderThemeConfigTab();
           break;
         case "section":
-          await this.renderTableListTab("section", "セクション設定管理", ["id", "item", "headerName", "sectionName", "sectionType", "isFeatured", "priority"]);
+          await this.renderSectionSettingTab();
           break;
         case "whitelist":
           await this.renderTableListTab("whitelist", "アカウントwhitelist管理", ["id", "name", "mail", "role"]);
@@ -13060,6 +13060,361 @@ export class CrudController {
         cleanupListeners();
       },
     });
+  }
+
+  /**
+   * 4.5. セクション表示設定タブ (section)
+   * トップページ(LP)のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出しを編集
+   */
+  async renderSectionSettingTab() {
+    let rawSections = [];
+    try {
+      const res = await api.getTable("section");
+      rawSections = Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.error("[Section Setting] Failed to load data:", err);
+      this.container.innerHTML = `<div style="padding: 24px; color: #f87171;">セクション設定の取得に失敗しました: ${escapeHtml(err.message)}</div>`;
+      return;
+    }
+
+    // priority昇順でソート
+    rawSections.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+
+    // ドラフトデータ初期化
+    this.sectionDraftList = rawSections.map((sec, idx) => ({
+      ...sec,
+      priority: idx + 1,
+      isFeatured: sec.isFeatured === 1 || sec.isFeatured === true || sec.isFeatured === "1",
+      headerName: sec.headerName || "",
+      sectionName: sec.sectionName === "-" ? "" : (sec.sectionName || ""),
+      comment: sec.comment === "-" ? "" : (sec.comment || ""),
+    }));
+
+    // セクションタイトル・ハッシュタグ判定
+    const getSectionMeta = (sec) => {
+      const item = String(sec.item || "");
+      if (sec.id === 1 || item.includes("プロフィール")) {
+        return { title: "プロフィール / メインビジュアル", hash: "#hero" };
+      }
+      if (sec.id === 2 || item.includes("イベント") || item.includes("注目")) {
+        return { title: "注目の作品 (スライドショー)", hash: "#featured" };
+      }
+      if (sec.id === 3 || item.includes("お知らせ")) {
+        return { title: "お知らせ (インフォメーション)", hash: "#notice" };
+      }
+      if (sec.id === 4 || item.includes("スケジュール")) {
+        return { title: "スケジュール (配信・イベント予定)", hash: "#schedule" };
+      }
+      if (sec.id === 5 || item.includes("画像") || item.includes("ギャラリー")) {
+        return { title: "ギャラリー (作品一覧)", hash: "#gallery" };
+      }
+      if (sec.id === 6 || item.includes("動画") || item.includes("ムービー")) {
+        return { title: "動画 (ムービーリスト)", hash: "#movie" };
+      }
+      if (sec.id === 7 || item.includes("ショップ") || item.includes("グッズ")) {
+        return { title: "ショップ (グッズ・アイテム)", hash: "#shop" };
+      }
+      if (sec.id === 8 || item.includes("リンク")) {
+        return { title: "リンクリスト (各種リンク・窓口)", hash: "#links" };
+      }
+      return { title: sec.item || `セクション ${sec.id}`, hash: `#section-${sec.id}` };
+    };
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "admin-section-setting-wrapper";
+
+    // 1. ヘッダーバー
+    const headerBar = document.createElement("div");
+    headerBar.className = "admin-section-header-bar";
+    headerBar.innerHTML = `
+      <div class="admin-section-header-title-group">
+        <div class="admin-section-header-main">
+          <span class="admin-section-header-icon">📄</span>
+          <h2 class="admin-section-header-title">ページのセクション表示設定</h2>
+        </div>
+        <p class="admin-section-header-desc">
+          トップページ（LP）のセクション並び順変更と表示/非表示、ヘッダー表示名やセクション見出しを編集できます。
+        </p>
+      </div>
+      <button type="button" class="admin-theme-save-btn" id="sec-save-btn">
+        <span>💾</span> 変更保存
+      </button>
+    `;
+    wrapper.appendChild(headerBar);
+
+    // 2. セクションカード一覧コンテナ
+    const listContainer = document.createElement("div");
+    listContainer.className = "admin-section-cards-list";
+    wrapper.appendChild(listContainer);
+
+    // 入力値同期関数
+    const syncCurrentInputs = () => {
+      const cards = listContainer.querySelectorAll(".admin-section-card");
+      cards.forEach((card) => {
+        const idx = parseInt(card.dataset.index, 10);
+        if (this.sectionDraftList[idx]) {
+          const h = card.querySelector(".sec-input-header");
+          if (h) this.sectionDraftList[idx].headerName = h.value;
+          const t = card.querySelector(".sec-input-title");
+          if (t) this.sectionDraftList[idx].sectionName = t.value;
+          const d = card.querySelector(".sec-input-desc");
+          if (d) this.sectionDraftList[idx].comment = d.value;
+          const sw = card.querySelector(".sec-toggle-switch");
+          if (sw) this.sectionDraftList[idx].isFeatured = sw.checked;
+        }
+      });
+    };
+
+    // priority再採番
+    const updatePriorities = () => {
+      this.sectionDraftList.forEach((s, i) => {
+        s.priority = i + 1;
+      });
+    };
+
+    // ハイライト点滅
+    const flashCard = (targetIdx) => {
+      requestAnimationFrame(() => {
+        const cards = listContainer.querySelectorAll(".admin-section-card");
+        if (cards[targetIdx]) {
+          cards[targetIdx].classList.add("is-updated");
+          setTimeout(() => cards[targetIdx]?.classList.remove("is-updated"), 600);
+        }
+      });
+    };
+
+    // 各カードの開閉状態キャッシュ
+    const closedStateMap = new Set();
+
+    // ドラッグ＆ドロップ用変数
+    let draggedIndex = null;
+
+    // カード一覧描画
+    const renderCards = () => {
+      listContainer.innerHTML = "";
+
+      this.sectionDraftList.forEach((sec, idx) => {
+        const isFirst = idx === 0;
+        const isLast = idx === this.sectionDraftList.length - 1;
+        const meta = getSectionMeta(sec);
+        const isProfile = sec.id === 1 || String(sec.item || "").includes("プロフィール");
+        const isClosed = closedStateMap.has(sec.id);
+
+        const card = document.createElement("div");
+        card.className = `admin-section-card${isClosed ? " is-closed" : ""}`;
+        card.dataset.id = String(sec.id);
+        card.dataset.index = String(idx);
+
+        card.innerHTML = `
+          <div class="admin-section-card-header">
+            <div class="admin-section-card-header-left">
+              <span class="admin-section-drag-handle" title="ドラッグして並び替え" draggable="true">☰</span>
+              <div class="admin-section-order-badge">${idx + 1}</div>
+              <div class="admin-section-title-wrap">
+                <div class="admin-section-title">${escapeHtml(meta.title)}</div>
+                <div class="admin-section-hash">${escapeHtml(meta.hash)}</div>
+              </div>
+            </div>
+            <div class="admin-section-card-header-right">
+              <div class="admin-section-order-actions">
+                <button type="button" class="admin-section-order-btn btn-up" title="上へ移動" ${isFirst ? "disabled" : ""}>▲</button>
+                <button type="button" class="admin-section-order-btn btn-down" title="下へ移動" ${isLast ? "disabled" : ""}>▼</button>
+              </div>
+              <label class="admin-section-toggle-label">
+                <span class="admin-section-toggle-text">表示</span>
+                <input type="checkbox" class="admin-switch-input sec-toggle-switch" ${sec.isFeatured ? "checked" : ""} />
+                <span class="admin-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="admin-section-accordion-bar">
+            <div class="admin-section-accordion-title">
+              <span class="admin-section-accordion-icon">✏️</span>
+              <span>ヘッダー項目名・セクション名の設定</span>
+            </div>
+            <span class="admin-section-accordion-arrow">▼</span>
+          </div>
+
+          <div class="admin-section-form-content">
+            ${isProfile ? `
+              <div class="admin-section-form-grid is-profile">
+                <div class="admin-section-form-group">
+                  <label class="admin-section-form-label">ヘッダー項目名 (ジャンプ名)</label>
+                  <input type="text" class="admin-form-input sec-input-header" value="${escapeHtml(sec.headerName || "")}" placeholder="基本" />
+                </div>
+                <div class="admin-section-form-group">
+                  <label class="admin-section-form-label">ページ内セクション名・説明</label>
+                  <div class="admin-section-static-notice">
+                    <span class="admin-section-static-pill">プロフィール</span>
+                    <span class="admin-section-static-text">※サイト側にセクション名・説明の表示枠はありません（固定表示）</span>
+                  </div>
+                </div>
+              </div>
+            ` : `
+              <div class="admin-section-form-grid">
+                <div class="admin-section-form-group">
+                  <label class="admin-section-form-label">ヘッダー項目名 (ジャンプ名)</label>
+                  <input type="text" class="admin-form-input sec-input-header" value="${escapeHtml(sec.headerName || "")}" placeholder="項目名" />
+                </div>
+                <div class="admin-section-form-group">
+                  <label class="admin-section-form-label">ページ内セクション名</label>
+                  <input type="text" class="admin-form-input sec-input-title" value="${escapeHtml(sec.sectionName || "")}" placeholder="セクション名" />
+                </div>
+                <div class="admin-section-form-group">
+                  <label class="admin-section-form-label">ページ内セクション説明</label>
+                  <input type="text" class="admin-form-input sec-input-desc" value="${escapeHtml(sec.comment || "")}" placeholder="セクション説明" />
+                </div>
+              </div>
+            `}
+          </div>
+        `;
+
+        // 1. 上下移動ボタン
+        const btnUp = card.querySelector(".btn-up");
+        const btnDown = card.querySelector(".btn-down");
+
+        btnUp?.addEventListener("click", () => {
+          syncCurrentInputs();
+          if (idx > 0) {
+            const temp = this.sectionDraftList[idx];
+            this.sectionDraftList[idx] = this.sectionDraftList[idx - 1];
+            this.sectionDraftList[idx - 1] = temp;
+            updatePriorities();
+            renderCards();
+            flashCard(idx - 1);
+          }
+        });
+
+        btnDown?.addEventListener("click", () => {
+          syncCurrentInputs();
+          if (idx < this.sectionDraftList.length - 1) {
+            const temp = this.sectionDraftList[idx];
+            this.sectionDraftList[idx] = this.sectionDraftList[idx + 1];
+            this.sectionDraftList[idx + 1] = temp;
+            updatePriorities();
+            renderCards();
+            flashCard(idx + 1);
+          }
+        });
+
+        // 2. 表示トグルスイッチ
+        const toggleSwitch = card.querySelector(".sec-toggle-switch");
+        toggleSwitch?.addEventListener("change", (e) => {
+          sec.isFeatured = e.target.checked;
+        });
+
+        // 3. アコーディオン開閉
+        const accordionBar = card.querySelector(".admin-section-accordion-bar");
+        accordionBar?.addEventListener("click", () => {
+          card.classList.toggle("is-closed");
+          if (card.classList.contains("is-closed")) {
+            closedStateMap.add(sec.id);
+          } else {
+            closedStateMap.delete(sec.id);
+          }
+        });
+
+        // 4. 入力欄イベント
+        const inputHeader = card.querySelector(".sec-input-header");
+        inputHeader?.addEventListener("input", (e) => {
+          sec.headerName = e.target.value;
+        });
+
+        const inputTitle = card.querySelector(".sec-input-title");
+        inputTitle?.addEventListener("input", (e) => {
+          sec.sectionName = e.target.value;
+        });
+
+        const inputDesc = card.querySelector(".sec-input-desc");
+        inputDesc?.addEventListener("input", (e) => {
+          sec.comment = e.target.value;
+        });
+
+        // 5. ドラッグ＆ドロップ並び替え
+        const dragHandle = card.querySelector(".admin-section-drag-handle");
+        dragHandle?.addEventListener("dragstart", (e) => {
+          draggedIndex = idx;
+          card.classList.add("is-dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", String(idx));
+        });
+
+        card.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (draggedIndex !== null && draggedIndex !== idx) {
+            card.classList.add("is-dragover");
+          }
+        });
+
+        card.addEventListener("dragleave", () => {
+          card.classList.remove("is-dragover");
+        });
+
+        card.addEventListener("drop", (e) => {
+          e.preventDefault();
+          card.classList.remove("is-dragover");
+          if (draggedIndex !== null && draggedIndex !== idx) {
+            syncCurrentInputs();
+            const [movedItem] = this.sectionDraftList.splice(draggedIndex, 1);
+            this.sectionDraftList.splice(idx, 0, movedItem);
+            draggedIndex = null;
+            updatePriorities();
+            renderCards();
+            flashCard(idx);
+          }
+        });
+
+        dragHandle?.addEventListener("dragend", () => {
+          card.classList.remove("is-dragging");
+          listContainer.querySelectorAll(".admin-section-card").forEach((c) => c.classList.remove("is-dragover"));
+          draggedIndex = null;
+        });
+
+        listContainer.appendChild(card);
+      });
+    };
+
+    // 初期描画
+    renderCards();
+
+    // 3. 変更保存ボタンイベント
+    const saveBtn = headerBar.querySelector("#sec-save-btn");
+    saveBtn?.addEventListener("click", async () => {
+      syncCurrentInputs();
+      updatePriorities();
+
+      saveBtn.disabled = true;
+      saveBtn.style.opacity = "0.7";
+      saveBtn.innerHTML = `<span>⏳</span> 保存中...`;
+
+      try {
+        const savePromises = this.sectionDraftList.map((sec) => {
+          const payload = {
+            ...sec,
+            priority: Number(sec.priority),
+            isFeatured: sec.isFeatured ? 1 : 0,
+            sectionName: sec.sectionName || "-",
+            comment: sec.comment || "",
+          };
+          return api.saveTable("section", payload, sec.id);
+        });
+
+        await Promise.all(savePromises);
+        Toast.success("セクション表示設定を保存しました");
+      } catch (err) {
+        console.error("[Section Setting Save Error]:", err);
+        Toast.error(`保存に失敗しました: ${err.message}`);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = "1";
+        saveBtn.innerHTML = `<span>💾</span> 変更保存`;
+      }
+    });
+
+    this.container.innerHTML = "";
+    this.container.appendChild(wrapper);
   }
 
 
