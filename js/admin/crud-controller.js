@@ -299,6 +299,14 @@ export class CrudController {
       hasPendingChanges: false,
     };
 
+    // アカウント管理 (whitelist) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.whitelistState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+
     // セクション設定 (section) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
     this.sectionState = {
       isInitialized: false,
@@ -323,7 +331,8 @@ export class CrudController {
         this.shopState?.hasPendingChanges ||
         this.linkListState?.hasPendingChanges ||
         this.sectionState?.hasPendingChanges ||
-        this.themeConfigState?.hasPendingChanges
+        this.themeConfigState?.hasPendingChanges ||
+        this.whitelistState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -442,6 +451,16 @@ export class CrudController {
       if (!ok) return;
       this.themeConfigState.hasPendingChanges = false;
       this.themeConfigState.isInitialized = false;
+    }
+
+    // アカウント管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "whitelist" && tabKey !== "whitelist" && this.whitelistState?.hasPendingChanges) {
+      const ok = confirm(
+        "アカウント管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.whitelistState.hasPendingChanges = false;
+      this.whitelistState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -662,6 +681,16 @@ export class CrudController {
       }
       rows = this.linkListState.currentRecords;
       rows.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+    } else if (tableName === "whitelist") {
+      if (!this.whitelistState.isInitialized) {
+        const records = await api.getTable("whitelist");
+        const loaded = Array.isArray(records) ? records : (records ? [records] : []);
+        this.whitelistState.originalRecords = JSON.parse(JSON.stringify(loaded));
+        this.whitelistState.currentRecords = JSON.parse(JSON.stringify(loaded));
+        this.whitelistState.hasPendingChanges = false;
+        this.whitelistState.isInitialized = true;
+      }
+      rows = this.whitelistState.currentRecords;
     } else {
       const records = await api.getTable(tableName);
       rows = Array.isArray(records) ? records : (records ? [records] : []);
@@ -835,6 +864,30 @@ export class CrudController {
       actions.appendChild(commitBtn);
     }
 
+    // アカウント管理: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    if (tableName === "whitelist") {
+      const commitBtn = document.createElement("button");
+      commitBtn.id = "whitelist-commit-btn";
+      commitBtn.className = "app-btn app-btn-orange";
+
+      const changesCount = this.getWhitelistChangesCount();
+      if (this.whitelistState.hasPendingChanges && changesCount > 0) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+        commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+
+      commitBtn.onclick = async () => {
+        await this.commitWhitelistChanges();
+      };
+      actions.appendChild(commitBtn);
+    }
+
     header.appendChild(actions);
 
     card.appendChild(header);
@@ -934,6 +987,26 @@ export class CrudController {
         `;
         alertBar.querySelector("button").onclick = async () => {
           await this.commitLinkListChanges();
+        };
+        card.appendChild(alertBar);
+      }
+    }
+
+    // アカウント管理で未反映の変更がある場合は通知アラートを表示
+    if (tableName === "whitelist" && this.whitelistState.hasPendingChanges) {
+      const changesCount = this.getWhitelistChangesCount();
+      if (changesCount > 0) {
+        const alertBar = document.createElement("div");
+        alertBar.className = "admin-pending-alert";
+        alertBar.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+        `;
+        alertBar.querySelector("button").onclick = async () => {
+          await this.commitWhitelistChanges();
         };
         card.appendChild(alertBar);
       }
@@ -10289,32 +10362,41 @@ export class CrudController {
         return;
       }
 
-      api.showLoading();
-      submitBtn.disabled = true;
+      // アカウント管理 (whitelist) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      const currentList = this.whitelistState.currentRecords || [];
+      const nextId = currentList.length > 0 ? Math.max(...currentList.map((r) => Number(r.id) || 0)) + 1 : 1;
 
-      try {
-        const payload = {
-          name,
-          mail,
-          role,
-        };
+      const payload = {
+        id: isNew ? nextId : Number(record.id),
+        name,
+        mail,
+        role,
+      };
 
-        if (isNew) {
-          await api.saveTable("whitelist", payload, null);
-          Toast.success("アカウントを追加しました");
+      if (isNew) {
+        this.whitelistState.currentRecords.push(payload);
+      } else {
+        const idx = this.whitelistState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(record.id)
+        );
+        if (idx !== -1) {
+          this.whitelistState.currentRecords[idx] = {
+            ...this.whitelistState.currentRecords[idx],
+            ...payload,
+          };
         } else {
-          await api.saveTable("whitelist", payload, record.id);
-          Toast.success("アカウント情報を更新しました");
+          this.whitelistState.currentRecords.push(payload);
         }
-        Modal.close();
-        await this.loadTab("whitelist");
-      } catch (err) {
-        console.error("[Whitelist Save Error]:", err);
-        Toast.error(`保存に失敗しました: ${err.message}`);
-      } finally {
-        api.hideLoading();
-        submitBtn.disabled = false;
       }
+
+      this.whitelistState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "アカウントを一覧に追加しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+          : "アカウントの変更を一覧に反映しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+      );
+      await this.loadTab("whitelist");
     };
     form.appendChild(submitBtn);
 
@@ -10687,21 +10769,19 @@ export class CrudController {
     }
 
     if (tableName === "whitelist") {
-      const records = (await api.getTable("whitelist")) || [];
-      const target = records.find((r) => Number(r.id) === Number(id));
+      const target = this.whitelistState.currentRecords.find((r) => Number(r.id) === Number(id));
       if (this.currentUser?.role === "admin" && (target?.role === "owner" || target?.role === "admin")) {
         Toast.error("admin権限ではownerおよびadminアカウントを削除できません");
         return;
       }
-      if (!confirm(`アカウント「${target?.name || id}」（${target?.mail || ""}）を本当に削除しますか？`)) return;
-      try {
-        await api.deleteRecord("whitelist", id);
-        Toast.success("アカウントを削除しました");
-        await this.loadTab("whitelist");
-      } catch (e) {
-        console.error("[Whitelist Delete Error]:", e);
-        Toast.error(`削除に失敗しました: ${e.message}`);
-      }
+      if (!confirm(`アカウント「${target?.name || id}」（${target?.mail || ""}）を一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+
+      this.whitelistState.currentRecords = this.whitelistState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.whitelistState.hasPendingChanges = true;
+      Toast.info(`アカウント「${target?.name || id}」を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.loadTab("whitelist");
       return;
     }
 
@@ -11376,6 +11456,105 @@ export class CrudController {
       await this.loadTab("linkList");
     } catch (err) {
       console.error("[Commit LinkList Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * アカウント管理 (whitelist) の未反映変更件数の算出
+   */
+  getWhitelistChangesCount() {
+    if (!this.whitelistState || !this.whitelistState.isInitialized) return 0;
+    const origMap = new Map(this.whitelistState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.whitelistState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => {
+          const vCurr = curr[k] === null || curr[k] === undefined ? "" : String(curr[k]);
+          const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+          return vCurr !== vOrig;
+        });
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * アカウント管理 (whitelist) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitWhitelistChanges() {
+    const count = this.getWhitelistChangesCount();
+    if (!this.whitelistState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `アカウント管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.whitelistState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.whitelistState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.whitelistState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("whitelist", rec.id);
+      }
+
+      // 2. 新規追加 (POST) ・ 更新 (PUT) の反映
+      for (const rec of this.whitelistState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          // 新規追加 (id を除いたペイロードを POST)
+          const payload = {
+            name: rec.name,
+            mail: rec.mail,
+            role: rec.role,
+          };
+          await api.saveTable("whitelist", payload, null);
+        } else {
+          // 変更の有無をチェック
+          const hasDiff = Object.keys(rec).some((k) => {
+            const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+            const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+            return vCurr !== vOrig;
+          });
+          if (hasDiff) {
+            const payload = {
+              name: rec.name,
+              mail: rec.mail,
+              role: rec.role,
+            };
+            await api.saveTable("whitelist", payload, rec.id);
+          }
+        }
+      }
+
+      Toast.success("アカウント管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.whitelistState.hasPendingChanges = false;
+      this.whitelistState.isInitialized = false;
+      await this.loadTab("whitelist");
+    } catch (err) {
+      console.error("[Commit Whitelist Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
