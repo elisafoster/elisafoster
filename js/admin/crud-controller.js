@@ -13361,8 +13361,8 @@ export class CrudController {
       }
     };
 
-    // 各カードの開閉状態キャッシュ
-    const closedStateMap = new Set();
+    // 各カードの開閉状態キャッシュ（デフォルトは閉じた状態）
+    const openedStateMap = new Set();
 
     // ドラッグ＆ドロップ用変数
     let draggedIndex = null;
@@ -13380,7 +13380,7 @@ export class CrudController {
           sec.id === 2 ||
           String(sec.item || "").includes("プロフィール") ||
           String(sec.item || "").includes("イベント");
-        const isClosed = closedStateMap.has(sec.id);
+        const isClosed = !openedStateMap.has(sec.id);
 
         const card = document.createElement("div");
         card.className = `admin-section-card${isClosed ? " is-closed" : ""}`;
@@ -13567,9 +13567,9 @@ export class CrudController {
         accordionBar?.addEventListener("click", () => {
           card.classList.toggle("is-closed");
           if (card.classList.contains("is-closed")) {
-            closedStateMap.add(sec.id);
+            openedStateMap.delete(sec.id);
           } else {
-            closedStateMap.delete(sec.id);
+            openedStateMap.add(sec.id);
           }
         });
 
