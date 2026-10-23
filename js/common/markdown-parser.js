@@ -18,10 +18,16 @@ export class MarkdownParser {
   }
 
   /**
-   * インライン装飾（太字、斜体、リンク）のパース
+   * インライン装飾（太字、斜体、リンク、改行）のパース
    */
   static parseInline(text) {
-    let html = this.escapeHtml(text);
+    if (!text) return "";
+
+    // <br> タグを一時退避してエスケープから保護
+    const BR_TOKEN = "___MARKDOWN_BR_TOKEN___";
+    let safe = text.replace(/<br\s*\/?>/gi, BR_TOKEN);
+
+    let html = this.escapeHtml(safe);
 
     // 太字: **text**
     html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
@@ -33,6 +39,9 @@ export class MarkdownParser {
     html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (match, linkText, url) => {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
     });
+
+    // 退避した <br> を復元
+    html = html.replace(new RegExp(BR_TOKEN, "g"), "<br>");
 
     return html;
   }
@@ -55,7 +64,8 @@ export class MarkdownParser {
     };
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const rawLine = lines[i];
+      const line = rawLine.trim();
 
       // 空行
       if (!line) {
@@ -79,6 +89,17 @@ export class MarkdownParser {
         continue;
       }
 
+      // 直前の箇条書きアイテムの継続行 (2スペース以上のインデントがある行)
+      if (currentList.length > 0 && (rawLine.startsWith("  ") || rawLine.startsWith("\t"))) {
+        const continuationText = line;
+        if (continuationText) {
+          const lastIdx = currentList.length - 1;
+          const lastLi = currentList[lastIdx];
+          currentList[lastIdx] = lastLi.replace(/<\/li>$/, `<br>${this.parseInline(continuationText)}</li>`);
+          continue;
+        }
+      }
+
       // 箇条書きリスト (- 項目, * 項目, + 項目, ・項目)
       if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || line.startsWith("・") || line.startsWith("・ ")) {
         const itemContent = line.replace(/^([-*+]\s*|・\s*)/, "");
@@ -97,7 +118,7 @@ export class MarkdownParser {
 
   /**
    * HTML要素またはHTML文字列から安全にMarkdown文字列へ逆変換
-   * (太字: **テキスト**, 斜体: *テキスト*, リンク: [テキスト](URL), 見出し: # 見出し, リスト: - 項目)
+   * (太字: **テキスト**, 斜体: *テキスト*, リンク: [テキスト](URL), 見出し: # 見出し, リスト: - 項目, 改行: <br>)
    */
   static htmlToMarkdown(htmlOrNode) {
     if (!htmlOrNode) return "";
@@ -138,7 +159,9 @@ export class MarkdownParser {
             const href = child.getAttribute("href") || "";
             res += `[${inner.trim() || href}](${href})`;
           } else if (tag === "br") {
-            res += "\n";
+            res += "<br>";
+          } else if (tag === "p" || tag === "div") {
+            res += (res ? "<br>" : "") + inner;
           } else {
             res += inner;
           }
@@ -176,13 +199,12 @@ export class MarkdownParser {
               if (text) listItems.push(`- ${text}`);
             }
             if (listItems.length > 0) {
-              blocks.push(listItems.join("\n")); // リスト項目は連続した改行で結合
+              blocks.push(listItems.join("\n"));
             }
           } else if (tag === "li") {
             const text = processInline(child).trim();
             if (text) blocks.push(`- ${text}`);
           } else if (tag === "p" || tag === "div") {
-            // ネストされたブロック要素があるかチェック
             const hasNestedBlock = child.querySelector("ul, ol, h1, h2, h3, blockquote, p, div");
             if (hasNestedBlock) {
               collectBlocks(child);
