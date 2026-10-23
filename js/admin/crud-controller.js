@@ -290,6 +290,14 @@ export class CrudController {
     // リンクリスト (linkList) 専用ライブラリキャッシュ
     this.linkListLibraryCache = null;
 
+    // テーマ設定 (themeConfig) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.themeConfigState = {
+      isInitialized: false,
+      originalData: null,
+      currentData: null,
+      hasPendingChanges: false,
+    };
+
     // セクション設定 (section) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
     this.sectionState = {
       isInitialized: false,
@@ -310,7 +318,8 @@ export class CrudController {
         this.movieState?.hasPendingChanges ||
         this.shopState?.hasPendingChanges ||
         this.linkListState?.hasPendingChanges ||
-        this.sectionState?.hasPendingChanges
+        this.sectionState?.hasPendingChanges ||
+        this.themeConfigState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -407,6 +416,16 @@ export class CrudController {
       if (!ok) return;
       this.sectionState.hasPendingChanges = false;
       this.sectionState.isInitialized = false;
+    }
+
+    // テーマ設定管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "themeConfig" && tabKey !== "themeConfig" && this.themeConfigState?.hasPendingChanges) {
+      const ok = confirm(
+        "テーマ設定管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.themeConfigState.hasPendingChanges = false;
+      this.themeConfigState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -11900,6 +11919,16 @@ export class CrudController {
       logo: tc.logo || "assets/config/logo.png",
     };
 
+    // 初期化およびドラフト復元
+    if (!this.themeConfigState.isInitialized) {
+      this.themeConfigState.originalData = JSON.parse(JSON.stringify(state));
+      this.themeConfigState.currentData = JSON.parse(JSON.stringify(state));
+      this.themeConfigState.isInitialized = true;
+      this.themeConfigState.hasPendingChanges = false;
+    } else if (this.themeConfigState.currentData) {
+      Object.assign(state, this.themeConfigState.currentData);
+    }
+
     // プリセットカラー定義
     const bgPresets = [
       "#FFFFFF", "#F8FAFC", "#F1F5F9", "#E0F2FE", "#BAE6FD",
@@ -11934,13 +11963,13 @@ export class CrudController {
     const wrapper = document.createElement("div");
     wrapper.className = "admin-theme-wrapper";
 
-    // 1. ヘッダーバー (変更保存ボタンのみ右寄せ配置)
+    // 1. ヘッダーバー (更新反映ボタンを右寄せ配置)
     const headerBar = document.createElement("div");
     headerBar.className = "admin-theme-header-bar";
     headerBar.style.cssText = "display: flex; justify-content: flex-end; padding-bottom: 0;";
     headerBar.innerHTML = `
-      <button type="button" class="admin-theme-save-btn" id="tc-save-btn">
-        <span>💾</span> 変更保存
+      <button type="button" class="app-btn app-btn-orange" id="tc-commit-btn" style="padding: 8px 18px; font-size: 13px;">
+        <span>更新反映</span>
       </button>
     `;
     wrapper.appendChild(headerBar);
@@ -12359,6 +12388,48 @@ export class CrudController {
       syncPalette("#tc-subbg-palette", state.sub_bg_color);
       syncPalette("#tc-text-palette", state.card_text_color);
       syncPalette("#tc-title-palette", state.section_title_color);
+
+      // 更新反映ボタン状態の同期
+      if (typeof updateCommitBtnState === "function") {
+        updateCommitBtnState();
+      }
+    };
+
+    // 未反映変更判定
+    const checkThemeChanges = () => {
+      if (!this.themeConfigState?.originalData) return false;
+      const orig = this.themeConfigState.originalData;
+      return (
+        orig.card_bg_type !== state.card_bg_type ||
+        orig.card_bg_color !== state.card_bg_color ||
+        orig.card_bg_gradient_start !== state.card_bg_gradient_start ||
+        orig.card_bg_gradient_end !== state.card_bg_gradient_end ||
+        parseInt(orig.card_bg_gradient_angle, 10) !== parseInt(state.card_bg_gradient_angle, 10) ||
+        orig.sub_bg_color !== state.sub_bg_color ||
+        orig.card_text_color !== state.card_text_color ||
+        orig.section_title_color !== state.section_title_color ||
+        orig.background !== state.background ||
+        orig.logo !== state.logo
+      );
+    };
+
+    // 更新反映ボタンの状態更新
+    const commitBtn = headerBar.querySelector("#tc-commit-btn");
+    const updateCommitBtnState = () => {
+      const hasChanges = checkThemeChanges();
+      this.themeConfigState.hasPendingChanges = hasChanges;
+      this.themeConfigState.currentData = JSON.parse(JSON.stringify(state));
+      if (hasChanges) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">1</span>`;
+        commitBtn.title = "未反映の変更があります。クリックしてD1に保存（更新反映）します";
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.classList.remove("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
     };
 
     // イベントリスナーの登録
@@ -12434,7 +12505,7 @@ export class CrudController {
       });
     });
 
-    // 背景画像 & ロゴ画像「画像を変更」モーダル連動 (YAML設定値準拠: 上書き変更)
+    // 背景画像 & ロゴ画像「画像を変更」モーダル連動 (更新反映ボタンを押すまでD1に保存しない)
     layoutGrid.querySelector("#tc-bg-btn")?.addEventListener("click", () => {
       this.openThemeAssetUploadModal("background", state.background, async (savedPath, blob) => {
         state.background = savedPath;
@@ -12446,13 +12517,6 @@ export class CrudController {
           thumbEl.style.opacity = "1";
         }
         updatePreviewAndUI();
-
-        // 拡張子変更によるパス変更を即座に保存・同期
-        try {
-          await api.saveTable("themeConfig", { ...tc, background: savedPath }, 1);
-        } catch (e) {
-          console.warn("[ThemeConfig] Auto-sync background path error:", e);
-        }
       });
     });
 
@@ -12467,23 +12531,23 @@ export class CrudController {
           thumbEl.style.opacity = "1";
         }
         updatePreviewAndUI();
-
-        // 拡張子変更によるパス変更を即座に保存・同期
-        try {
-          await api.saveTable("themeConfig", { ...tc, logo: savedPath }, 1);
-        } catch (e) {
-          console.warn("[ThemeConfig] Auto-sync logo path error:", e);
-        }
       });
     });
 
-    // 保存ボタンイベント
-    headerBar.querySelector("#tc-save-btn")?.addEventListener("click", async () => {
-      const saveBtn = headerBar.querySelector("#tc-save-btn");
-      if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.style.opacity = "0.7";
+    // 更新反映ボタンイベント (押すまでD1に保存しない)
+    commitBtn?.addEventListener("click", async () => {
+      if (!this.themeConfigState.hasPendingChanges) {
+        Toast.info("D1に未反映の変更はありません");
+        return;
       }
+
+      const ok = confirm(
+        "テーマ設定の変更内容をD1データベースに更新反映しますか？\n\nこの操作によりD1データベースが最新の状態に保存されます。"
+      );
+      if (!ok) return;
+
+      api.showLoading();
+      commitBtn.disabled = true;
 
       try {
         const payload = {
@@ -12502,20 +12566,22 @@ export class CrudController {
         };
 
         await api.saveTable("themeConfig", payload, 1);
-        this.showNotification("外観カラー設定を保存しました", "success");
+        this.themeConfigState.originalData = JSON.parse(JSON.stringify(state));
+        this.themeConfigState.hasPendingChanges = false;
+        updateCommitBtnState();
+        Toast.success("テーマ設定を更新反映しました");
       } catch (err) {
-        console.error("[ThemeConfig Save Error]:", err);
-        this.showNotification(`保存に失敗しました: ${err.message}`, "error");
+        console.error("[ThemeConfig Commit Error]:", err);
+        Toast.error(`更新反映に失敗しました: ${err.message}`);
       } finally {
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.style.opacity = "1";
-        }
+        api.hideLoading();
+        updateCommitBtnState();
       }
     });
 
     // 初期反映
     updatePreviewAndUI();
+    updateCommitBtnState();
 
     this.container.innerHTML = "";
     this.container.appendChild(wrapper);
