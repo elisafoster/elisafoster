@@ -469,7 +469,24 @@ export class CrudController {
           await this.renderShopTab();
           break;
         case "linkList":
-          await this.renderTableListTab("linkList", "リンクリスト管理", ["id", "title", "link", "priority"]);
+          await this.renderTableListTab(
+            "linkList",
+            "リンクリスト管理",
+            [
+              { key: "actions", label: "操作", isAction: true, style: { width: "80px", textAlign: "center" } },
+              { key: "id", label: "id", style: { width: "60px", textAlign: "center" } },
+              { key: "title", label: "ボタンテキスト", style: { minWidth: "160px" } },
+              { key: "buttonTextColor", label: "文字色", type: "color", style: { width: "140px" } },
+              { key: "link", label: "リンク", isLink: true, style: { minWidth: "220px" } },
+              { key: "buttonImage", label: "ボタン画像", type: "image", category: "link", isButtonBanner: true, style: { width: "130px", textAlign: "center" } },
+              { key: "priority", label: "表示順", style: { width: "80px", textAlign: "center" } },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
           break;
         case "themeConfig":
           await this.renderThemeConfigTab();
@@ -807,12 +824,19 @@ export class CrudController {
       } else {
         th.textContent = col.label;
       }
+      if (col.style) {
+        Object.assign(th.style, col.style);
+      }
       if (col.isAction) {
         th.className = "admin-table-col-actions";
       } else if (col.key === "banner" || col.isBanner) {
         th.className = "admin-table-col-banner";
       } else if (col.isGallery || (tableName === "gallery" && (col.key === "image" || col.type === "image"))) {
         th.className = "admin-table-col-gallery-image";
+      } else if (col.isButtonBanner || (tableName === "linkList" && (col.key === "buttonImage" || col.type === "image"))) {
+        th.className = "admin-table-col-button-banner";
+      } else if (col.type === "color" || col.key === "buttonTextColor") {
+        th.className = "admin-table-col-color";
       } else if (col.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(col.key)) {
         th.className = "admin-table-col-image";
       } else if (col.key === "id") {
@@ -856,6 +880,9 @@ export class CrudController {
             // 操作列 (td 自体は table-cell として vertical-align: middle を維持し、内部 div を flex 化)
             const tdAct = document.createElement("td");
             tdAct.className = "admin-table-col-actions";
+            if (colCfg.style) {
+              Object.assign(tdAct.style, colCfg.style);
+            }
             const actWrap = document.createElement("div");
             actWrap.className = `admin-table-actions ${verticalActions ? "is-vertical" : ""}`;
 
@@ -875,10 +902,17 @@ export class CrudController {
             tr.appendChild(tdAct);
           } else {
             const td = document.createElement("td");
+            if (colCfg.style) {
+              Object.assign(td.style, colCfg.style);
+            }
             if (colCfg.key === "banner" || colCfg.isBanner) {
               td.className = "admin-table-col-banner";
             } else if (colCfg.isGallery || (tableName === "gallery" && (colCfg.key === "image" || colCfg.type === "image"))) {
               td.className = "admin-table-col-gallery-image";
+            } else if (colCfg.isButtonBanner || (tableName === "linkList" && (colCfg.key === "buttonImage" || colCfg.type === "image"))) {
+              td.className = "admin-table-col-button-banner";
+            } else if (colCfg.type === "color" || colCfg.key === "buttonTextColor") {
+              td.className = "admin-table-col-color";
             } else if (colCfg.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(colCfg.key)) {
               td.className = "admin-table-col-image";
             } else if (colCfg.key === "id") {
@@ -945,9 +979,17 @@ export class CrudController {
               const msgStr = String(val || "");
               td.textContent = msgStr.length > 50 ? msgStr.slice(0, 50) + "..." : (msgStr || "-");
               if (msgStr) td.title = msgStr;
+            } else if (colCfg.type === "color" || colCfg.key === "buttonTextColor") {
+              const colorVal = val ? String(val).trim() : "#ffffff";
+              td.innerHTML = `
+                <div class="admin-color-cell">
+                  <span class="admin-color-swatch" style="background-color: ${escapeHtml(colorVal)};"></span>
+                  <span class="admin-color-code">${escapeHtml(colorVal)}</span>
+                </div>
+              `;
             } else {
               const isImage = colCfg.type === "image" ||
-                (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp")));
+                (typeof val === "string" && (val.endsWith(".png") || val.endsWith(".jpg") || val.endsWith(".jpeg") || val.endsWith(".webp") || val.endsWith(".svg")));
 
               if (isImage && val) {
                 const category = colCfg.category || tableName;
@@ -956,10 +998,12 @@ export class CrudController {
                 const isBanner = colCfg.isBanner || colCfg.key === "banner";
                 const isNotice = colCfg.category === "notice" || tableName === "notice";
                 const isGallery = colCfg.isGallery || tableName === "gallery" || colCfg.category === "gallery";
+                const isButtonBanner = colCfg.isButtonBanner || (tableName === "linkList" && colCfg.key === "buttonImage");
                 let thumbModifier = "";
                 if (isBanner) thumbModifier = "is-banner";
                 else if (isNotice) thumbModifier = "is-notice-image";
                 else if (isGallery) thumbModifier = "is-gallery";
+                else if (isButtonBanner) thumbModifier = "is-button-banner";
 
                 img.className = `admin-table-thumb ${thumbModifier}`.trim();
                 img.src = imgUrl;
@@ -976,7 +1020,11 @@ export class CrudController {
                 };
                 td.appendChild(img);
               } else if (val === null || val === undefined || val === "") {
-                td.innerHTML = '<span style="color:#64748b;">-</span>';
+                if (colCfg.isButtonBanner || colCfg.key === "buttonImage") {
+                  td.innerHTML = '<span style="color:#64748b; font-size: 0.78rem;">(デフォルト画像)</span>';
+                } else {
+                  td.innerHTML = '<span style="color:#64748b;">-</span>';
+                }
               } else if (colCfg.isLink || colCfg.key === "link") {
                 // リンク列: 全文折り返し表示 (URL形式はクリック可能リンク)
                 const strVal = String(val);
@@ -9156,15 +9204,22 @@ export class CrudController {
     form.style.gap = "14px";
 
     // レコードの各キーに応じた入力項目自動生成
-    const keys = record
-      ? Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at")
-      : (tableName === "visual"
-          ? ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"]
-          : tableName === "notice"
-            ? ["status", "scheduled_at", "message", "Image"]
-            : tableName === "gallery"
-              ? ["name", "image"]
-              : ["name", "priority"]);
+    let keys;
+    if (tableName === "linkList") {
+      keys = isNew
+        ? ["title", "buttonTextColor", "link", "buttonImage", "priority"]
+        : ["id", "title", "buttonTextColor", "link", "buttonImage", "priority"];
+    } else if (record) {
+      keys = Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at");
+    } else if (tableName === "visual") {
+      keys = ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"];
+    } else if (tableName === "notice") {
+      keys = ["status", "scheduled_at", "message", "Image"];
+    } else if (tableName === "gallery") {
+      keys = ["name", "image"];
+    } else {
+      keys = ["name", "priority"];
+    }
 
     const labelMap = {
       id: "id",
@@ -9174,6 +9229,11 @@ export class CrudController {
       message: "お知らせ本文",
       Image: "画像",
       image: "画像",
+      title: "ボタンテキスト",
+      buttonTextColor: "文字色",
+      link: "リンク",
+      buttonImage: "ボタン画像",
+      priority: "表示順",
     };
 
     keys.forEach((key) => {
@@ -9241,7 +9301,57 @@ export class CrudController {
         input.type = "text";
         input.value = val;
         input.name = key;
-        input.placeholder = "assets/... または sample.png";
+        if (tableName === "linkList" && key === "buttonImage") {
+          input.placeholder = "assets/link/defaultbutton_typeA.svg 等";
+        } else {
+          input.placeholder = "assets/... または sample.png";
+        }
+        group.appendChild(input);
+        if (tableName === "linkList" && key === "buttonImage") {
+          const hint = document.createElement("span");
+          hint.className = "admin-form-hint";
+          hint.style.cssText = "font-size: 0.78rem; color: #94a3b8; margin-top: 4px; display: block;";
+          hint.textContent = "未入力の場合はデフォルト画像 (assets/link/defaultbutton_typeA.svg) が使用されます";
+          group.appendChild(hint);
+        }
+      } else if (key === "buttonTextColor" || key === "color") {
+        const colorWrap = document.createElement("div");
+        colorWrap.style.cssText = "display: flex; align-items: center; gap: 10px;";
+
+        const colorInput = document.createElement("input");
+        colorInput.type = "color";
+        const initialHex = val && /^#[0-9a-fA-F]{6}$/.test(String(val).trim()) ? String(val).trim() : "#ffffff";
+        colorInput.value = initialHex;
+        colorInput.style.cssText = "width: 44px; height: 38px; padding: 2px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: #0f172a; cursor: pointer;";
+
+        const textInput = document.createElement("input");
+        textInput.className = "admin-form-input";
+        textInput.type = "text";
+        textInput.name = key;
+        textInput.value = val || "#ffffff";
+        textInput.placeholder = "#ffffff";
+        textInput.style.flex = "1";
+
+        colorInput.oninput = () => {
+          textInput.value = colorInput.value;
+        };
+        textInput.oninput = () => {
+          const raw = textInput.value.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+            colorInput.value = raw;
+          }
+        };
+
+        colorWrap.appendChild(colorInput);
+        colorWrap.appendChild(textInput);
+        group.appendChild(colorWrap);
+      } else if (key === "link") {
+        const input = document.createElement("input");
+        input.className = "admin-form-input";
+        input.type = "url";
+        input.value = val;
+        input.name = key;
+        input.placeholder = "https://...";
         group.appendChild(input);
       } else if (key === "isFeatured" || key === "is_active") {
         const switchLabel = document.createElement("label");
@@ -9318,6 +9428,12 @@ export class CrudController {
         payload.scheduled_at = null;
       }
 
+      if (tableName === "linkList") {
+        if (payload.priority !== undefined && payload.priority !== "") {
+          payload.priority = Number(payload.priority);
+        }
+      }
+
       try {
         await api.saveTable(tableName, payload, isNew ? null : record.id);
         Modal.close();
@@ -9330,6 +9446,7 @@ export class CrudController {
     let modalTitleText = `${tableName} の${isNew ? "新規作成" : "編集"}`;
     if (tableName === "notice") modalTitleText = `お知らせの${isNew ? "新規作成" : "編集"}`;
     if (tableName === "gallery") modalTitleText = `ギャラリー画像の${isNew ? "新規作成" : "編集"}`;
+    if (tableName === "linkList") modalTitleText = `リンクリストの${isNew ? "新規作成" : "編集"}`;
 
     Modal.open({
       title: modalTitleText,
