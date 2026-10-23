@@ -8,6 +8,7 @@ import { Modal } from "../common/modal.js";
 import { Toast } from "../common/toast.js";
 import { RichTextEditor } from "./richtext-editor.js";
 import { escapeHtml } from "../common/utils.js";
+import { ROLE_PERMISSIONS } from "./menu-manager.js";
 
 /**
  * 一体型ドラムロールピッカークラス (iOS風 Wheel Date Picker)
@@ -307,6 +308,9 @@ export class CrudController {
     };
     this.sectionImageCache = null;
 
+    // 現在ログイン中のユーザー情報 (ロール制御用)
+    this.currentUser = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
       if (
@@ -327,7 +331,19 @@ export class CrudController {
     });
   }
 
+  setCurrentUser(user) {
+    this.currentUser = user;
+  }
+
   async loadTab(tabKey) {
+    // ロール権限チェック
+    const role = this.currentUser?.role || "writer";
+    const allowedTabs = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.writer;
+    if (!allowedTabs.includes(tabKey)) {
+      Toast.error(`このタブへのアクセス権限がありません (${tabKey})`);
+      const fallbackTab = allowedTabs.includes("profile") ? "profile" : (allowedTabs[0] || "event");
+      return this.loadTab(fallbackTab);
+    }
     // 立ち絵・衣装一覧で未反映の変更がある状態で他タブへ移動しようとした場合
     if (this.currentTab === "visual" && tabKey !== "visual" && this.visualState?.hasPendingChanges) {
       const ok = confirm(
@@ -555,7 +571,22 @@ export class CrudController {
           await this.renderSectionSettingTab();
           break;
         case "whitelist":
-          await this.renderTableListTab("whitelist", "アカウントwhitelist管理", ["id", "name", "mail", "role"]);
+          await this.renderTableListTab(
+            "whitelist",
+            "アカウント管理",
+            [
+              { key: "actions", label: "操作", isAction: true, style: { width: "100px", textAlign: "center" } },
+              { key: "id", label: "id", style: { width: "60px", textAlign: "center" } },
+              { key: "name", label: "アカウント名" },
+              { key: "mail", label: "認証アドレス" },
+              { key: "role", label: "権限", type: "role_badge", style: { width: "120px", textAlign: "center" } },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
           break;
         case "githubPAT":
           await this.renderGithubPatTab();
@@ -1013,6 +1044,18 @@ export class CrudController {
             delBtn.onclick = () => this.deleteRecord(tableName, row.id);
             actWrap.appendChild(delBtn);
 
+            // アカウント管理 (whitelist) で admin 権限の場合、owner および admin アカウントの編集・削除は不可
+            if (tableName === "whitelist" && this.currentUser?.role === "admin" && (row.role === "owner" || row.role === "admin")) {
+              editBtn.disabled = true;
+              editBtn.style.opacity = "0.4";
+              editBtn.style.cursor = "not-allowed";
+              editBtn.title = "admin権限ではownerおよびadminアカウントを編集できません";
+              delBtn.disabled = true;
+              delBtn.style.opacity = "0.4";
+              delBtn.style.cursor = "not-allowed";
+              delBtn.title = "admin権限ではownerおよびadminアカウントを削除できません";
+            }
+
             tdAct.appendChild(actWrap);
             tr.appendChild(tdAct);
           } else {
@@ -1090,6 +1133,10 @@ export class CrudController {
                 sText = String(val);
               }
               td.innerHTML = `<span class="admin-status-badge ${sClass}">${escapeHtml(sText)}</span>`;
+            } else if (colCfg.type === "role_badge" || colCfg.key === "role") {
+              const roleVal = String(val || "").toLowerCase();
+              const roleClass = `admin-role-badge is-${roleVal}`;
+              td.innerHTML = `<span class="${roleClass}">${escapeHtml(val || "-")}</span>`;
             } else if (colCfg.type === "message" || (tableName === "notice" && colCfg.key === "message")) {
               const msgStr = String(val || "");
               td.textContent = msgStr.length > 50 ? msgStr.slice(0, 50) + "..." : (msgStr || "-");
@@ -10144,9 +10191,146 @@ export class CrudController {
   }
 
   /**
+   * アカウント管理 (whitelist) 専用編集・新規追加モーダル
+   */
+  async openWhitelistModal(record) {
+    const isNew = !record;
+    const currentData = record ? { ...record } : {};
+
+    // admin が owner または admin を編集しようとした場合はブロック
+    if (!isNew && this.currentUser?.role === "admin" && (currentData.role === "owner" || currentData.role === "admin")) {
+      Toast.error("admin権限ではownerおよびadminアカウントを編集できません");
+      return;
+    }
+
+    const form = document.createElement("form");
+    form.style.display = "flex";
+    form.style.flexDirection = "column";
+    form.style.gap = "16px";
+
+    // アカウント名 (name)
+    const nameGroup = document.createElement("div");
+    nameGroup.className = "admin-form-group";
+    nameGroup.innerHTML = `
+      <label class="admin-form-label">アカウント名 <span style="color: var(--color-danger, #ef4444);">*</span></label>
+      <input type="text" class="admin-form-input" name="name" value="${escapeHtml(currentData.name || "")}" placeholder="例: ELISA" required />
+    `;
+    form.appendChild(nameGroup);
+
+    // 認証アドレス (mail)
+    const mailGroup = document.createElement("div");
+    mailGroup.className = "admin-form-group";
+    mailGroup.innerHTML = `
+      <label class="admin-form-label">認証アドレス (Gmail) <span style="color: var(--color-danger, #ef4444);">*</span></label>
+      <input type="email" class="admin-form-input" name="mail" value="${escapeHtml(currentData.mail || "")}" placeholder="example@gmail.com" required />
+      <span style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px;">※GoogleアカウントでログインするGmailアドレスを入力してください</span>
+    `;
+    form.appendChild(mailGroup);
+
+    // 権限 (role)
+    const roleGroup = document.createElement("div");
+    roleGroup.className = "admin-form-group";
+    const isOwner = this.currentUser?.role === "owner";
+
+    // owner の場合は全4種、admin の場合は editor / writer のみ選択可能
+    const roleOptions = isOwner
+      ? [
+          { value: "owner", label: "owner (オーナー：全権限)" },
+          { value: "admin", label: "admin (共同運営者：PAT以外の全編集権限)" },
+          { value: "editor", label: "editor (スタッフ：主要コンテンツ編集権限)" },
+          { value: "writer", label: "writer (アシスタント：イベント/お知らせ/予定編集)" },
+        ]
+      : [
+          { value: "editor", label: "editor (スタッフ：主要コンテンツ編集権限)" },
+          { value: "writer", label: "writer (アシスタント：イベント/お知らせ/予定編集)" },
+        ];
+
+    const currentRole = currentData.role || (isOwner ? "editor" : "writer");
+    const roleOptsHtml = roleOptions
+      .map((opt) => `<option value="${opt.value}" ${opt.value === currentRole ? "selected" : ""}>${escapeHtml(opt.label)}</option>`)
+      .join("");
+
+    roleGroup.innerHTML = `
+      <label class="admin-form-label">権限 (role) <span style="color: var(--color-danger, #ef4444);">*</span></label>
+      <select class="admin-form-input" name="role" required>
+        ${roleOptsHtml}
+      </select>
+      ${!isOwner ? '<span style="font-size: 0.78rem; color: #f59e0b; margin-top: 4px;">※admin権限ではownerおよびadminの付与・変更はできません</span>' : ''}
+    `;
+    form.appendChild(roleGroup);
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.marginTop = "8px";
+    submitBtn.textContent = isNew ? "新規作成" : "保存する";
+    submitBtn.onclick = async () => {
+      const name = form.querySelector('[name="name"]')?.value.trim();
+      const mail = form.querySelector('[name="mail"]')?.value.trim();
+      const role = form.querySelector('[name="role"]')?.value.trim();
+
+      if (!name) {
+        Toast.error("アカウント名を入力してください");
+        return;
+      }
+      if (!mail) {
+        Toast.error("認証アドレスを入力してください");
+        return;
+      }
+      if (!role) {
+        Toast.error("権限を選択してください");
+        return;
+      }
+
+      // admin が不正に owner/admin を送信しようとした場合の再チェック
+      if (!isOwner && (role === "owner" || role === "admin")) {
+        Toast.error("admin権限ではownerまたはadminを設定できません");
+        return;
+      }
+
+      api.showLoading();
+      submitBtn.disabled = true;
+
+      try {
+        const payload = {
+          name,
+          mail,
+          role,
+        };
+
+        if (isNew) {
+          await api.saveTable("whitelist", payload, null);
+          Toast.success("アカウントを追加しました");
+        } else {
+          await api.saveTable("whitelist", payload, record.id);
+          Toast.success("アカウント情報を更新しました");
+        }
+        Modal.close();
+        await this.loadTab("whitelist");
+      } catch (err) {
+        console.error("[Whitelist Save Error]:", err);
+        Toast.error(`保存に失敗しました: ${err.message}`);
+      } finally {
+        api.hideLoading();
+        submitBtn.disabled = false;
+      }
+    };
+    form.appendChild(submitBtn);
+
+    Modal.open({
+      title: isNew ? "アカウント新規追加" : `アカウント編集 (ID: ${record.id})`,
+      content: form,
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
+    if (tableName === "whitelist") {
+      return this.openWhitelistModal(record);
+    }
     if (tableName === "visual") {
       return this.openVisualModal(record);
     }
@@ -10499,6 +10683,25 @@ export class CrudController {
       this.linkListState.hasPendingChanges = true;
       Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
       await this.loadTab("linkList");
+      return;
+    }
+
+    if (tableName === "whitelist") {
+      const records = (await api.getTable("whitelist")) || [];
+      const target = records.find((r) => Number(r.id) === Number(id));
+      if (this.currentUser?.role === "admin" && (target?.role === "owner" || target?.role === "admin")) {
+        Toast.error("admin権限ではownerおよびadminアカウントを削除できません");
+        return;
+      }
+      if (!confirm(`アカウント「${target?.name || id}」（${target?.mail || ""}）を本当に削除しますか？`)) return;
+      try {
+        await api.deleteRecord("whitelist", id);
+        Toast.success("アカウントを削除しました");
+        await this.loadTab("whitelist");
+      } catch (e) {
+        console.error("[Whitelist Delete Error]:", e);
+        Toast.error(`削除に失敗しました: ${e.message}`);
+      }
       return;
     }
 

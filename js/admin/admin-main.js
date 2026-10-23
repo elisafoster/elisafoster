@@ -28,6 +28,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!crudController) {
           crudController = new CrudController(contentArea);
         }
+        crudController.setCurrentUser(user);
+
         if (!maintenanceManager) {
           maintenanceManager = new MaintenanceManager();
         }
@@ -41,10 +43,14 @@ document.addEventListener("DOMContentLoaded", () => {
           menuManager.init();
         }
 
+        // ロールに応じたサイドバーメニューおよびD1保守機能の表示権限制御
+        menuManager.applyRolePermissions(user.role);
+
         maintenanceManager.init();
 
-        // 初期タブ（プロフィール）ロード
-        crudController.loadTab("profile");
+        // ロールに応じた初期タブの決定とロード
+        const initialTab = menuManager.getDefaultTab(user.role);
+        menuManager.switchTab(initialTab);
       } catch (err) {
         console.error("[Admin onAuthorized Error]:", err);
       }
