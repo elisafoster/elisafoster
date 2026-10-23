@@ -17,6 +17,7 @@ export class RichTextEditor {
     this.italicBtn = null;
     this.listBtn = null;
     this.quoteBtn = null;
+    this.savedRange = null; // ドロップダウン選択等でキャレットが外れた際の退避用
   }
 
   render() {
@@ -37,8 +38,12 @@ export class RichTextEditor {
       <option value="p">本文 (通常の段落)</option>
       <option value="h2">項目 (大見出し)</option>
     `;
+
+    // セレクトボックスをクリックした瞬間に現在の選択範囲を退避
+    blockSelect.onmousedown = () => this.saveSelection();
+    blockSelect.onfocus = () => this.saveSelection();
     blockSelect.onchange = (e) => {
-      this.setBlockType(e.target.value);
+      this.applyBlockType(e.target.value);
     };
     this.blockSelect = blockSelect;
     toolbar.appendChild(blockSelect);
@@ -128,16 +133,21 @@ export class RichTextEditor {
     const initialHtml = MarkdownParser.toHtml(this.initialMarkdown);
     editor.innerHTML = initialHtml || "<p class=\"gl-paragraph\">ガイドラインの本文を入力してください...</p>";
 
-    // キャレット・選択範囲移動時にツールバーボタン・セレクトの状態を更新
-    editor.addEventListener("keyup", () => this.updateToolbarState());
-    editor.addEventListener("mouseup", () => this.updateToolbarState());
-    editor.addEventListener("click", () => this.updateToolbarState());
-    editor.addEventListener("input", () => this.updateToolbarState());
+    // キャレット・選択範囲移動時にツールバーボタン・セレクトの状態を更新 & Rangeを保存
+    const onSelectionChange = () => {
+      this.saveSelection();
+      this.updateToolbarState();
+    };
+
+    editor.addEventListener("keyup", onSelectionChange);
+    editor.addEventListener("mouseup", onSelectionChange);
+    editor.addEventListener("click", onSelectionChange);
+    editor.addEventListener("input", onSelectionChange);
     editor.addEventListener("focus", () => {
       try {
         document.execCommand("defaultParagraphSeparator", false, "p");
       } catch (e) {}
-      this.updateToolbarState();
+      onSelectionChange();
     });
 
     // Googleドキュメント風のEnterキー挙動（見出し末尾でのEnterで自動的に通常本文段落を生成）
@@ -166,6 +176,7 @@ export class RichTextEditor {
               newRange.collapse(true);
               sel.removeAllRanges();
               sel.addRange(newRange);
+              this.savedRange = newRange.cloneRange();
               this.updateToolbarState();
               return;
             }
@@ -180,23 +191,48 @@ export class RichTextEditor {
     this.container.appendChild(wrapper);
 
     // 初回ツールバー状態更新
-    setTimeout(() => this.updateToolbarState(), 50);
+    setTimeout(() => {
+      this.saveSelection();
+      this.updateToolbarState();
+    }, 50);
   }
 
   /**
-   * 現在のキャレット位置にある最も近いブロック要素を取得
+   * 選択範囲（Selection Range）の保存
    */
-  getCurrentBlockElement() {
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return null;
-    let node = selection.getRangeAt(0).commonAncestorContainer;
-    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-    while (node && node !== this.editor) {
-      const tag = node.tagName.toLowerCase();
-      if (["p", "h1", "h2", "h3", "blockquote", "li", "ul", "ol", "div"].includes(tag)) {
-        return node;
+  saveSelection() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (this.editor && (this.editor === range.commonAncestorContainer || this.editor.contains(range.commonAncestorContainer))) {
+        this.savedRange = range.cloneRange();
       }
-      node = node.parentElement;
+    }
+  }
+
+  /**
+   * 選択範囲の復元
+   */
+  restoreSelection() {
+    if (!this.savedRange) return null;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(this.savedRange);
+    return this.savedRange;
+  }
+
+  /**
+   * 最も近いブロック要素を取得 (h1, h2, h3, p, blockquote, li, ul, ol)
+   */
+  findNearestBlock(node) {
+    if (!node) return null;
+    let curr = node.nodeType === Node.TEXT_NODE ? node.parentNode : node;
+    while (curr && curr !== this.editor) {
+      const tag = curr.tagName ? curr.tagName.toLowerCase() : "";
+      if (["h1", "h2", "h3", "p", "blockquote", "li", "ul", "ol"].includes(tag)) {
+        return curr;
+      }
+      curr = curr.parentNode;
     }
     return null;
   }
@@ -220,49 +256,205 @@ export class RichTextEditor {
   }
 
   /**
-   * 本文 (p) / 項目 (h2) の上書き切り替え
+   * 本文 (p) / 項目 (h2) の上書き切り替え・自動改行ブロック分割
+   * 1行内で項目と本文が混在しないよう、選択テキスト部分を独立した行として分割生成
    */
-  setBlockType(tag) {
+  applyBlockType(targetTag) {
     if (!this.editor) return;
     this.editor.focus();
 
-    // もしリスト内 (li) にいる場合はリストを解除してからブロック化
-    if (this.getClosestTag("li")) {
-      document.execCommand("insertUnorderedList");
+    let range = this.restoreSelection();
+    if (!range) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) range = sel.getRangeAt(0);
     }
+    if (!range) return;
 
-    // もし引用 (blockquote) 内にいる場合は引用を解除
-    const bq = this.getClosestTag("blockquote");
-    if (bq) {
-      const targetTag = tag === "h2" ? "h2" : "p";
-      const el = document.createElement(targetTag);
-      el.className = targetTag === "h2" ? "gl-heading" : "gl-paragraph";
-      el.innerHTML = bq.innerHTML;
-      bq.parentNode.replaceChild(el, bq);
+    const targetClass = targetTag === "h2" ? "gl-heading" : "gl-paragraph";
+
+    // 1. テキスト選択がない（キャレットのみ）場合
+    if (range.collapsed) {
+      let block = this.findNearestBlock(range.startContainer);
+      if (!block || block === this.editor) {
+        try {
+          document.execCommand("formatBlock", false, `<${targetTag}>`);
+        } catch (e) {}
+        this.saveSelection();
+        this.updateToolbarState();
+        return;
+      }
+
+      const currentTag = block.tagName.toLowerCase();
+      if (currentTag === targetTag) return;
+
+      if (currentTag === "li") {
+        document.execCommand("insertUnorderedList");
+        block = this.findNearestBlock(window.getSelection()?.anchorNode) || block;
+      }
+
+      const newEl = document.createElement(targetTag);
+      newEl.className = targetClass;
+      newEl.innerHTML = block.innerHTML;
+      block.parentNode.replaceChild(newEl, block);
 
       const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
+      const newRange = document.createRange();
+      newRange.selectNodeContents(newEl);
+      newRange.collapse(false);
       sel.removeAllRanges();
-      sel.addRange(range);
+      sel.addRange(newRange);
+      this.savedRange = newRange.cloneRange();
       this.updateToolbarState();
       return;
     }
 
-    try {
-      document.execCommand("formatBlock", false, `<${tag}>`);
-      const block = this.getCurrentBlockElement();
-      if (block) {
-        if (tag === "h2") {
-          block.className = "gl-heading";
-        } else {
-          block.className = "gl-paragraph";
+    // 2. テキストが選択されている場合
+    let startBlock = this.findNearestBlock(range.startContainer);
+    let endBlock = this.findNearestBlock(range.endContainer);
+
+    if (startBlock && startBlock === endBlock && startBlock !== this.editor) {
+      const currentBlock = startBlock;
+      const currentTag = currentBlock.tagName.toLowerCase();
+
+      // 前の部分の Range
+      const beforeRange = document.createRange();
+      beforeRange.setStart(currentBlock, 0);
+      beforeRange.setEnd(range.startContainer, range.startOffset);
+
+      // 選択部分の Fragment
+      const selectedFragment = range.cloneContents();
+
+      // 後の部分の Range
+      const afterRange = document.createRange();
+      afterRange.setStart(range.endContainer, range.endOffset);
+      afterRange.setEnd(currentBlock, currentBlock.childNodes.length);
+
+      const beforeFrag = beforeRange.cloneContents();
+      const afterFrag = afterRange.cloneContents();
+
+      const hasBefore = (beforeFrag.textContent || "").trim().length > 0;
+      const hasAfter = (afterFrag.textContent || "").trim().length > 0;
+
+      // 前も後もない場合（ブロック全体が選択されている）
+      if (!hasBefore && !hasAfter) {
+        if (currentTag === "li") {
+          const ul = currentBlock.closest("ul") || currentBlock.parentNode;
+          const newEl = document.createElement(targetTag);
+          newEl.className = targetClass;
+          newEl.appendChild(selectedFragment);
+          ul.parentNode.insertBefore(newEl, ul.nextSibling);
+          currentBlock.remove();
+          if (!ul.children.length) ul.remove();
+
+          const sel = window.getSelection();
+          const newRange = document.createRange();
+          newRange.selectNodeContents(newEl);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          this.savedRange = newRange.cloneRange();
+          this.updateToolbarState();
+          return;
         }
+
+        const newEl = document.createElement(targetTag);
+        newEl.className = targetClass;
+        newEl.appendChild(selectedFragment);
+        currentBlock.parentNode.replaceChild(newEl, currentBlock);
+
+        const sel = window.getSelection();
+        const newRange = document.createRange();
+        newRange.selectNodeContents(newEl);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        this.savedRange = newRange.cloneRange();
+        this.updateToolbarState();
+        return;
       }
-    } catch (err) {
-      console.warn("[RichTextEditor setBlockType Error]:", err);
+
+      // 前または後がある場合：1行内で混在しないよう独立行へ分割（改行）！
+      // 例: <p>テキスト1テキスト2テキスト3</p> の テキスト2 を h2 にした場合:
+      // <p>テキスト1</p>
+      // <h2>テキスト2</h2>
+      // <p>テキスト3</p>
+      const parent = currentBlock.parentNode;
+      const createdNodes = [];
+
+      // 前ブロック (元の currentTag と同じ形式を維持)
+      if (hasBefore) {
+        const beforeEl = document.createElement(currentTag);
+        beforeEl.className = currentBlock.className;
+        beforeEl.appendChild(beforeFrag);
+        createdNodes.push(beforeEl);
+      }
+
+      // 中ブロック (選択された targetTag)
+      const midEl = document.createElement(targetTag);
+      midEl.className = targetClass;
+      midEl.appendChild(selectedFragment);
+      createdNodes.push(midEl);
+
+      // 後ブロック (元の currentTag と同じ形式を維持)
+      if (hasAfter) {
+        const afterEl = document.createElement(currentTag);
+        afterEl.className = currentBlock.className;
+        afterEl.appendChild(afterFrag);
+        createdNodes.push(afterEl);
+      }
+
+      // リスト要素内の場合の親ブロック配置
+      if (currentTag === "li") {
+        const ul = currentBlock.closest("ul") || parent;
+        if (hasBefore) {
+          const beforeLi = document.createElement("li");
+          beforeLi.appendChild(beforeFrag);
+          ul.insertBefore(beforeLi, currentBlock);
+        }
+        ul.parentNode.insertBefore(midEl, ul.nextSibling);
+        if (hasAfter) {
+          const newUl = document.createElement("ul");
+          newUl.className = "gl-list";
+          const afterLi = document.createElement("li");
+          afterLi.appendChild(afterFrag);
+          newUl.appendChild(afterLi);
+          midEl.parentNode.insertBefore(newUl, midEl.nextSibling);
+        }
+        currentBlock.remove();
+        if (!ul.children.length) ul.remove();
+      } else {
+        for (const node of createdNodes) {
+          parent.insertBefore(node, currentBlock);
+        }
+        parent.removeChild(currentBlock);
+      }
+
+      // 変換された中央の要素 (midEl) を選択状態にする
+      const sel = window.getSelection();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(midEl);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      this.savedRange = newRange.cloneRange();
+      this.updateToolbarState();
+      return;
     }
+
+    // 複数ブロックにまたがって選択されている場合
+    const blocksToConvert = [];
+    for (const child of Array.from(this.editor.children)) {
+      if (range.intersectsNode(child)) {
+        blocksToConvert.push(child);
+      }
+    }
+
+    for (const blk of blocksToConvert) {
+      if (blk.tagName.toLowerCase() === targetTag) continue;
+      const newEl = document.createElement(targetTag);
+      newEl.className = targetClass;
+      newEl.innerHTML = blk.innerHTML;
+      blk.parentNode.replaceChild(newEl, blk);
+    }
+
+    this.saveSelection();
     this.updateToolbarState();
   }
 
@@ -272,11 +464,13 @@ export class RichTextEditor {
   formatDoc(command, value = null) {
     if (!this.editor) return;
     this.editor.focus();
+    this.restoreSelection();
     try {
       document.execCommand(command, false, value);
     } catch (e) {
       console.warn("[RichTextEditor execCommand Error]:", e);
     }
+    this.saveSelection();
     this.updateToolbarState();
   }
 
@@ -286,6 +480,7 @@ export class RichTextEditor {
   toggleList() {
     if (!this.editor) return;
     this.editor.focus();
+    this.restoreSelection();
 
     // もし引用 (blockquote) 内にいる場合は引用を解除してからリスト化
     const bq = this.getClosestTag("blockquote");
@@ -312,6 +507,7 @@ export class RichTextEditor {
     } catch (e) {
       console.warn("[RichTextEditor toggleList Error]:", e);
     }
+    this.saveSelection();
     this.updateToolbarState();
   }
 
@@ -321,6 +517,7 @@ export class RichTextEditor {
   toggleQuote() {
     if (!this.editor) return;
     this.editor.focus();
+    this.restoreSelection();
 
     const existingQuote = this.getClosestTag("blockquote");
     if (existingQuote) {
@@ -354,6 +551,7 @@ export class RichTextEditor {
         console.warn("[RichTextEditor toggleQuote Error]:", e);
       }
     }
+    this.saveSelection();
     this.updateToolbarState();
   }
 
@@ -363,6 +561,7 @@ export class RichTextEditor {
   formatLink() {
     if (!this.editor) return;
     this.editor.focus();
+    this.restoreSelection();
 
     const selection = window.getSelection();
     const selectedText = selection ? selection.toString().trim() : "";
@@ -371,12 +570,10 @@ export class RichTextEditor {
     if (!url || url === "https://") return;
 
     if (!selectedText) {
-      // 選択テキストがない場合はリンクHTMLを直接挿入
       const linkHtml = `<a href="${encodeURI(url)}" target="_blank" rel="noopener noreferrer">${url}</a>`;
       document.execCommand("insertHTML", false, linkHtml);
     } else {
       document.execCommand("createLink", false, url);
-      // 生成された a タグに target="_blank" を付与
       if (selection && selection.anchorNode) {
         let parent = selection.anchorNode.parentElement;
         if (parent && parent.tagName.toLowerCase() === "a") {
@@ -385,6 +582,7 @@ export class RichTextEditor {
         }
       }
     }
+    this.saveSelection();
     this.updateToolbarState();
   }
 
@@ -460,6 +658,7 @@ export class RichTextEditor {
     this.initialMarkdown = newMarkdown || "";
     if (this.editor) {
       this.editor.innerHTML = MarkdownParser.toHtml(this.initialMarkdown);
+      this.saveSelection();
       this.updateToolbarState();
     }
   }

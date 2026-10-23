@@ -127,9 +127,9 @@
   width: 100%;
   min-height: 420px;
   max-height: 700px;
-  padding: 22px 24px;
+  padding: 24px 28px;
   border: none;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   line-height: 1.85;
   color: #cbd5e1;
   background: #0f172a;
@@ -143,7 +143,7 @@
   outline: none;
 }
 
-/* エディタ内のタイポグラフィ装飾 */
+/* エディタ内のタイポグラフィ装飾 (Googleドキュメント風コントラスト) */
 .admin-rte-editor strong,
 .admin-rte-editor b {
   font-weight: 700;
@@ -156,14 +156,17 @@
   color: #e2e8f0;
 }
 
+/* 項目 (大見出し) - 白文字・太字・大きめフォント・青い境界線で明確に区別 */
 .admin-rte-editor h2,
 .admin-rte-editor .gl-heading {
-  font-size: 1.3rem;
+  font-size: 1.38rem;
   font-weight: 700;
   color: #ffffff;
-  margin: 22px 0 12px;
-  padding-bottom: 6px;
-  border-bottom: 2px solid rgba(59, 130, 246, 0.4);
+  margin: 28px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgba(59, 130, 246, 0.45);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
 }
 
 .admin-rte-editor h2:first-child,
@@ -175,14 +178,19 @@
   font-size: 1.15rem;
   font-weight: 700;
   color: #93c5fd;
-  margin: 18px 0 10px;
+  margin: 20px 0 10px;
 }
 
+/* 本文 (通常の段落) - 読みやすい通常サイズ・境界線なし・明示的なフォントウェイト400 */
 .admin-rte-editor p,
 .admin-rte-editor .gl-paragraph {
-  margin-bottom: 12px;
-  line-height: 1.8;
+  font-size: 0.92rem;
+  font-weight: 400;
+  margin: 0 0 14px 0;
+  line-height: 1.85;
   color: #cbd5e1;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .admin-rte-editor blockquote,
@@ -192,26 +200,33 @@
   padding: 10px 14px;
   margin: 14px 0;
   color: #fef3c7;
+  font-size: 0.92rem;
+  font-weight: 400;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .admin-rte-editor ul,
 .admin-rte-editor .gl-list {
   padding-left: 24px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   list-style: disc;
+  font-size: 0.92rem;
+  font-weight: 400;
   color: #cbd5e1;
 }
 
 .admin-rte-editor ol {
   padding-left: 24px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   list-style: decimal;
+  font-size: 0.92rem;
+  font-weight: 400;
   color: #cbd5e1;
 }
 
 .admin-rte-editor li {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  line-height: 1.8;
 }
 
 .admin-rte-editor a {
