@@ -2027,16 +2027,62 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   background: #111c34;
   border: 1px solid #1e293b;
   border-radius: 8px;
-  padding: 20px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  transition: all 0.2s ease;
+}
+
+.admin-theme-card-panel.is-collapsed {
+  gap: 0;
+  padding-bottom: 18px;
 }
 
 .admin-theme-panel-head {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.admin-theme-panel-head.is-accordion {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+  transition: opacity 0.15s ease;
+}
+
+.admin-theme-panel-head.is-accordion:hover {
+  opacity: 0.85;
+}
+
+.admin-theme-accordion-arrow {
+  font-size: 12px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.admin-theme-card-panel.is-collapsed .admin-theme-accordion-arrow {
+  transform: rotate(-90deg);
+}
+
+.admin-theme-accordion-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.2s ease;
+}
+
+.admin-theme-card-panel.is-collapsed .admin-theme-accordion-body {
+  display: none !important;
 }
 
 .admin-theme-panel-title {

@@ -11914,14 +11914,11 @@ export class CrudController {
     const wrapper = document.createElement("div");
     wrapper.className = "admin-theme-wrapper";
 
-    // 1. ヘッダーバー (タイトル & 変更保存ボタン)
+    // 1. ヘッダーバー (変更保存ボタンのみ右寄せ配置)
     const headerBar = document.createElement("div");
     headerBar.className = "admin-theme-header-bar";
+    headerBar.style.cssText = "display: flex; justify-content: flex-end; padding-bottom: 0;";
     headerBar.innerHTML = `
-      <div class="admin-theme-header-title-group">
-        <h2 class="admin-theme-main-title">🎨 外観カラー設定</h2>
-        <p class="admin-theme-main-desc">カード背景（単色/グラデーション）、サブ背景色、カード文字色、見出し色、背景・ロゴの編集</p>
-      </div>
       <button type="button" class="admin-theme-save-btn" id="tc-save-btn">
         <span>💾</span> 変更保存
       </button>
@@ -11942,110 +11939,112 @@ export class CrudController {
     const cardBgPanel = document.createElement("div");
     cardBgPanel.className = "admin-theme-card-panel";
     cardBgPanel.innerHTML = `
-      <div class="admin-theme-panel-head">
+      <div class="admin-theme-panel-head is-accordion">
         <h3 class="admin-theme-panel-title">🖼️ カード背景スタイル</h3>
-        <p class="admin-theme-panel-desc">プロフィール、料金プラン、お問い合わせ枠の背景デザインを設定します。</p>
+        <span class="admin-theme-accordion-arrow">▼</span>
       </div>
 
-      <!-- セグメント切り替え -->
-      <div class="admin-theme-seg-container">
-        <div class="admin-theme-seg-btn ${state.card_bg_type === "single" ? "is-active" : ""}" id="tc-type-single">
-          <span class="admin-theme-radio-dot"></span>
-          <span>単色 (ソリッドカラー)</span>
-        </div>
-        <div class="admin-theme-seg-btn ${state.card_bg_type === "gradient" ? "is-active" : ""}" id="tc-type-gradient">
-          <span class="admin-theme-radio-dot"></span>
-          <span>グラデーション</span>
-        </div>
-      </div>
-
-      <!-- 単色用設定 -->
-      <div class="admin-theme-color-block" id="tc-single-wrap" style="display: ${state.card_bg_type === "single" ? "flex" : "none"};">
-        <label class="admin-theme-field-label">背景色 (Color)</label>
-        <div class="admin-theme-picker-row">
-          <div class="admin-theme-swatch-box" id="tc-single-swatch" style="background-color: ${state.card_bg_color};">
-            <input type="color" class="admin-theme-hidden-picker" id="tc-single-picker" value="${state.card_bg_color}">
+      <div class="admin-theme-accordion-body">
+        <!-- セグメント切り替え -->
+        <div class="admin-theme-seg-container">
+          <div class="admin-theme-seg-btn ${state.card_bg_type === "single" ? "is-active" : ""}" id="tc-type-single">
+            <span class="admin-theme-radio-dot"></span>
+            <span>単色 (ソリッドカラー)</span>
           </div>
-          <input type="text" class="admin-theme-hex-input" id="tc-single-hex" value="${state.card_bg_color}" maxlength="7" spellcheck="false">
+          <div class="admin-theme-seg-btn ${state.card_bg_type === "gradient" ? "is-active" : ""}" id="tc-type-gradient">
+            <span class="admin-theme-radio-dot"></span>
+            <span>グラデーション</span>
+          </div>
         </div>
-        <div class="admin-theme-palette-row" id="tc-single-palette">
-          ${bgPresets.map(c => `
-            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_color.toUpperCase() ? "is-selected" : ""}" 
-                 style="background-color: ${c};" data-color="${c}"></div>
-          `).join("")}
-        </div>
-      </div>
 
-      <!-- グラデーション用設定 -->
-      <div id="tc-gradient-wrap" style="display: ${state.card_bg_type === "gradient" ? "flex" : "none"}; flex-direction: column; gap: 16px;">
-        <!-- 開始色 (Start) -->
-        <div class="admin-theme-color-block">
-          <label class="admin-theme-field-label">開始色 (Start)</label>
+        <!-- 単色用設定 -->
+        <div class="admin-theme-color-block" id="tc-single-wrap" style="display: ${state.card_bg_type === "single" ? "flex" : "none"};">
+          <label class="admin-theme-field-label">背景色 (Color)</label>
           <div class="admin-theme-picker-row">
-            <div class="admin-theme-swatch-box" id="tc-start-swatch" style="background-color: ${state.card_bg_gradient_start};">
-              <input type="color" class="admin-theme-hidden-picker" id="tc-start-picker" value="${state.card_bg_gradient_start}">
+            <div class="admin-theme-swatch-box" id="tc-single-swatch" style="background-color: ${state.card_bg_color};">
+              <input type="color" class="admin-theme-hidden-picker" id="tc-single-picker" value="${state.card_bg_color}">
             </div>
-            <input type="text" class="admin-theme-hex-input" id="tc-start-hex" value="${state.card_bg_gradient_start}" maxlength="7" spellcheck="false">
+            <input type="text" class="admin-theme-hex-input" id="tc-single-hex" value="${state.card_bg_color}" maxlength="7" spellcheck="false">
           </div>
-          <div class="admin-theme-palette-row" id="tc-start-palette">
+          <div class="admin-theme-palette-row" id="tc-single-palette">
             ${bgPresets.map(c => `
-              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_gradient_start.toUpperCase() ? "is-selected" : ""}" 
+              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_color.toUpperCase() ? "is-selected" : ""}" 
                    style="background-color: ${c};" data-color="${c}"></div>
             `).join("")}
           </div>
         </div>
 
-        <!-- 終了色 (End) -->
-        <div class="admin-theme-color-block">
-          <label class="admin-theme-field-label">終了色 (End)</label>
-          <div class="admin-theme-picker-row">
-            <div class="admin-theme-swatch-box" id="tc-end-swatch" style="background-color: ${state.card_bg_gradient_end};">
-              <input type="color" class="admin-theme-hidden-picker" id="tc-end-picker" value="${state.card_bg_gradient_end}">
+        <!-- グラデーション用設定 -->
+        <div id="tc-gradient-wrap" style="display: ${state.card_bg_type === "gradient" ? "flex" : "none"}; flex-direction: column; gap: 16px;">
+          <!-- 開始色 (Start) -->
+          <div class="admin-theme-color-block">
+            <label class="admin-theme-field-label">開始色 (Start)</label>
+            <div class="admin-theme-picker-row">
+              <div class="admin-theme-swatch-box" id="tc-start-swatch" style="background-color: ${state.card_bg_gradient_start};">
+                <input type="color" class="admin-theme-hidden-picker" id="tc-start-picker" value="${state.card_bg_gradient_start}">
+              </div>
+              <input type="text" class="admin-theme-hex-input" id="tc-start-hex" value="${state.card_bg_gradient_start}" maxlength="7" spellcheck="false">
             </div>
-            <input type="text" class="admin-theme-hex-input" id="tc-end-hex" value="${state.card_bg_gradient_end}" maxlength="7" spellcheck="false">
+            <div class="admin-theme-palette-row" id="tc-start-palette">
+              ${bgPresets.map(c => `
+                <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_gradient_start.toUpperCase() ? "is-selected" : ""}" 
+                     style="background-color: ${c};" data-color="${c}"></div>
+              `).join("")}
+            </div>
           </div>
-          <div class="admin-theme-palette-row" id="tc-end-palette">
-            ${bgPresets.map(c => `
-              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_gradient_end.toUpperCase() ? "is-selected" : ""}" 
+
+          <!-- 終了色 (End) -->
+          <div class="admin-theme-color-block">
+            <label class="admin-theme-field-label">終了色 (End)</label>
+            <div class="admin-theme-picker-row">
+              <div class="admin-theme-swatch-box" id="tc-end-swatch" style="background-color: ${state.card_bg_gradient_end};">
+                <input type="color" class="admin-theme-hidden-picker" id="tc-end-picker" value="${state.card_bg_gradient_end}">
+              </div>
+              <input type="text" class="admin-theme-hex-input" id="tc-end-hex" value="${state.card_bg_gradient_end}" maxlength="7" spellcheck="false">
+            </div>
+            <div class="admin-theme-palette-row" id="tc-end-palette">
+              ${bgPresets.map(c => `
+                <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_gradient_end.toUpperCase() ? "is-selected" : ""}" 
+                     style="background-color: ${c};" data-color="${c}"></div>
+              `).join("")}
+            </div>
+          </div>
+
+          <!-- グラデーション角度 -->
+          <div class="admin-theme-angle-block">
+            <div class="admin-theme-angle-top">
+              <label class="admin-theme-field-label">グラデーション角度</label>
+              <div class="admin-theme-angle-badge-wrap">
+                <span class="admin-theme-angle-num" id="tc-angle-num">${state.card_bg_gradient_angle}</span>
+                <span class="admin-theme-angle-badge" id="tc-angle-badge">${state.card_bg_gradient_angle}°</span>
+              </div>
+            </div>
+            <input type="range" class="admin-theme-angle-slider" id="tc-angle-slider" min="0" max="360" step="1" value="${state.card_bg_gradient_angle}">
+            <div class="admin-theme-angle-presets">
+              ${anglePresets.map(p => `
+                <button type="button" class="admin-theme-angle-btn ${state.card_bg_gradient_angle === p.angle ? "is-active" : ""}" data-angle="${p.angle}">
+                  ${p.label}
+                </button>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+
+        <!-- サブカード背景色 (sub_bg_color) -->
+        <div class="admin-theme-color-block" style="border-top: 1px dashed rgba(255, 255, 255, 0.12); padding-top: 14px; margin-top: 4px;">
+          <label class="admin-theme-field-label">サブカード背景色 (sub_bg_color)</label>
+          <div class="admin-theme-picker-row">
+            <div class="admin-theme-swatch-box" id="tc-subbg-swatch" style="background-color: ${state.sub_bg_color};">
+              <input type="color" class="admin-theme-hidden-picker" id="tc-subbg-picker" value="${state.sub_bg_color}">
+            </div>
+            <input type="text" class="admin-theme-hex-input" id="tc-subbg-hex" value="${state.sub_bg_color}" maxlength="7" spellcheck="false">
+          </div>
+          <div class="admin-theme-palette-row" id="tc-subbg-palette">
+            ${subBgPresets.map(c => `
+              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.sub_bg_color.toUpperCase() ? "is-selected" : ""}" 
                    style="background-color: ${c};" data-color="${c}"></div>
             `).join("")}
           </div>
-        </div>
-
-        <!-- グラデーション角度 -->
-        <div class="admin-theme-angle-block">
-          <div class="admin-theme-angle-top">
-            <label class="admin-theme-field-label">グラデーション角度</label>
-            <div class="admin-theme-angle-badge-wrap">
-              <span class="admin-theme-angle-num" id="tc-angle-num">${state.card_bg_gradient_angle}</span>
-              <span class="admin-theme-angle-badge" id="tc-angle-badge">${state.card_bg_gradient_angle}°</span>
-            </div>
-          </div>
-          <input type="range" class="admin-theme-angle-slider" id="tc-angle-slider" min="0" max="360" step="1" value="${state.card_bg_gradient_angle}">
-          <div class="admin-theme-angle-presets">
-            ${anglePresets.map(p => `
-              <button type="button" class="admin-theme-angle-btn ${state.card_bg_gradient_angle === p.angle ? "is-active" : ""}" data-angle="${p.angle}">
-                ${p.label}
-              </button>
-            `).join("")}
-          </div>
-        </div>
-      </div>
-
-      <!-- サブカード背景色 (sub_bg_color) -->
-      <div class="admin-theme-color-block" style="border-top: 1px dashed rgba(255, 255, 255, 0.12); padding-top: 14px; margin-top: 4px;">
-        <label class="admin-theme-field-label">サブカード背景色 (sub_bg_color)</label>
-        <div class="admin-theme-picker-row">
-          <div class="admin-theme-swatch-box" id="tc-subbg-swatch" style="background-color: ${state.sub_bg_color};">
-            <input type="color" class="admin-theme-hidden-picker" id="tc-subbg-picker" value="${state.sub_bg_color}">
-          </div>
-          <input type="text" class="admin-theme-hex-input" id="tc-subbg-hex" value="${state.sub_bg_color}" maxlength="7" spellcheck="false">
-        </div>
-        <div class="admin-theme-palette-row" id="tc-subbg-palette">
-          ${subBgPresets.map(c => `
-            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.sub_bg_color.toUpperCase() ? "is-selected" : ""}" 
-                 style="background-color: ${c};" data-color="${c}"></div>
-          `).join("")}
         </div>
       </div>
     `;
@@ -12055,42 +12054,44 @@ export class CrudController {
     const cardTextPanel = document.createElement("div");
     cardTextPanel.className = "admin-theme-card-panel";
     cardTextPanel.innerHTML = `
-      <div class="admin-theme-panel-head">
+      <div class="admin-theme-panel-head is-accordion">
         <h3 class="admin-theme-panel-title">🎨 文字カラー設定</h3>
-        <p class="admin-theme-panel-desc">カード内の文字色および各セクション見出しのカラーを設定します。</p>
+        <span class="admin-theme-accordion-arrow">▼</span>
       </div>
 
-      <!-- カード内文字色 -->
-      <div class="admin-theme-color-block">
-        <label class="admin-theme-field-label">カード内文字色</label>
-        <div class="admin-theme-picker-row">
-          <div class="admin-theme-swatch-box" id="tc-text-swatch" style="background-color: ${state.card_text_color};">
-            <input type="color" class="admin-theme-hidden-picker" id="tc-text-picker" value="${state.card_text_color}">
+      <div class="admin-theme-accordion-body">
+        <!-- カード内文字色 -->
+        <div class="admin-theme-color-block">
+          <label class="admin-theme-field-label">カード内文字色</label>
+          <div class="admin-theme-picker-row">
+            <div class="admin-theme-swatch-box" id="tc-text-swatch" style="background-color: ${state.card_text_color};">
+              <input type="color" class="admin-theme-hidden-picker" id="tc-text-picker" value="${state.card_text_color}">
+            </div>
+            <input type="text" class="admin-theme-hex-input" id="tc-text-hex" value="${state.card_text_color}" maxlength="7" spellcheck="false">
           </div>
-          <input type="text" class="admin-theme-hex-input" id="tc-text-hex" value="${state.card_text_color}" maxlength="7" spellcheck="false">
+          <div class="admin-theme-palette-row" id="tc-text-palette">
+            ${textPresets.map(c => `
+              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_text_color.toUpperCase() ? "is-selected" : ""}" 
+                   style="background-color: ${c};" data-color="${c}"></div>
+            `).join("")}
+          </div>
         </div>
-        <div class="admin-theme-palette-row" id="tc-text-palette">
-          ${textPresets.map(c => `
-            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_text_color.toUpperCase() ? "is-selected" : ""}" 
-                 style="background-color: ${c};" data-color="${c}"></div>
-          `).join("")}
-        </div>
-      </div>
 
-      <!-- セクション見出し色 -->
-      <div class="admin-theme-color-block">
-        <label class="admin-theme-field-label">セクション見出し色</label>
-        <div class="admin-theme-picker-row">
-          <div class="admin-theme-swatch-box" id="tc-title-swatch" style="background-color: ${state.section_title_color};">
-            <input type="color" class="admin-theme-hidden-picker" id="tc-title-picker" value="${state.section_title_color}">
+        <!-- セクション見出し色 -->
+        <div class="admin-theme-color-block">
+          <label class="admin-theme-field-label">セクション見出し色</label>
+          <div class="admin-theme-picker-row">
+            <div class="admin-theme-swatch-box" id="tc-title-swatch" style="background-color: ${state.section_title_color};">
+              <input type="color" class="admin-theme-hidden-picker" id="tc-title-picker" value="${state.section_title_color}">
+            </div>
+            <input type="text" class="admin-theme-hex-input" id="tc-title-hex" value="${state.section_title_color}" maxlength="7" spellcheck="false">
           </div>
-          <input type="text" class="admin-theme-hex-input" id="tc-title-hex" value="${state.section_title_color}" maxlength="7" spellcheck="false">
-        </div>
-        <div class="admin-theme-palette-row" id="tc-title-palette">
-          ${titlePresets.map(c => `
-            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.section_title_color.toUpperCase() ? "is-selected" : ""}" 
-                 style="background-color: ${c};" data-color="${c}"></div>
-          `).join("")}
+          <div class="admin-theme-palette-row" id="tc-title-palette">
+            ${titlePresets.map(c => `
+              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.section_title_color.toUpperCase() ? "is-selected" : ""}" 
+                   style="background-color: ${c};" data-color="${c}"></div>
+            `).join("")}
+          </div>
         </div>
       </div>
     `;
@@ -12100,39 +12101,51 @@ export class CrudController {
     const bgLogoPanel = document.createElement("div");
     bgLogoPanel.className = "admin-theme-card-panel";
     bgLogoPanel.innerHTML = `
-      <div class="admin-theme-panel-head">
+      <div class="admin-theme-panel-head is-accordion">
         <h3 class="admin-theme-panel-title">🖼️ 背景・ロゴ</h3>
-        <p class="admin-theme-panel-desc">ページ全体の背景画像およびウォーターマーク等に使用されるロゴ画像を設定します。</p>
+        <span class="admin-theme-accordion-arrow">▼</span>
       </div>
 
-      <!-- 横並びプレビュー & 変更ボタン -->
-      <div class="admin-theme-assets-grid">
-        <!-- ページ全体背景画像 -->
-        <div class="admin-theme-asset-card">
-          <label class="admin-theme-field-label">ページ全体背景画像 (background)</label>
-          <div class="admin-theme-asset-preview-box">
-            <img class="admin-theme-asset-preview-img" id="tc-bg-thumb" src="${api.resolveAssetUrl(state.background, "config")}" alt="背景プレビュー" onerror="this.style.opacity='0.2';">
+      <div class="admin-theme-accordion-body">
+        <!-- 横並びプレビュー & 変更ボタン -->
+        <div class="admin-theme-assets-grid">
+          <!-- ページ全体背景画像 -->
+          <div class="admin-theme-asset-card">
+            <label class="admin-theme-field-label">ページ全体背景画像 (background)</label>
+            <div class="admin-theme-asset-preview-box">
+              <img class="admin-theme-asset-preview-img" id="tc-bg-thumb" src="${api.resolveAssetUrl(state.background, "config")}" alt="背景プレビュー" onerror="this.style.opacity='0.2';">
+            </div>
+            <button type="button" class="admin-theme-asset-change-btn" id="tc-bg-btn">📁 画像を変更</button>
+            <input type="file" id="tc-bg-file" accept="image/*" style="display: none;">
+            <span class="admin-theme-asset-filename" id="tc-bg-filename">${state.background.split("/").pop()}</span>
           </div>
-          <button type="button" class="admin-theme-asset-change-btn" id="tc-bg-btn">📁 画像を変更</button>
-          <input type="file" id="tc-bg-file" accept="image/*" style="display: none;">
-          <span class="admin-theme-asset-filename" id="tc-bg-filename">${state.background.split("/").pop()}</span>
-        </div>
 
-        <!-- サイトロゴ画像 -->
-        <div class="admin-theme-asset-card">
-          <label class="admin-theme-field-label">サイトロゴ画像 (logo)</label>
-          <div class="admin-theme-asset-preview-box is-logo-box">
-            <img class="admin-theme-asset-preview-img is-logo" id="tc-logo-thumb" src="${api.resolveAssetUrl(state.logo, "config")}" alt="ロゴプレビュー" onerror="this.style.opacity='0.2';">
+          <!-- サイトロゴ画像 -->
+          <div class="admin-theme-asset-card">
+            <label class="admin-theme-field-label">サイトロゴ画像 (logo)</label>
+            <div class="admin-theme-asset-preview-box is-logo-box">
+              <img class="admin-theme-asset-preview-img is-logo" id="tc-logo-thumb" src="${api.resolveAssetUrl(state.logo, "config")}" alt="ロゴプレビュー" onerror="this.style.opacity='0.2';">
+            </div>
+            <button type="button" class="admin-theme-asset-change-btn" id="tc-logo-btn">📁 画像を変更</button>
+            <input type="file" id="tc-logo-file" accept="image/*" style="display: none;">
+            <span class="admin-theme-asset-filename" id="tc-logo-filename">${state.logo.split("/").pop()}</span>
           </div>
-          <button type="button" class="admin-theme-asset-change-btn" id="tc-logo-btn">📁 画像を変更</button>
-          <input type="file" id="tc-logo-file" accept="image/*" style="display: none;">
-          <span class="admin-theme-asset-filename" id="tc-logo-filename">${state.logo.split("/").pop()}</span>
         </div>
       </div>
     `;
     leftCol.appendChild(bgLogoPanel);
 
     layoutGrid.appendChild(leftCol);
+
+    // アコーディオン開閉イベント登録
+    layoutGrid.querySelectorAll(".admin-theme-panel-head.is-accordion").forEach(head => {
+      head.addEventListener("click", () => {
+        const panel = head.closest(".admin-theme-card-panel");
+        if (panel) {
+          panel.classList.toggle("is-collapsed");
+        }
+      });
+    });
 
     // --- 右カラム: リアルタイム表示プレビュー ---
     const rightCol = document.createElement("div");
