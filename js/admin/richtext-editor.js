@@ -1,7 +1,8 @@
 /**
  * Rich Text Editor Component (WYSIWYG)
  * guideline 本文用リッチテキストエディタ
- * 常にプレビュー形式で直接編集でき、D1保存時にMarkdown記法（**太字**等）へ自動変換
+ * Googleドキュメント風の直接編集インターフェース
+ * 常にプレビュー形式で直接編集でき、D1保存時にMarkdown記法（# 項目, > 注意書き, - 箇条書き, **太字**等）へ自動変換
  */
 
 import { MarkdownParser } from "../common/markdown-parser.js";
@@ -11,8 +12,11 @@ export class RichTextEditor {
     this.container = container;
     this.initialMarkdown = initialMarkdown || "";
     this.editor = null;
+    this.blockSelect = null;
     this.boldBtn = null;
     this.italicBtn = null;
+    this.listBtn = null;
+    this.quoteBtn = null;
   }
 
   render() {
@@ -22,28 +26,21 @@ export class RichTextEditor {
     const wrapper = document.createElement("div");
     wrapper.className = "admin-rte-container";
 
-    // 1. ツールバー
+    // 1. ツールバー (Googleドキュメント風)
     const toolbar = document.createElement("div");
     toolbar.className = "admin-rte-toolbar";
 
-    // ブロック種別切り替え (見出し / 本文 / 引用 / 箇条書き)
+    // [本文 / 項目] スタイル切り替えセレクトボックス
     const blockSelect = document.createElement("select");
     blockSelect.className = "admin-rte-select";
     blockSelect.innerHTML = `
       <option value="p">本文 (通常の段落)</option>
       <option value="h2">項目 (大見出し)</option>
-      <option value="blockquote">注意書き (引用ブロック)</option>
-      <option value="ul">箇条書き (リスト)</option>
     `;
     blockSelect.onchange = (e) => {
-      const val = e.target.value;
-      if (val === "ul") {
-        this.formatDoc("insertUnorderedList");
-      } else {
-        this.formatDoc("formatBlock", `<${val}>`);
-      }
-      e.target.value = "p"; // 選択後にリセット
+      this.setBlockType(e.target.value);
     };
+    this.blockSelect = blockSelect;
     toolbar.appendChild(blockSelect);
 
     const div1 = document.createElement("div");
@@ -56,7 +53,6 @@ export class RichTextEditor {
     boldBtn.className = "admin-rte-btn";
     boldBtn.innerHTML = "<strong>B</strong> 太字";
     boldBtn.title = "太字装飾の適用・解除（トグル）";
-    // ボタンクリック時にエディタの選択範囲が解除されないよう onmousedown で preventDefault
     boldBtn.onmousedown = (e) => e.preventDefault();
     boldBtn.onclick = () => this.formatDoc("bold");
     this.boldBtn = boldBtn;
@@ -72,6 +68,36 @@ export class RichTextEditor {
     italicBtn.onclick = () => this.formatDoc("italic");
     this.italicBtn = italicBtn;
     toolbar.appendChild(italicBtn);
+
+    const div2 = document.createElement("div");
+    div2.className = "admin-rte-divider";
+    toolbar.appendChild(div2);
+
+    // • 箇条書きボタン (箇条書き ⇔ 通常のトグル)
+    const listBtn = document.createElement("button");
+    listBtn.type = "button";
+    listBtn.className = "admin-rte-btn";
+    listBtn.innerHTML = "• 箇条書き";
+    listBtn.title = "箇条書きリストの適用・解除（トグル）";
+    listBtn.onmousedown = (e) => e.preventDefault();
+    listBtn.onclick = () => this.toggleList();
+    this.listBtn = listBtn;
+    toolbar.appendChild(listBtn);
+
+    // 💬 注意書きボタン (注意書き ⇔ 通常のトグル)
+    const quoteBtn = document.createElement("button");
+    quoteBtn.type = "button";
+    quoteBtn.className = "admin-rte-btn";
+    quoteBtn.innerHTML = "💬 注意書き";
+    quoteBtn.title = "注意書き（引用枠）の適用・解除（トグル）";
+    quoteBtn.onmousedown = (e) => e.preventDefault();
+    quoteBtn.onclick = () => this.toggleQuote();
+    this.quoteBtn = quoteBtn;
+    toolbar.appendChild(quoteBtn);
+
+    const div3 = document.createElement("div");
+    div3.className = "admin-rte-divider";
+    toolbar.appendChild(div3);
 
     // 🔗 リンクボタン
     const linkBtn = document.createElement("button");
@@ -100,11 +126,13 @@ export class RichTextEditor {
 
     // 初期値の適用 (MarkdownをHTMLに展開してプレビュー表示で流し込む)
     const initialHtml = MarkdownParser.toHtml(this.initialMarkdown);
-    editor.innerHTML = initialHtml || "<p>ガイドラインの本文を入力してください...</p>";
+    editor.innerHTML = initialHtml || "<p class=\"gl-paragraph\">ガイドラインの本文を入力してください...</p>";
 
-    // キャレット・選択範囲移動時にツールバーボタンのアクティブ状態を更新
+    // キャレット・選択範囲移動時にツールバーボタン・セレクトの状態を更新
     editor.addEventListener("keyup", () => this.updateToolbarState());
     editor.addEventListener("mouseup", () => this.updateToolbarState());
+    editor.addEventListener("click", () => this.updateToolbarState());
+    editor.addEventListener("input", () => this.updateToolbarState());
     editor.addEventListener("focus", () => {
       try {
         document.execCommand("defaultParagraphSeparator", false, "p");
@@ -112,10 +140,130 @@ export class RichTextEditor {
       this.updateToolbarState();
     });
 
+    // Googleドキュメント風のEnterキー挙動（見出し末尾でのEnterで自動的に通常本文段落を生成）
+    editor.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        const heading = this.getClosestTag("h2") || this.getClosestTag("h1") || this.getClosestTag("h3");
+        if (heading) {
+          const sel = window.getSelection();
+          if (sel && sel.isCollapsed && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            const headingRange = document.createRange();
+            headingRange.selectNodeContents(heading);
+            headingRange.collapse(false);
+            if (range.compareBoundaryPoints(Range.END_TO_END, headingRange) === 0) {
+              e.preventDefault();
+              const p = document.createElement("p");
+              p.className = "gl-paragraph";
+              p.innerHTML = "<br>";
+              if (heading.nextSibling) {
+                heading.parentNode.insertBefore(p, heading.nextSibling);
+              } else {
+                heading.parentNode.appendChild(p);
+              }
+              const newRange = document.createRange();
+              newRange.setStart(p, 0);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+              this.updateToolbarState();
+              return;
+            }
+          }
+        }
+      }
+    });
+
     this.editor = editor;
     wrapper.appendChild(editor);
 
     this.container.appendChild(wrapper);
+
+    // 初回ツールバー状態更新
+    setTimeout(() => this.updateToolbarState(), 50);
+  }
+
+  /**
+   * 現在のキャレット位置にある最も近いブロック要素を取得
+   */
+  getCurrentBlockElement() {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return null;
+    let node = selection.getRangeAt(0).commonAncestorContainer;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    while (node && node !== this.editor) {
+      const tag = node.tagName.toLowerCase();
+      if (["p", "h1", "h2", "h3", "blockquote", "li", "ul", "ol", "div"].includes(tag)) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  /**
+   * キャレット位置の祖先にある特定タグを取得
+   */
+  getClosestTag(tagName) {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return null;
+    let node = selection.getRangeAt(0).commonAncestorContainer;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    const target = tagName.toLowerCase();
+    while (node && node !== this.editor) {
+      if (node.tagName.toLowerCase() === target) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  /**
+   * 本文 (p) / 項目 (h2) の上書き切り替え
+   */
+  setBlockType(tag) {
+    if (!this.editor) return;
+    this.editor.focus();
+
+    // もしリスト内 (li) にいる場合はリストを解除してからブロック化
+    if (this.getClosestTag("li")) {
+      document.execCommand("insertUnorderedList");
+    }
+
+    // もし引用 (blockquote) 内にいる場合は引用を解除
+    const bq = this.getClosestTag("blockquote");
+    if (bq) {
+      const targetTag = tag === "h2" ? "h2" : "p";
+      const el = document.createElement(targetTag);
+      el.className = targetTag === "h2" ? "gl-heading" : "gl-paragraph";
+      el.innerHTML = bq.innerHTML;
+      bq.parentNode.replaceChild(el, bq);
+
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      this.updateToolbarState();
+      return;
+    }
+
+    try {
+      document.execCommand("formatBlock", false, `<${tag}>`);
+      const block = this.getCurrentBlockElement();
+      if (block) {
+        if (tag === "h2") {
+          block.className = "gl-heading";
+        } else {
+          block.className = "gl-paragraph";
+        }
+      }
+    } catch (err) {
+      console.warn("[RichTextEditor setBlockType Error]:", err);
+    }
+    this.updateToolbarState();
   }
 
   /**
@@ -128,6 +276,83 @@ export class RichTextEditor {
       document.execCommand(command, false, value);
     } catch (e) {
       console.warn("[RichTextEditor execCommand Error]:", e);
+    }
+    this.updateToolbarState();
+  }
+
+  /**
+   * 箇条書き（リスト）のトグル
+   */
+  toggleList() {
+    if (!this.editor) return;
+    this.editor.focus();
+
+    // もし引用 (blockquote) 内にいる場合は引用を解除してからリスト化
+    const bq = this.getClosestTag("blockquote");
+    if (bq) {
+      const p = document.createElement("p");
+      p.className = "gl-paragraph";
+      p.innerHTML = bq.innerHTML;
+      bq.parentNode.replaceChild(p, bq);
+
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    try {
+      document.execCommand("insertUnorderedList");
+      const ul = this.getClosestTag("ul");
+      if (ul) {
+        ul.className = "gl-list";
+      }
+    } catch (e) {
+      console.warn("[RichTextEditor toggleList Error]:", e);
+    }
+    this.updateToolbarState();
+  }
+
+  /**
+   * 注意書き（引用枠）のトグル
+   */
+  toggleQuote() {
+    if (!this.editor) return;
+    this.editor.focus();
+
+    const existingQuote = this.getClosestTag("blockquote");
+    if (existingQuote) {
+      // 解除: blockquote を p に変換してアンラップ
+      const p = document.createElement("p");
+      p.className = "gl-paragraph";
+      p.innerHTML = existingQuote.innerHTML;
+      existingQuote.parentNode.replaceChild(p, existingQuote);
+
+      // キャレット復元
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      // もしリスト内にいる場合はリストを解除してから注意書き化
+      if (this.getClosestTag("li")) {
+        document.execCommand("insertUnorderedList");
+      }
+
+      // 注意書き化
+      try {
+        document.execCommand("formatBlock", false, "<blockquote>");
+        const bq = this.getClosestTag("blockquote");
+        if (bq) {
+          bq.className = "gl-alert";
+        }
+      } catch (e) {
+        console.warn("[RichTextEditor toggleQuote Error]:", e);
+      }
     }
     this.updateToolbarState();
   }
@@ -164,10 +389,11 @@ export class RichTextEditor {
   }
 
   /**
-   * ツールバーボタン（太字・斜体）のアクティブ状態をキャレット位置に応じて更新
+   * ツールバーボタン（太字・斜体・リスト・引用・ブロック種別）の状態をキャレット位置に応じて更新
    */
   updateToolbarState() {
     try {
+      // 1. 太字ボタン
       if (this.boldBtn) {
         if (document.queryCommandState("bold")) {
           this.boldBtn.classList.add("is-active");
@@ -175,6 +401,8 @@ export class RichTextEditor {
           this.boldBtn.classList.remove("is-active");
         }
       }
+
+      // 2. 斜体ボタン
       if (this.italicBtn) {
         if (document.queryCommandState("italic")) {
           this.italicBtn.classList.add("is-active");
@@ -182,12 +410,43 @@ export class RichTextEditor {
           this.italicBtn.classList.remove("is-active");
         }
       }
-    } catch (e) {}
+
+      // 3. 箇条書きボタン
+      if (this.listBtn) {
+        const isList = document.queryCommandState("insertUnorderedList") || !!this.getClosestTag("li");
+        if (isList) {
+          this.listBtn.classList.add("is-active");
+        } else {
+          this.listBtn.classList.remove("is-active");
+        }
+      }
+
+      // 4. 注意書きボタン
+      if (this.quoteBtn) {
+        const isQuote = !!this.getClosestTag("blockquote");
+        if (isQuote) {
+          this.quoteBtn.classList.add("is-active");
+        } else {
+          this.quoteBtn.classList.remove("is-active");
+        }
+      }
+
+      // 5. 本文 / 項目 セレクトボックス連動
+      if (this.blockSelect) {
+        const heading = this.getClosestTag("h2") || this.getClosestTag("h1") || this.getClosestTag("h3");
+        if (heading) {
+          this.blockSelect.value = "h2";
+        } else {
+          this.blockSelect.value = "p";
+        }
+      }
+    } catch (e) {
+      console.warn("[RichTextEditor updateToolbarState Error]:", e);
+    }
   }
 
   /**
    * D1保存用のシリアライズされたMarkdown文字列の取得
-   * (エディタ内の太字 <b> / <strong> は **テキスト** 形式に変換される)
    */
   getValue() {
     if (!this.editor) return "";
@@ -201,8 +460,7 @@ export class RichTextEditor {
     this.initialMarkdown = newMarkdown || "";
     if (this.editor) {
       this.editor.innerHTML = MarkdownParser.toHtml(this.initialMarkdown);
+      this.updateToolbarState();
     }
   }
 }
-
-

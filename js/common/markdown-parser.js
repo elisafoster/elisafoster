@@ -158,8 +158,13 @@ export class MarkdownParser {
           const text = processInline(child).trim();
           if (text) blocks.push(`# ${text}`);
         } else if (tag === "blockquote") {
-          const text = processInline(child).trim();
-          if (text) blocks.push(`> ${text}`);
+          const lines = processInline(child)
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0);
+          if (lines.length > 0) {
+            blocks.push(lines.map((l) => `> ${l}`).join("\n"));
+          }
         } else if (tag === "ul" || tag === "ol") {
           for (const li of child.querySelectorAll("li")) {
             const text = processInline(li).trim();

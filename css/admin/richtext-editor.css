@@ -69,6 +69,15 @@
   background: #0f172a;
   color: #f8fafc;
   font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  min-width: 160px;
+  transition: border-color var(--transition-fast);
+}
+
+.admin-rte-select:focus,
+.admin-rte-select:hover {
+  border-color: #3b82f6;
 }
 
 /* エディタとプレビューのタブ */
@@ -147,7 +156,8 @@
   color: #e2e8f0;
 }
 
-.admin-rte-editor h2 {
+.admin-rte-editor h2,
+.admin-rte-editor .gl-heading {
   font-size: 1.3rem;
   font-weight: 700;
   color: #ffffff;
@@ -156,7 +166,8 @@
   border-bottom: 2px solid rgba(59, 130, 246, 0.4);
 }
 
-.admin-rte-editor h2:first-child {
+.admin-rte-editor h2:first-child,
+.admin-rte-editor .gl-heading:first-child {
   margin-top: 0;
 }
 
@@ -167,13 +178,15 @@
   margin: 18px 0 10px;
 }
 
-.admin-rte-editor p {
+.admin-rte-editor p,
+.admin-rte-editor .gl-paragraph {
   margin-bottom: 12px;
   line-height: 1.8;
   color: #cbd5e1;
 }
 
-.admin-rte-editor blockquote {
+.admin-rte-editor blockquote,
+.admin-rte-editor .gl-alert {
   background: rgba(245, 158, 11, 0.12);
   border-left: 4px solid #f59e0b;
   padding: 10px 14px;
@@ -182,7 +195,8 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-.admin-rte-editor ul {
+.admin-rte-editor ul,
+.admin-rte-editor .gl-list {
   padding-left: 24px;
   margin-bottom: 12px;
   list-style: disc;
