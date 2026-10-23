@@ -107,6 +107,12 @@ movie:
         field: "id"
       required: false
 
+    movieList_order:
+      type: number
+      label: "再生リスト内の順番"
+      description: "再生リスト内での表示順序を指定します。数値が小さいほど先頭に表示されます。"
+      required: false
+
     is_active:
       type: boolean
       description: "表示フラグ（true: 表示 / false: 非表示）"

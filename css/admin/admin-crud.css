@@ -3243,6 +3243,92 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   }
 }
 
+/* ========================================================
+   再生リスト内 動画ドラッグ＆スワイプ並び替えスタイル
+   ======================================================== */
+.admin-row-dragging {
+  opacity: 0.45 !important;
+  background: rgba(56, 189, 248, 0.2) !important;
+}
+
+.admin-row-dragover {
+  border-top: 2px solid #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+}
+
+.admin-row-touching {
+  background: rgba(56, 189, 248, 0.25) !important;
+  outline: 2px dashed #38bdf8 !important;
+}
+
+.admin-sort-handle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.admin-drag-handle {
+  cursor: grab;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #64748b;
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  user-select: none;
+  touch-action: none;
+  transition: all 0.15s ease;
+}
+
+.admin-drag-handle:hover,
+.admin-drag-handle:active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  cursor: grabbing;
+}
+
+.admin-order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.admin-reorder-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s;
+}
+
+.admin-reorder-btn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border-color: #38bdf8;
+}
+
+.admin-reorder-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+
 
 
 

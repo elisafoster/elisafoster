@@ -7193,7 +7193,11 @@ export class CrudController {
         listSelect.onchange = async (e) => {
           e.stopPropagation();
           const newVal = listSelect.value ? Number(listSelect.value) : null;
+          const oldVal = item.movieList;
           item.movieList = newVal;
+          if (String(newVal || "") !== String(oldVal || "")) {
+            item.movieList_order = newVal ? this.getNextMovieListOrder(newVal, item.id) : null;
+          }
           this.movieState.hasPendingChanges = true;
           const selectedListName = newVal ? (listMap.get(String(newVal))?.listName || `ID: ${newVal}`) : "未設定";
           Toast.info(`ID: ${item.id} の再生リストを「${selectedListName}」に変更しました（※「更新反映」を押すまでD1には保存されません）`);
@@ -7723,13 +7727,29 @@ export class CrudController {
         imageVal = raw ? convertGoogleDriveUrl(raw) : null;
       }
 
+      const listVal = fd.get("movieList") ? Number(fd.get("movieList")) : null;
+      let orderVal = null;
+      if (isNew) {
+        orderVal = listVal ? this.getNextMovieListOrder(listVal) : null;
+      } else {
+        const oldList = record?.movieList ? Number(record.movieList) : null;
+        if (listVal && listVal !== oldList) {
+          orderVal = this.getNextMovieListOrder(listVal, record?.id);
+        } else if (!listVal) {
+          orderVal = null;
+        } else {
+          orderVal = record?.movieList_order != null ? record.movieList_order : this.getNextMovieListOrder(listVal, record?.id);
+        }
+      }
+
       const payload = {
         id: Number(fd.get("id")),
         movieCategory_id: Number(catVal) || catVal,
         movieTag_id: fd.get("movieTag_id") ? Number(fd.get("movieTag_id")) : null,
         movieUrl: urlVal,
         movieImage: imageVal || null,
-        movieList: fd.get("movieList") ? Number(fd.get("movieList")) : null,
+        movieList: listVal,
+        movieList_order: orderVal,
         is_active: form.querySelector('[name="is_active"]')?.checked ? 1 : 0,
       };
 
@@ -8650,8 +8670,30 @@ export class CrudController {
   }
 
   /**
+   * 指定した再生リスト内での次の movieList_order を自動算出する (最大値 + 1)
+   * @param {string|number|null} targetListId
+   * @param {string|number|null} excludeMovieId (自身のIDを除外する場合)
+   * @returns {number|null}
+   */
+  getNextMovieListOrder(targetListId, excludeMovieId = null) {
+    if (!targetListId) return null;
+    const allMovies = this.movieState?.currentRecords || [];
+    const sameListMovies = allMovies.filter((m) => {
+      if (excludeMovieId && Number(m.id) === Number(excludeMovieId)) return false;
+      return String(m.movieList) === String(targetListId);
+    });
+    if (sameListMovies.length === 0) return 1;
+    const maxOrder = Math.max(
+      0,
+      ...sameListMovies.map((m) => Number(m.movieList_order) || 0)
+    );
+    return maxOrder + 1;
+  }
+
+  /**
    * 再生リスト管理タブ (movieList)
    * アコーディオン開閉で、各再生リストに紐づく動画リスト (movie) の一覧を表示
+   * ドラッグ＆ドロップ / スワイプによる並び替えに対応
    */
   async renderMovieListTab() {
     this.currentTab = "movieList";
@@ -8753,11 +8795,15 @@ export class CrudController {
     const commitBtn = document.createElement("button");
     commitBtn.id = "movieList-commit-btn";
     commitBtn.className = "app-btn app-btn-orange";
-    const changesCount = this.getMovieListChangesCount();
-    if (this.movieListState.hasPendingChanges && changesCount > 0) {
+    const listChanges = this.getMovieListChangesCount();
+    const movieChanges = this.getMovieChangesCount();
+    const totalChanges = listChanges + movieChanges;
+    const hasPending = (this.movieListState.hasPendingChanges && listChanges > 0) || (this.movieState.hasPendingChanges && movieChanges > 0);
+
+    if (hasPending && totalChanges > 0) {
       commitBtn.classList.add("has-changes");
-      commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
-      commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+      commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${totalChanges}</span>`;
+      commitBtn.title = `${totalChanges}件の未反映の変更があります（再生リスト・動画並び順）。クリックしてD1に保存（更新反映）します`;
       commitBtn.disabled = false;
     } else {
       commitBtn.innerHTML = `<span>更新反映</span>`;
@@ -8773,14 +8819,14 @@ export class CrudController {
     card.appendChild(header);
 
     // 未保存アラートバー
-    if (this.movieListState.hasPendingChanges && changesCount > 0) {
+    if (hasPending && totalChanges > 0) {
       const alertBar = document.createElement("div");
       alertBar.className = "admin-alert-banner is-warning";
       alertBar.style.cssText = "margin: 0 24px 16px 24px; padding: 10px 16px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem;";
       alertBar.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
           <span>⚠️</span>
-          <span>未保存の変更が <strong>${changesCount}件</strong> あります。「更新反映」ボタンを押すとD1データベースに保存されます。</span>
+          <span>未保存の変更が <strong>${totalChanges}件</strong> あります。「更新反映」ボタンを押すとD1データベースに保存されます。</span>
         </div>
       `;
       const saveNowBtn = document.createElement("button");
@@ -8926,28 +8972,36 @@ export class CrudController {
         trMain.appendChild(tdImage);
 
         // ========================================================
-        // アコーディオン詳細行（紐づく動画一覧）
+        // アコーディオン詳細行（紐づく動画一覧 ＆ 並び替え）
         // ========================================================
         const tdDetailCell = document.createElement("td");
         tdDetailCell.colSpan = 5;
         tdDetailCell.className = "admin-schedule-detail-cell";
         tdDetailCell.style.padding = "16px 20px";
 
-        // この再生リストに紐づく動画を抽出
+        // この再生リストに紐づく動画を抽出（movieList_order 昇順ソート）
         const matchedMovies = movies
           .filter((m) => String(m.movieList) === String(item.id))
-          .sort((a, b) => Number(a.id) - Number(b.id));
+          .sort((a, b) => {
+            const oA = a.movieList_order != null && a.movieList_order !== "" ? Number(a.movieList_order) : 999999;
+            const oB = b.movieList_order != null && b.movieList_order !== "" ? Number(b.movieList_order) : 999999;
+            if (oA !== oB) return oA - oB;
+            return Number(a.id) - Number(b.id);
+          });
 
         const detailBox = document.createElement("div");
         detailBox.style.cssText = "display: flex; flex-direction: column; gap: 12px;";
 
-        // ヘッダーバー
+        // ヘッダーバー (件数およびドラッグ＆スワイプ案内)
         const detailHead = document.createElement("div");
-        detailHead.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);";
+        detailHead.style.cssText = "display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);";
         detailHead.innerHTML = `
           <div style="display: flex; align-items: center; gap: 10px;">
             <span style="font-size: 0.92rem; font-weight: 700; color: #38bdf8;">🎬 設定されている動画一覧</span>
             <span class="admin-count-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">${matchedMovies.length}件</span>
+          </div>
+          <div style="font-size: 0.78rem; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+            <span>💡 順番列の「⋮⋮」をドラッグ・スワイプするか「▲/▼」で並び替えできます</span>
           </div>
         `;
         detailBox.appendChild(detailHead);
@@ -8974,6 +9028,7 @@ export class CrudController {
           const subThead = document.createElement("thead");
           subThead.innerHTML = `
             <tr style="background: rgba(11, 20, 38, 0.8);">
+              <th style="width: 80px; text-align: center;">順番</th>
               <th style="width: 50px; text-align: center;">id</th>
               <th style="width: 140px; text-align: center;">サムネイル</th>
               <th style="width: 120px;">動画タイプ</th>
@@ -8985,8 +9040,155 @@ export class CrudController {
           subTable.appendChild(subThead);
 
           const subTbody = document.createElement("tbody");
-          matchedMovies.forEach((m) => {
+
+          // 並び替え適用関数
+          const applyMovieReorder = async (fromId, toId) => {
+            const fromIdx = matchedMovies.findIndex((m) => Number(m.id) === Number(fromId));
+            const toIdx = matchedMovies.findIndex((m) => Number(m.id) === Number(toId));
+            if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+
+            // 配列内の順序移動
+            const [moved] = matchedMovies.splice(fromIdx, 1);
+            matchedMovies.splice(toIdx, 0, moved);
+
+            // 上から順に movieList_order を 1, 2, 3... に振り直す
+            matchedMovies.forEach((m, idx) => {
+              m.movieList_order = idx + 1;
+              const targetRec = this.movieState.currentRecords.find((rec) => Number(rec.id) === Number(m.id));
+              if (targetRec) {
+                targetRec.movieList_order = idx + 1;
+              }
+            });
+
+            this.movieState.hasPendingChanges = true;
+            this.movieListState.hasPendingChanges = true;
+
+            Toast.info(`再生リスト「${item.listName}」内の動画並び順を更新しました（※「更新反映」を押すまでD1には保存されません）`);
+            await this.renderMovieListTab();
+          };
+
+          // ドラッグ・スワイプ状態変数
+          let draggedMovieId = null;
+          let touchActiveTr = null;
+
+          matchedMovies.forEach((m, idx) => {
             const subTr = document.createElement("tr");
+            subTr.dataset.movieId = String(m.id);
+            subTr.setAttribute("draggable", "true");
+
+            // 0. 順番列 (グリップハンドル、番号、上下微調整ボタン)
+            const subTdOrder = document.createElement("td");
+            subTdOrder.style.textAlign = "center";
+            subTdOrder.innerHTML = `
+              <div class="admin-sort-handle-wrap">
+                <span class="admin-drag-handle" title="ドラッグまたはスワイプで並び替え">⋮⋮</span>
+                <span class="admin-order-badge">${idx + 1}</span>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <button type="button" class="admin-reorder-btn btn-order-up" title="上へ移動" ${idx === 0 ? "disabled" : ""}>▲</button>
+                  <button type="button" class="admin-reorder-btn btn-order-down" title="下へ移動" ${idx === matchedMovies.length - 1 ? "disabled" : ""}>▼</button>
+                </div>
+              </div>
+            `;
+
+            // ▲ / ▼ ボタンの動作
+            const btnUp = subTdOrder.querySelector(".btn-order-up");
+            const btnDown = subTdOrder.querySelector(".btn-order-down");
+            btnUp?.addEventListener("click", async (e) => {
+              e.stopPropagation();
+              if (idx > 0) {
+                await applyMovieReorder(m.id, matchedMovies[idx - 1].id);
+              }
+            });
+            btnDown?.addEventListener("click", async (e) => {
+              e.stopPropagation();
+              if (idx < matchedMovies.length - 1) {
+                await applyMovieReorder(m.id, matchedMovies[idx + 1].id);
+              }
+            });
+
+            // モバイル タッチスワイプ
+            const handleEl = subTdOrder.querySelector(".admin-drag-handle");
+            if (handleEl) {
+              handleEl.addEventListener("touchstart", (e) => {
+                e.stopPropagation();
+                touchActiveTr = subTr;
+                touchActiveTr.classList.add("admin-row-touching");
+              }, { passive: false });
+
+              handleEl.addEventListener("touchmove", (e) => {
+                if (!touchActiveTr) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const touch = e.touches[0];
+                const overEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                const overTr = overEl?.closest("tr[data-movie-id]");
+                subTbody.querySelectorAll("tr[data-movie-id]").forEach(tr => tr.classList.remove("admin-row-dragover"));
+                if (overTr && overTr !== touchActiveTr && overTr.parentNode === subTbody) {
+                  overTr.classList.add("admin-row-dragover");
+                }
+              }, { passive: false });
+
+              handleEl.addEventListener("touchend", async (e) => {
+                if (!touchActiveTr) return;
+                e.stopPropagation();
+                touchActiveTr.classList.remove("admin-row-touching");
+                const touch = e.changedTouches[0];
+                const overEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                const overTr = overEl?.closest("tr[data-movie-id]");
+                subTbody.querySelectorAll("tr[data-movie-id]").forEach(tr => tr.classList.remove("admin-row-dragover"));
+                if (overTr && overTr !== touchActiveTr && overTr.parentNode === subTbody) {
+                  const fromId = Number(touchActiveTr.dataset.movieId);
+                  const toId = Number(overTr.dataset.movieId);
+                  await applyMovieReorder(fromId, toId);
+                }
+                touchActiveTr = null;
+              });
+
+              handleEl.addEventListener("touchcancel", () => {
+                if (touchActiveTr) {
+                  touchActiveTr.classList.remove("admin-row-touching");
+                  subTbody.querySelectorAll("tr[data-movie-id]").forEach(tr => tr.classList.remove("admin-row-dragover"));
+                  touchActiveTr = null;
+                }
+              });
+            }
+
+            subTr.appendChild(subTdOrder);
+
+            // PC ドラッグ＆ドロップ
+            subTr.ondragstart = (e) => {
+              draggedMovieId = m.id;
+              subTr.classList.add("admin-row-dragging");
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(m.id));
+            };
+
+            subTr.ondragover = (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (draggedMovieId && Number(draggedMovieId) !== Number(m.id)) {
+                subTr.classList.add("admin-row-dragover");
+              }
+            };
+
+            subTr.ondragleave = () => {
+              subTr.classList.remove("admin-row-dragover");
+            };
+
+            subTr.ondrop = async (e) => {
+              e.preventDefault();
+              subTr.classList.remove("admin-row-dragover");
+              if (draggedMovieId && Number(draggedMovieId) !== Number(m.id)) {
+                await applyMovieReorder(draggedMovieId, m.id);
+              }
+              draggedMovieId = null;
+            };
+
+            subTr.ondragend = () => {
+              subTr.classList.remove("admin-row-dragging");
+              subTbody.querySelectorAll("tr").forEach(tr => tr.classList.remove("admin-row-dragover"));
+              draggedMovieId = null;
+            };
 
             // 1. id
             const subTdId = document.createElement("td");
@@ -9114,6 +9316,7 @@ export class CrudController {
     this.container.innerHTML = "";
     this.container.appendChild(container);
   }
+
 
 
   /**
@@ -12685,53 +12888,84 @@ export class CrudController {
   }
 
   /**
-   * 再生リスト管理 (movieList) の保留変更をD1に一括保存（更新反映）
+   * 再生リスト管理 (movieList) および動画並び順の保留変更をD1に一括保存（更新反映）
    */
   async commitMovieListChanges() {
-    const count = this.getMovieListChangesCount();
-    if (!this.movieListState?.hasPendingChanges || count === 0) {
+    const listCount = this.getMovieListChangesCount();
+    const movieCount = this.getMovieChangesCount();
+    const totalCount = listCount + movieCount;
+
+    if (totalCount === 0) {
       Toast.info("D1に反映する変更はありません");
       return;
     }
 
     const ok = confirm(
-      `再生リスト管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+      `再生リスト管理および動画並び順の変更内容（${totalCount}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
     );
     if (!ok) return;
 
     api.showLoading();
     try {
-      const origMap = new Map(this.movieListState.originalRecords.map((r) => [Number(r.id), r]));
-      const currMap = new Map(this.movieListState.currentRecords.map((r) => [Number(r.id), r]));
+      // 1. 再生リスト (movieList) の反映
+      if (this.movieListState?.hasPendingChanges && listCount > 0) {
+        const origMap = new Map(this.movieListState.originalRecords.map((r) => [Number(r.id), r]));
+        const currMap = new Map(this.movieListState.currentRecords.map((r) => [Number(r.id), r]));
 
-      // 1. 削除されたレコードの反映 (DELETE)
-      const toDelete = this.movieListState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
-      for (const rec of toDelete) {
-        await api.deleteRecord("movieList", rec.id);
-      }
+        const toDelete = this.movieListState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+        for (const rec of toDelete) {
+          await api.deleteRecord("movieList", rec.id);
+        }
 
-      // 2. 新規追加 (POST) ・ 更新 (PUT) の反映
-      for (const rec of this.movieListState.currentRecords) {
-        const orig = origMap.get(Number(rec.id));
-        if (!orig) {
-          await api.saveTable("movieList", rec, null);
-        } else {
-          const hasDiff = Object.keys(rec).some((k) => {
-            const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
-            const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
-            return vCurr !== vOrig;
-          });
-          if (hasDiff) {
-            await api.saveTable("movieList", rec, rec.id);
+        for (const rec of this.movieListState.currentRecords) {
+          const orig = origMap.get(Number(rec.id));
+          if (!orig) {
+            await api.saveTable("movieList", rec, null);
+          } else {
+            const hasDiff = Object.keys(rec).some((k) => {
+              const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+              const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+              return vCurr !== vOrig;
+            });
+            if (hasDiff) {
+              await api.saveTable("movieList", rec, rec.id);
+            }
           }
         }
+        this.movieListState.hasPendingChanges = false;
+        this.movieListState.isInitialized = false;
       }
 
-      Toast.success("再生リスト管理の変更をD1データベースに反映しました");
+      // 2. 動画リスト (movie: movieList_order 等) の反映
+      if (this.movieState?.hasPendingChanges && movieCount > 0) {
+        const origMap = new Map(this.movieState.originalRecords.map((r) => [Number(r.id), r]));
+        const currMap = new Map(this.movieState.currentRecords.map((r) => [Number(r.id), r]));
 
-      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
-      this.movieListState.hasPendingChanges = false;
-      this.movieListState.isInitialized = false;
+        const toDelete = this.movieState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+        for (const rec of toDelete) {
+          await api.deleteRecord("movie", rec.id);
+        }
+
+        for (const rec of this.movieState.currentRecords) {
+          const orig = origMap.get(Number(rec.id));
+          if (!orig) {
+            await api.saveTable("movie", rec, null);
+          } else {
+            const hasDiff = Object.keys(rec).some((k) => {
+              const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+              const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+              return vCurr !== vOrig;
+            });
+            if (hasDiff) {
+              await api.saveTable("movie", rec, rec.id);
+            }
+          }
+        }
+        this.movieState.hasPendingChanges = false;
+        this.movieState.isInitialized = false;
+      }
+
+      Toast.success("再生リストおよび動画並び順の変更をD1データベースに反映しました");
       await this.loadTab("movieList");
     } catch (err) {
       console.error("[Commit MovieList Error]:", err);
