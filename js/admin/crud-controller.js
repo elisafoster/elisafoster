@@ -581,21 +581,7 @@ export class CrudController {
           await this.renderMovieTab();
           break;
         case "movieList":
-          await this.renderTableListTab(
-            "movieList",
-            "再生リスト管理",
-            [
-              { key: "actions", label: "操作", isAction: true, style: { width: "80px", textAlign: "center" } },
-              { key: "id", label: "id", style: { width: "60px", textAlign: "center" } },
-              { key: "listName", label: "リスト名", style: { minWidth: "200px" } },
-              { key: "listImage", label: "画像", type: "image", category: "movieList", style: { width: "160px", textAlign: "center" } },
-            ],
-            {
-              hideDesc: true,
-              showCountBadge: true,
-              verticalActions: true,
-            }
-          );
+          await this.renderMovieListTab();
           break;
         case "shop":
           await this.renderShopTab();
@@ -8662,6 +8648,473 @@ export class CrudController {
     this.container.innerHTML = "";
     this.container.appendChild(container);
   }
+
+  /**
+   * 再生リスト管理タブ (movieList)
+   * アコーディオン開閉で、各再生リストに紐づく動画リスト (movie) の一覧を表示
+   */
+  async renderMovieListTab() {
+    this.currentTab = "movieList";
+    const container = document.createElement("div");
+    container.style.cssText = "display: flex; flex-direction: column; gap: 20px;";
+
+    let movieLists = [];
+    let movies = [];
+    let categories = [];
+    let tags = [];
+
+    api.showLoading();
+    try {
+      // 1. 再生リスト (movieList) データのロード・ドラフト初期化
+      if (!this.movieListState.isInitialized) {
+        const listsRes = await api.getTable("movieList").catch(() => []);
+        const rawList = Array.isArray(listsRes) ? listsRes : (listsRes ? [listsRes] : []);
+        this.movieListState.originalRecords = JSON.parse(JSON.stringify(rawList));
+        this.movieListState.currentRecords = JSON.parse(JSON.stringify(rawList));
+        this.movieListState.hasPendingChanges = false;
+        this.movieListState.isInitialized = true;
+      }
+      movieLists = this.movieListState.currentRecords;
+
+      // 2. 動画 (movie) データのロード（紐づく動画一覧表示用）
+      if (!this.movieState.isInitialized) {
+        const moviesRes = await api.getTable("movie").catch(() => []);
+        const rawMovies = Array.isArray(moviesRes) ? moviesRes : (moviesRes ? [moviesRes] : []);
+        this.movieState.originalRecords = JSON.parse(JSON.stringify(rawMovies));
+        this.movieState.currentRecords = JSON.parse(JSON.stringify(rawMovies));
+        this.movieState.hasPendingChanges = false;
+        this.movieState.isInitialized = true;
+      }
+      movies = this.movieState.currentRecords;
+
+      // 3. 動画タイプ (movieCategory) とタグ (movieTag) のマスタデータ
+      const [categoriesRes, tagsRes] = await Promise.all([
+        api.getTable("movieCategory").catch(() => []),
+        api.getTable("movieTag").catch(() => []),
+      ]);
+      categories = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes ? [categoriesRes] : []);
+      tags = Array.isArray(tagsRes) ? tagsRes : (tagsRes ? [tagsRes] : []);
+    } catch (err) {
+      console.error("[MovieList Data Load Error]:", err);
+      movieLists = this.movieListState.currentRecords || [];
+      movies = this.movieState.currentRecords || [];
+      categories = [];
+      tags = [];
+    } finally {
+      api.hideLoading();
+    }
+
+    const categoryMap = new Map(categories.map((c) => [String(c.id), c]));
+    const tagMap = new Map(tags.map((t) => [String(t.id), t]));
+
+    // YouTube サムネイル取得ヘルパー
+    const getYouTubeThumbnail = (url) => {
+      if (!url || typeof url !== "string") return null;
+      const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+      if (match && match[1]) {
+        return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+      }
+      return null;
+    };
+
+    const card = document.createElement("div");
+    card.className = "admin-card";
+
+    // ヘッダー (タイトル、件数チップ、新規追加、更新反映)
+    const header = document.createElement("div");
+    header.className = "admin-card-header";
+
+    const titleGroup = document.createElement("div");
+    titleGroup.style.cssText = "display: flex; align-items: center; gap: 12px;";
+
+    const titleEl = document.createElement("h2");
+    titleEl.className = "admin-card-title";
+    titleEl.textContent = "再生リスト管理";
+    titleGroup.appendChild(titleEl);
+
+    const countBadge = document.createElement("span");
+    countBadge.className = "admin-count-badge";
+    countBadge.textContent = `${movieLists.length}件`;
+    titleGroup.appendChild(countBadge);
+
+    header.appendChild(titleGroup);
+
+    const actions = document.createElement("div");
+    actions.className = "admin-card-actions";
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "app-btn app-btn-primary";
+    addBtn.textContent = "+ 新規追加";
+    addBtn.onclick = () => this.openMovieListModal(null);
+    actions.appendChild(addBtn);
+
+    // 更新反映ボタン (オレンジ)
+    const commitBtn = document.createElement("button");
+    commitBtn.id = "movieList-commit-btn";
+    commitBtn.className = "app-btn app-btn-orange";
+    const changesCount = this.getMovieListChangesCount();
+    if (this.movieListState.hasPendingChanges && changesCount > 0) {
+      commitBtn.classList.add("has-changes");
+      commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+      commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+      commitBtn.disabled = false;
+    } else {
+      commitBtn.innerHTML = `<span>更新反映</span>`;
+      commitBtn.title = "D1に未反映の変更はありません";
+      commitBtn.disabled = true;
+    }
+    commitBtn.onclick = async () => {
+      await this.commitMovieListChanges();
+    };
+    actions.appendChild(commitBtn);
+
+    header.appendChild(actions);
+    card.appendChild(header);
+
+    // 未保存アラートバー
+    if (this.movieListState.hasPendingChanges && changesCount > 0) {
+      const alertBar = document.createElement("div");
+      alertBar.className = "admin-alert-banner is-warning";
+      alertBar.style.cssText = "margin: 0 24px 16px 24px; padding: 10px 16px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem;";
+      alertBar.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span>⚠️</span>
+          <span>未保存の変更が <strong>${changesCount}件</strong> あります。「更新反映」ボタンを押すとD1データベースに保存されます。</span>
+        </div>
+      `;
+      const saveNowBtn = document.createElement("button");
+      saveNowBtn.type = "button";
+      saveNowBtn.className = "app-btn app-btn-orange app-btn-sm";
+      saveNowBtn.textContent = "今すぐ更新反映";
+      saveNowBtn.onclick = async () => {
+        await this.commitMovieListChanges();
+      };
+      alertBar.appendChild(saveNowBtn);
+      card.appendChild(alertBar);
+    }
+
+    // テーブル生成
+    const tableContainer = document.createElement("div");
+    tableContainer.className = "admin-table-container";
+
+    const table = document.createElement("table");
+    table.className = "admin-table";
+
+    // thead
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr>
+        <th class="admin-table-col-actions" style="width: 80px; text-align: center;">操作</th>
+        <th style="width: 75px; text-align: center;">詳細</th>
+        <th style="width: 60px; text-align: center;">id</th>
+        <th style="min-width: 200px;">リスト名</th>
+        <th style="width: 160px; text-align: center;">画像</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    if (!this._movieListOpenSet) {
+      this._movieListOpenSet = new Set();
+    }
+
+    if (movieLists.length === 0) {
+      const emptyTr = document.createElement("tr");
+      emptyTr.innerHTML = `
+        <td colspan="5" style="text-align: center; color: #64748b; padding: 36px 16px;">
+          再生リストデータがありません。「+ 新規追加」ボタンから登録してください。
+        </td>
+      `;
+      tbody.appendChild(emptyTr);
+    } else {
+      movieLists.forEach((item) => {
+        const trMain = document.createElement("tr");
+        trMain.className = "admin-schedule-row";
+        trMain.style.cursor = "pointer";
+
+        const trDetail = document.createElement("tr");
+        trDetail.className = "admin-schedule-detail-row";
+
+        let isRowOpen = this._movieListOpenSet.has(item.id);
+        trDetail.style.display = isRowOpen ? "table-row" : "none";
+
+        // 1. 操作列 (縦並び「編集」「削除」)
+        const tdActions = document.createElement("td");
+        tdActions.className = "admin-table-col-actions";
+        tdActions.style.textAlign = "center";
+
+        const actWrap = document.createElement("div");
+        actWrap.className = "admin-table-actions is-vertical";
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "app-btn app-btn-secondary app-btn-sm";
+        editBtn.textContent = "編集";
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.openMovieListModal(item);
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "app-btn app-btn-danger app-btn-sm";
+        delBtn.textContent = "削除";
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.deleteRecord("movieList", item.id);
+        };
+
+        actWrap.appendChild(editBtn);
+        actWrap.appendChild(delBtn);
+        tdActions.appendChild(actWrap);
+        trMain.appendChild(tdActions);
+
+        // 2. 開閉トグル列 (操作とidの間)
+        const tdToggle = document.createElement("td");
+        tdToggle.style.textAlign = "center";
+        tdToggle.style.width = "75px";
+
+        const toggleBtn = document.createElement("button");
+        toggleBtn.type = "button";
+        toggleBtn.className = `admin-accordion-toggle-btn ${isRowOpen ? "is-open" : ""}`.trim();
+        toggleBtn.id = `toggle-movielist-${item.id}`;
+        toggleBtn.textContent = isRowOpen ? "閉じる ▲" : "開く ▼";
+        toggleBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleAccordion();
+        };
+        tdToggle.appendChild(toggleBtn);
+        trMain.appendChild(tdToggle);
+
+        // 3. id列
+        const tdId = document.createElement("td");
+        tdId.style.textAlign = "center";
+        tdId.textContent = item.id;
+        trMain.appendChild(tdId);
+
+        // 4. リスト名列
+        const tdName = document.createElement("td");
+        tdName.innerHTML = `<span style="font-weight: 600; color: #f1f5f9;">${escapeHtml(item.listName || "")}</span>`;
+        trMain.appendChild(tdName);
+
+        // 5. 画像列
+        const tdImage = document.createElement("td");
+        tdImage.className = "admin-table-col-image";
+        tdImage.style.cssText = "width: 160px; text-align: center;";
+        const hasImg = item.listImage;
+        if (hasImg) {
+          const imgUrl = api.resolveAssetUrl(hasImg, "movieList");
+          const img = document.createElement("img");
+          img.className = "admin-table-thumb";
+          img.src = imgUrl;
+          img.alt = "画像";
+          img.title = `${item.listName ? item.listName + " - " : ""}画像 (クリックで拡大)`;
+          img.onclick = (e) => {
+            e.stopPropagation();
+            this.openImageDetailModal(imgUrl, `${item.listName ? item.listName + "：" : ""}画像`, {
+              costumeName: item.listName,
+              columnLabel: "画像",
+              path: hasImg,
+            });
+          };
+          tdImage.appendChild(img);
+        } else {
+          tdImage.innerHTML = `<span style="color: #64748b;">-</span>`;
+        }
+        trMain.appendChild(tdImage);
+
+        // ========================================================
+        // アコーディオン詳細行（紐づく動画一覧）
+        // ========================================================
+        const tdDetailCell = document.createElement("td");
+        tdDetailCell.colSpan = 5;
+        tdDetailCell.className = "admin-schedule-detail-cell";
+        tdDetailCell.style.padding = "16px 20px";
+
+        // この再生リストに紐づく動画を抽出
+        const matchedMovies = movies
+          .filter((m) => String(m.movieList) === String(item.id))
+          .sort((a, b) => Number(a.id) - Number(b.id));
+
+        const detailBox = document.createElement("div");
+        detailBox.style.cssText = "display: flex; flex-direction: column; gap: 12px;";
+
+        // ヘッダーバー
+        const detailHead = document.createElement("div");
+        detailHead.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);";
+        detailHead.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 0.92rem; font-weight: 700; color: #38bdf8;">🎬 設定されている動画一覧</span>
+            <span class="admin-count-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">${matchedMovies.length}件</span>
+          </div>
+        `;
+        detailBox.appendChild(detailHead);
+
+        if (matchedMovies.length === 0) {
+          const emptyBox = document.createElement("div");
+          emptyBox.style.cssText = "padding: 24px 16px; text-align: center; color: #94a3b8; background: rgba(15, 23, 42, 0.45); border-radius: 8px; border: 1px dashed rgba(255, 255, 255, 0.12); font-size: 0.88rem;";
+          emptyBox.innerHTML = `
+            この再生リストに設定されている動画はありません。<br>
+            <span style="font-size: 0.8rem; color: #64748b; margin-top: 6px; display: inline-block;">
+              ※「動画リスト」画面で各動画の再生リストに「${escapeHtml(item.listName)}」を選択するとここに表示されます。
+            </span>
+          `;
+          detailBox.appendChild(emptyBox);
+        } else {
+          // ミニテーブル表示
+          const subTableContainer = document.createElement("div");
+          subTableContainer.style.cssText = "overflow-x: auto; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;";
+
+          const subTable = document.createElement("table");
+          subTable.className = "admin-table";
+          subTable.style.cssText = "margin: 0; font-size: 0.84rem; background: rgba(15, 23, 42, 0.6);";
+
+          const subThead = document.createElement("thead");
+          subThead.innerHTML = `
+            <tr style="background: rgba(11, 20, 38, 0.8);">
+              <th style="width: 50px; text-align: center;">id</th>
+              <th style="width: 140px; text-align: center;">サムネイル</th>
+              <th style="width: 120px;">動画タイプ</th>
+              <th style="width: 120px;">タグ</th>
+              <th>動画URL</th>
+              <th style="width: 80px; text-align: center;">公開</th>
+            </tr>
+          `;
+          subTable.appendChild(subThead);
+
+          const subTbody = document.createElement("tbody");
+          matchedMovies.forEach((m) => {
+            const subTr = document.createElement("tr");
+
+            // 1. id
+            const subTdId = document.createElement("td");
+            subTdId.style.textAlign = "center";
+            subTdId.textContent = m.id;
+            subTr.appendChild(subTdId);
+
+            // 2. サムネイル
+            const subTdThumb = document.createElement("td");
+            subTdThumb.style.textAlign = "center";
+            const ytThumb = getYouTubeThumbnail(m.movieUrl);
+            const mImg = m.movieImage || m.image;
+            let mThumbHtml = "";
+            let mImgDisplayUrl = "";
+
+            if (mImg) {
+              mImgDisplayUrl = api.resolveAssetUrl(mImg, "movie");
+              mThumbHtml = `<img src="${escapeHtml(mImgDisplayUrl)}" alt="動画サムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" />`;
+            } else if (ytThumb) {
+              mImgDisplayUrl = ytThumb;
+              mThumbHtml = `<img src="${escapeHtml(ytThumb)}" alt="YouTubeサムネイル" class="admin-table-thumb is-movie-thumb" style="cursor: pointer; max-height: 44px; object-fit: cover;" title="クリックで拡大表示" />`;
+            } else {
+              mThumbHtml = `<span style="color: #64748b; font-size: 0.78rem;">(なし)</span>`;
+            }
+            subTdThumb.innerHTML = mThumbHtml;
+            if (mImgDisplayUrl) {
+              const imgEl = subTdThumb.querySelector("img");
+              if (imgEl) {
+                imgEl.onclick = (e) => {
+                  e.stopPropagation();
+                  this.openImageDetailModal(mImgDisplayUrl, `動画サムネイル (ID: ${m.id})`, {
+                    costumeName: `動画 ID: ${m.id}`,
+                    columnLabel: "動画サムネイル",
+                    path: mImg || m.movieUrl,
+                  });
+                };
+              }
+            }
+            subTr.appendChild(subTdThumb);
+
+            // 3. 動画タイプ
+            const subTdCat = document.createElement("td");
+            const catObj = categoryMap.get(String(m.movieCategory_id));
+            if (catObj) {
+              subTdCat.innerHTML = `<span class="admin-category-badge">${escapeHtml(catObj.categoryName)}</span>`;
+            } else if (m.movieCategory_id) {
+              subTdCat.innerHTML = `<span class="admin-category-badge" style="opacity: 0.7;">ID: ${escapeHtml(m.movieCategory_id)}</span>`;
+            } else {
+              subTdCat.innerHTML = `<span style="color: #64748b;">-</span>`;
+            }
+            subTr.appendChild(subTdCat);
+
+            // 4. タグ
+            const subTdTag = document.createElement("td");
+            const tagObj = tagMap.get(String(m.movieTag_id));
+            if (tagObj) {
+              subTdTag.innerHTML = `<span class="admin-schedule-tag-badge">${escapeHtml(tagObj.tagName)}</span>`;
+            } else if (m.movieTag_id) {
+              subTdTag.innerHTML = `<span class="admin-schedule-tag-badge" style="opacity: 0.7;">ID: ${escapeHtml(m.movieTag_id)}</span>`;
+            } else {
+              subTdTag.innerHTML = `<span style="color: #64748b;">-</span>`;
+            }
+            subTr.appendChild(subTdTag);
+
+            // 5. 動画URL
+            const subTdUrl = document.createElement("td");
+            if (m.movieUrl) {
+              subTdUrl.innerHTML = `
+                <a href="${escapeHtml(m.movieUrl)}" target="_blank" rel="noopener noreferrer" class="admin-movie-url-link" style="word-break: break-all;" title="${escapeHtml(m.movieUrl)}">
+                  🔗 ${escapeHtml(m.movieUrl)} ↗
+                </a>
+              `;
+            } else {
+              subTdUrl.innerHTML = `<span style="color: #64748b;">-</span>`;
+            }
+            subTr.appendChild(subTdUrl);
+
+            // 6. 公開ステータス
+            const subTdActive = document.createElement("td");
+            subTdActive.style.textAlign = "center";
+            const isActive = m.is_active === 1 || m.is_active === true || m.is_active === "1";
+            subTdActive.innerHTML = isActive
+              ? `<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35);">表示</span>`
+              : `<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.35);">非表示</span>`;
+            subTr.appendChild(subTdActive);
+
+            subTbody.appendChild(subTr);
+          });
+          subTable.appendChild(subTbody);
+          subTableContainer.appendChild(subTable);
+          detailBox.appendChild(subTableContainer);
+        }
+
+        tdDetailCell.appendChild(detailBox);
+        trDetail.appendChild(tdDetailCell);
+
+        // 開閉トグル関数
+        const toggleAccordion = () => {
+          isRowOpen = !isRowOpen;
+          if (isRowOpen) {
+            this._movieListOpenSet.add(item.id);
+          } else {
+            this._movieListOpenSet.delete(item.id);
+          }
+          trDetail.style.display = isRowOpen ? "table-row" : "none";
+          const indicator = trMain.querySelector(`#toggle-movielist-${item.id}`);
+          if (indicator) {
+            indicator.textContent = isRowOpen ? "閉じる ▲" : "開く ▼";
+            indicator.classList.toggle("is-open", isRowOpen);
+          }
+        };
+
+        trMain.onclick = toggleAccordion;
+
+        tbody.appendChild(trMain);
+        tbody.appendChild(trDetail);
+      });
+    }
+
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    card.appendChild(tableContainer);
+    container.appendChild(card);
+
+    this.container.innerHTML = "";
+    this.container.appendChild(container);
+  }
+
 
   /**
    * 再生リスト (movieList) 用の新規・編集モーダル
