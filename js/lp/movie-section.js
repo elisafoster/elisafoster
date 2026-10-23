@@ -15,10 +15,10 @@ import { Modal } from "../common/modal.js";
 import { escapeHtml } from "../common/utils.js";
 
 // TikTok用 SVG プレースホルダー (Data URI)
-const TIKTOK_PLACEHOLDER_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280" width="720" height="1280"><defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23010101"/><stop offset="50%" stop-color="%23121212"/><stop offset="100%" stop-color="%231a1a1a"/></linearGradient><linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="%2325F4EE"/><stop offset="100%" stop-color="%23FE2C55"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23bg)"/><circle cx="360" cy="560" r="160" fill="%2325F4EE" opacity="0.12"/><circle cx="380" cy="580" r="160" fill="%23FE2C55" opacity="0.12"/><g transform="translate(240, 430) scale(4)"><path fill="%2325F4EE" d="M38.5 13.5c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V4h-6v26.5c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3v-6.2c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5S11.7 41.7 18.1 41.7s11.5-5.1 11.5-11.5V17.7c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z" opacity="0.85"/><path fill="%23FE2C55" d="M40.5 14.5c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V5h-6v26.5c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3V20.6c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5S13.7 43.5 20.1 43.5s11.5-5.1 11.5-11.5V18.7c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z" opacity="0.85"/><path fill="%23ffffff" d="M39.5 14c-2.8-.5-5.2-1.9-6.9-4-1.2-1.5-1.9-3.3-2-5.3V4.5h-6V31c0 3-2.5 5.5-5.5 5.5s-5.5-2.5-5.5-5.5 2.5-5.5 5.5-5.5c.6 0 1.2.1 1.8.3v-6.2c-.6-.1-1.2-.1-1.8-.1-6.4 0-11.5 5.1-11.5 11.5s5.1 11.5 11.5 11.5 11.5-5.1 11.5-11.5V18.2c3 2.1 6.6 3.4 10.5 3.6v-6.2c-.5-.8-1-1.2-1.6-1.6z"/></g><text x="360" y="780" fill="%23ffffff" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" letter-spacing="4">TikTok Video</text><rect x="260" y="830" width="200" height="4" rx="2" fill="url(%23accent)"/></svg>`;
+const TIKTOK_PLACEHOLDER_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3MjAgMTI4MCIgd2lkdGg9IjcyMCIgaGVpZ2h0PSIxMjgwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMDEwMTAxIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTAlIiBzdG9wLWNvbG9yPSIjMTIxMjEyIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzFhMWExYSIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYWNjZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMyNUY0RUUiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjRkUyQzU1Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2JnKSIvPgogIDxjaXJjbGUgY3g9IjM2MCIgY3k9IjU2MCIgcj0iMTYwIiBmaWxsPSIjMjVGNEVFIiBvcGFjaXR5PSIwLjEyIi8+CiAgPGNpcmNsZSBjeD0iMzgwIiBjeT0iNTgwIiByPSIxNjAiIGZpbGw9IiNGRTJDNTUiIG9wYWNpdHk9IjAuMTIiLz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNDAsIDQzMCkgc2NhbGUoNCkiPgogICAgPHBhdGggZmlsbD0iIzI1RjRFRSIgZD0iTTM4LjUgMTMuNWMtMi44LS41LTUuMi0xLjktNi45LTQtMS4yLTEuNS0xLjktMy4zLTItNS4zVjRoLTZ2MjYuNWMwIDMtMi41IDUuNS01LjUgNS41cy01LjUtMi41LTUuNS01LjUgMi41LTUuNSA1LjUtNS41Yy42IDAgMS4yLjEgMS44LjN2LTYuMmMtLjYtLjEtMS4yLS4xLTEuOC0uMS02LjQgMC0xMS41IDUuMS0xMS41IDExLjVTMTEuNyA0MS43IDE4LjEgNDEuN3MxMS41LTUuMSAxMS41LTExLjVWMTcuN2MzIDIuMSA2LjYgMy40IDEwLjUgMy42di02LjJjLS41LS44LTEtMS4yLTEuNi0xLjZ6IiBvcGFjaXR5PSIwLjg1Ii8+CiAgICA8cGF0aCBmaWxsPSIjRkUyQzU1IiBkPSJNNDAuNSAxNC41Yy0yLjgtLjUtNS4yLTEuOS02LjktNC0xLjItMS41LTEuOS0zLjMtMi01LjNWNWgtNnYyNi41YzAgMy0yLjUgNS41LTUuNSA1LjVzLTUuNS0yLjUtNS41LTUuNSAyLjUtNS41IDUuNS01LjVjLjYgMCAxLjIuMSAxLjguM1YyMC42Yy0uNi0uMS0xLjItLjEtMS44LS4xLTYuNCAwLTExLjUgNS4xLTExLjUgMTEuNVMxMy43IDQzLjUgMjAuMSA0My41czExLjUtNS4xIDExLjUtMTEuNVYxOC43YzMgMi4xIDYuNiAzLjQgMTAuNSAzLjZ2LTYuMmMtLjUtLjgtMS0xLjItMS42LTEuNnoiIG9wYWNpdHk9IjAuODUiLz4KICAgIDxwYXRoIGZpbGw9IiNmZmZmZmYiIGQ9Ik0zOS41IDE0Yy0yLjgtLjUtNS4yLTEuOS02LjktNC0xLjItMS41LTEuOS0zLjMtMi01LjNWNC41aC02VjMxYzAgMy0yLjUgNS41LTUuNSA1LjVzLTUuNS0yLjUtNS41LTUuNSAyLjUtNS41IDUuNS01LjVjLjYgMCAxLjIuMSAxLjguM3YtNi4yYy0uNi0uMS0xLjItLjEtMS44LS4xLTYuNCAwLTExLjUgNS4xLTExLjUgMTEuNXM1LjEgMTEuNSAxMS41IDExLjUgMTEuNS01LjEgMTEuNS0xMS41VjE4LjJjMyAyLjEgNi42IDMuNCAxMC41IDMuNnYtNi4yYy0uNS0uOC0xLTEuMi0xLjYtMS42eiIvPgogIDwvZz4KICA8dGV4dCB4PSIzNjAiIHk9Ijc4MCIgZmlsbD0iI2ZmZmZmZiIgZm9udC1mYW1pbHk9Ii1hcHBsZS1zeXN0ZW0sIEJsaW5rTWFjU3lzdGVtRm9udCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0MCIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSI0Ij5UaWtUb2sgVmlkZW88L3RleHQ+CiAgPHJlY3QgeD0iMjYwIiB5PSI4MzAiIHdpZHRoPSIyMDAiIGhlaWdodD0iNCIgcng9IjIiIGZpbGw9InVybCgjYWNjZW50KSIvPgo8L3N2Zz4=";
 
 // 汎用動画 SVG プレースホルダー (Data URI)
-const GENERIC_PLACEHOLDER_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360"><rect width="100%" height="100%" fill="%231e293b"/><circle cx="320" cy="180" r="44" fill="%233b82f6" opacity="0.25"/><polygon points="312,162 338,180 312,198" fill="%23ffffff"/></svg>`;
+const GENERIC_PLACEHOLDER_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NDAgMzYwIiB3aWR0aD0iNjQwIiBoZWlnaHQ9IjM2MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjMyMCIgY3k9IjE4MCIgcj0iNDQiIGZpbGw9IiMzOGJkZjgiIG9wYWNpdHk9IjAuMjUiLz48cG9seWdvbiBwb2ludHM9IjMxMiwxNjIgMzM4LDE4MCAzMTIsMTk4IiBmaWxsPSIjZmZmZmZmIi8+PC9zdmc+";
 
 // TikTok oEmbed キャッシュ
 const tiktokOembedCache = new Map();
@@ -925,35 +925,51 @@ export class MovieSection {
         return;
       }
 
-      // 非同期で TikTok oEmbed API からサムネイルおよび videoId 取得を試みる
-      fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data) {
-            const thumbUrl = data.thumbnail_url || null;
-            const videoId = data.embed_product_id || knownVideoId;
-            tiktokOembedCache.set(url, {
-              thumbnail: thumbUrl,
-              videoId: videoId,
-            });
-            if (thumbUrl) {
-              imgEl.src = thumbUrl;
+      // 非同期で TikTok oEmbed API からサムネイルおよび videoId 取得を試みる (Worker プロキシ併用)
+      const fetchThumbnail = async () => {
+        let thumbUrl = null;
+        let videoId = knownVideoId;
+
+        // 1. Worker API プロキシ経由 (短縮URLの展開対応)
+        try {
+          const wRes = await fetch(`/api/tiktok/thumb?url=${encodeURIComponent(url)}`);
+          if (wRes.ok) {
+            const wData = await wRes.json();
+            if (wData && wData.thumbnail_url) {
+              thumbUrl = wData.thumbnail_url;
             }
-          } else if (knownVideoId) {
-            tiktokOembedCache.set(url, {
-              thumbnail: null,
-              videoId: knownVideoId,
-            });
           }
-        })
-        .catch(() => {
-          if (knownVideoId) {
-            tiktokOembedCache.set(url, {
-              thumbnail: null,
-              videoId: knownVideoId,
-            });
-          }
-        });
+        } catch (e) {}
+
+        // 2. Worker未対応またはサムネイル未取得時は直接 oEmbed を試行
+        if (!thumbUrl) {
+          try {
+            const oRes = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
+            if (oRes.ok) {
+              const oData = await oRes.json();
+              if (oData) {
+                if (oData.thumbnail_url) thumbUrl = oData.thumbnail_url;
+                if (oData.embed_product_id) videoId = oData.embed_product_id;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (thumbUrl) {
+          tiktokOembedCache.set(url, {
+            thumbnail: thumbUrl,
+            videoId: videoId,
+          });
+          imgEl.src = thumbUrl;
+        } else if (videoId) {
+          tiktokOembedCache.set(url, {
+            thumbnail: null,
+            videoId: videoId,
+          });
+        }
+      };
+
+      fetchThumbnail();
       return;
     }
 

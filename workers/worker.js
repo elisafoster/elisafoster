@@ -126,6 +126,50 @@ export default {
     }
 
     // ============================================================
+    // 0-1. TikTok サムネイル/リダイレクト解決プロキシ (/api/tiktok/thumb)
+    // ============================================================
+    if (pathParts[0] === "api" && pathParts[1] === "tiktok" && pathParts[2] === "thumb") {
+      const targetUrl = url.searchParams.get("url");
+      if (!targetUrl) {
+        return jsonResponse({ error: "url is required" }, 400);
+      }
+
+      try {
+        let finalUrl = targetUrl;
+        // 短縮URL (vt.tiktok.com など) のリダイレクト先をサーバーサイドで追跡
+        if (targetUrl.includes("vt.tiktok.com") || targetUrl.includes("/t/")) {
+          const headResp = await fetch(targetUrl, {
+            method: "GET",
+            redirect: "follow",
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          });
+          finalUrl = headResp.url || targetUrl;
+        }
+
+        // 正規URLで oEmbed API を取得
+        const oembedEndpoint = `https://www.tiktok.com/oembed?url=${encodeURIComponent(finalUrl)}`;
+        const oembedResp = await fetch(oembedEndpoint, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          }
+        });
+
+        if (oembedResp.ok) {
+          const data = await oembedResp.json();
+          if (data && data.thumbnail_url) {
+            return jsonResponse({ success: true, thumbnail_url: data.thumbnail_url, title: data.title });
+          }
+        }
+
+        return jsonResponse({ success: false, thumbnail_url: null, finalUrl });
+      } catch (err) {
+        return jsonResponse({ success: false, error: err.message, thumbnail_url: null });
+      }
+    }
+
+    // ============================================================
     // 0-2. 全テーブル一括取得 (/api/all)
     // ============================================================
     if (pathParts[0] === "api" && pathParts[1] === "all") {
