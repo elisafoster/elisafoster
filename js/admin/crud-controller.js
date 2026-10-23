@@ -960,11 +960,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitVisualChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -980,11 +976,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitEventChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -1000,11 +992,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitNoticeChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -1020,11 +1008,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitGalleryChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -1040,11 +1024,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitMovieListChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -1060,11 +1040,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitLinkListChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -1080,11 +1056,7 @@ export class CrudController {
             <span>⚠️</span>
             <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
           </div>
-          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
         `;
-        alertBar.querySelector("button").onclick = async () => {
-          await this.commitWhitelistChanges();
-        };
         card.appendChild(alertBar);
       }
     }
@@ -4488,11 +4460,7 @@ export class CrudController {
           <span>⚠️</span>
           <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
         </div>
-        <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
       `;
-      alertBar.querySelector("button").onclick = async () => {
-        await this.commitScheduleChanges();
-      };
       card.appendChild(alertBar);
     }
 
@@ -7011,11 +6979,7 @@ export class CrudController {
           <span>⚠️</span>
           <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
         </div>
-        <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
       `;
-      alertBar.querySelector("button").onclick = async () => {
-        await this.commitMovieChanges();
-      };
       card.appendChild(alertBar);
     }
 
@@ -8518,11 +8482,7 @@ export class CrudController {
           <span>⚠️</span>
           <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
         </div>
-        <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
       `;
-      alertBar.querySelector("button").onclick = async () => {
-        await this.commitShopChanges();
-      };
       card.appendChild(alertBar);
     }
 
@@ -8822,21 +8782,13 @@ export class CrudController {
     if (hasPending && totalChanges > 0) {
       const alertBar = document.createElement("div");
       alertBar.className = "admin-alert-banner is-warning";
-      alertBar.style.cssText = "margin: 0 24px 16px 24px; padding: 10px 16px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem;";
+      alertBar.style.cssText = "margin: 0 24px 16px 24px; padding: 10px 16px; border-radius: 6px; display: flex; align-items: center; font-size: 0.88rem;";
       alertBar.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
           <span>⚠️</span>
           <span>未保存の変更が <strong>${totalChanges}件</strong> あります。「更新反映」ボタンを押すとD1データベースに保存されます。</span>
         </div>
       `;
-      const saveNowBtn = document.createElement("button");
-      saveNowBtn.type = "button";
-      saveNowBtn.className = "app-btn app-btn-orange app-btn-sm";
-      saveNowBtn.textContent = "今すぐ更新反映";
-      saveNowBtn.onclick = async () => {
-        await this.commitMovieListChanges();
-      };
-      alertBar.appendChild(saveNowBtn);
       card.appendChild(alertBar);
     }
 

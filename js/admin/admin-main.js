@@ -5,7 +5,7 @@
 
 import { AuthManager } from "./auth-manager.js";
 import { MenuManager } from "./menu-manager.js";
-import { CrudController } from "./crud-controller.js";
+import { CrudController } from "./crud-controller.js?v=20261024_remove_alert_buttons";
 import { MaintenanceManager } from "./maintenance-manager.js";
 
 document.addEventListener("DOMContentLoaded", () => {
