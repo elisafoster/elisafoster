@@ -2317,14 +2317,83 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   color: #ffffff;
 }
 
-/* ページ全体背景画像 (背景保持用) */
-.admin-theme-bg-fold {
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+/* ページ全体背景・ロゴ画像用行 */
+.admin-theme-asset-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.admin-theme-asset-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-theme-asset-thumb-wrap {
+  width: 52px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.6);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-theme-asset-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.admin-theme-asset-thumb.is-logo {
+  object-fit: contain;
+  padding: 2px;
+}
+
+.admin-theme-asset-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #283548;
+  border-radius: 6px;
+  color: #f8fafc;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.admin-theme-asset-input:focus {
+  outline: none;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.admin-theme-asset-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 12px;
+  height: 36px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.admin-theme-asset-btn:hover {
+  background: #1e293b;
+  border-color: #38bdf8;
+  color: #ffffff;
 }
 
 /* リアルタイムプレビュー枠 */
@@ -2354,152 +2423,109 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .admin-theme-preview-canvas {
-  background: #ffffff;
   border-radius: 10px;
-  padding: 24px 16px 20px 16px;
+  padding: 24px 16px 24px 0;
   position: relative;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-  background-image: 
-    linear-gradient(#f1f5f9 1px, transparent 1px),
-    linear-gradient(90deg, #f1f5f9 1px, transparent 1px);
-  background-size: 16px 16px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 260px;
 }
 
-/* プレビュー内の幾何学背景デコレーション */
-.admin-theme-preview-deco-1 {
-  position: absolute;
-  top: -15px;
-  right: -15px;
-  width: 70px;
-  height: 70px;
-  background: rgba(251, 113, 133, 0.15);
-  transform: rotate(25deg);
-  pointer-events: none;
+/* サイト側セクションバー (画像2準拠) */
+.admin-theme-preview-bar {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 6px 28px 6px 16px;
+  border-radius: 0 9999px 9999px 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(255, 255, 255, 0.82) 45%,
+    rgba(255, 255, 255, 0.45) 80%,
+    rgba(255, 255, 255, 0.1) 95%,
+    transparent 100%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-.admin-theme-preview-deco-2 {
-  position: absolute;
-  top: 25px;
-  right: 15px;
-  width: 35px;
-  height: 35px;
-  background: rgba(253, 224, 71, 0.2);
-  transform: rotate(45deg);
-  pointer-events: none;
-}
-
-.admin-theme-preview-section-title {
-  font-size: 18px;
+.admin-theme-preview-bar-title {
+  font-size: 22px;
   font-weight: 900;
-  letter-spacing: 0.1em;
-  text-align: center;
+  letter-spacing: 0.04em;
+  line-height: 1;
   margin: 0;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
-.admin-theme-preview-section-bar {
-  width: 28px;
-  height: 3px;
-  background: #f97316;
-  margin: 6px auto 0 auto;
-  border-radius: 2px;
-}
-
-.admin-theme-preview-section-sub {
+.admin-theme-preview-bar-desc {
   font-size: 11px;
-  color: #64748b;
-  text-align: center;
-  margin: 6px 0 16px 0;
+  font-weight: 600;
+  color: #475569;
+  margin: 0;
+  white-space: nowrap;
 }
 
-/* プロフィールサンプルカード */
-.admin-theme-preview-sample-card {
+/* 親カード (外側カード) */
+.admin-theme-preview-outer-card {
+  margin: 0 16px 0 16px;
   border-radius: 12px;
-  padding: 14px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  transition: background 0.2s ease, color 0.15s ease;
+  padding: 16px 18px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
   position: relative;
-  z-index: 1;
+  overflow: hidden;
+  transition: background 0.2s ease;
+  backdrop-filter: blur(4px);
 }
 
-.admin-theme-preview-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #38bdf8;
-  flex-shrink: 0;
-}
-
-.admin-theme-preview-avatar svg {
-  width: 22px;
-  height: 22px;
-  fill: currentColor;
-}
-
-.admin-theme-preview-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.admin-theme-preview-name {
+.admin-theme-preview-card-text {
   font-size: 13.5px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 12px 0;
   line-height: 1.3;
   transition: color 0.15s ease;
 }
 
-.admin-theme-preview-role {
-  font-size: 11px;
-  margin: 0;
-  line-height: 1.3;
-  opacity: 0.9;
-  transition: color 0.15s ease;
+/* 子カード (内側カード: sub_bg_color) */
+.admin-theme-preview-sub-card {
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 2;
+  transition: background-color 0.2s ease;
 }
 
-.admin-theme-preview-desc {
-  font-size: 10.5px;
-  margin: 2px 0 0 0;
-  line-height: 1.4;
-  opacity: 0.85;
-  transition: color 0.15s ease;
-}
-
-.admin-theme-preview-tags {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
-.admin-theme-preview-tag {
-  background: rgba(56, 189, 248, 0.18);
-  color: #0284c7;
-  font-size: 9.5px;
+.admin-theme-preview-sub-card-text {
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
+  margin: 0;
+  line-height: 1.3;
+  transition: color 0.15s ease;
 }
 
-.admin-theme-preview-status {
-  background: #3b82f6;
-  color: #ffffff;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
+/* ウォーターマーク (ロゴ画像) */
+.admin-theme-preview-watermark {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  height: 64px;
+  max-width: 140px;
+  object-fit: contain;
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.2s ease;
 }
 
 .admin-theme-preview-note {

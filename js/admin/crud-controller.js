@@ -11873,17 +11873,22 @@ export class CrudController {
       card_bg_gradient_start: tc.card_bg_gradient_start || "#A8E5FF",
       card_bg_gradient_end: tc.card_bg_gradient_end || "#FFFFFF",
       card_bg_gradient_angle: parseInt(tc.card_bg_gradient_angle ?? 0, 10),
+      sub_bg_color: tc.sub_bg_color || "#FFFFFF",
       card_text_color: tc.card_text_color || "#1E293B",
       section_title_color: tc.section_title_color || "#1E293B",
       background: tc.background || "assets/config/background.jpg",
-      sub_bg_color: tc.sub_bg_color || "",
-      logo: tc.logo || "",
+      logo: tc.logo || "assets/config/logo.png",
     };
 
-    // プリセットカラー定義 (画像準拠)
+    // プリセットカラー定義
     const bgPresets = [
       "#FFFFFF", "#F8FAFC", "#F1F5F9", "#E0F2FE", "#BAE6FD",
       "#A8E5FF", "#FEF08A", "#FBCFE8", "#F5D0FE", "#334155"
+    ];
+
+    const subBgPresets = [
+      "#FFFFFF", "#F8FAFC", "#F1F5F9", "#E0F2FE", "#BAE6FD",
+      "#FEF08A", "#FBCFE8", "#F5D0FE", "#334155", "#0F172A"
     ];
 
     const textPresets = [
@@ -11915,7 +11920,7 @@ export class CrudController {
     headerBar.innerHTML = `
       <div class="admin-theme-header-title-group">
         <h2 class="admin-theme-main-title">🎨 外観カラー設定</h2>
-        <p class="admin-theme-main-desc">カード背景（単色/グラデーション）、カード文字色、セクション見出し色の編集</p>
+        <p class="admin-theme-main-desc">カード背景（単色/グラデーション）、サブ背景色、カード文字色、見出し色、背景・ロゴの編集</p>
       </div>
       <button type="button" class="admin-theme-save-btn" id="tc-save-btn">
         <span>💾</span> 変更保存
@@ -11933,7 +11938,7 @@ export class CrudController {
     leftCol.style.flexDirection = "column";
     leftCol.style.gap = "18px";
 
-    // カード1: 🖼️ カード背景スタイル
+    // パネル1: 🖼️ カード背景スタイル
     const cardBgPanel = document.createElement("div");
     cardBgPanel.className = "admin-theme-card-panel";
     cardBgPanel.innerHTML = `
@@ -12027,15 +12032,26 @@ export class CrudController {
         </div>
       </div>
 
-      <!-- ページ全体背景画像保持用 -->
-      <div class="admin-theme-bg-fold">
-        <label class="admin-theme-field-label" style="font-size: 11.5px; color: #94a3b8;">ページ全体背景画像 (画面横幅100%フィット)</label>
-        <input type="text" class="admin-form-input" id="tc-page-bg-input" value="${state.background}" style="font-size: 12px; height: 32px;" placeholder="assets/config/background.jpg">
+      <!-- サブカード背景色 (sub_bg_color) -->
+      <div class="admin-theme-color-block" style="border-top: 1px dashed rgba(255, 255, 255, 0.12); padding-top: 14px; margin-top: 4px;">
+        <label class="admin-theme-field-label">サブカード背景色 (sub_bg_color)</label>
+        <div class="admin-theme-picker-row">
+          <div class="admin-theme-swatch-box" id="tc-subbg-swatch" style="background-color: ${state.sub_bg_color};">
+            <input type="color" class="admin-theme-hidden-picker" id="tc-subbg-picker" value="${state.sub_bg_color}">
+          </div>
+          <input type="text" class="admin-theme-hex-input" id="tc-subbg-hex" value="${state.sub_bg_color}" maxlength="7" spellcheck="false">
+        </div>
+        <div class="admin-theme-palette-row" id="tc-subbg-palette">
+          ${subBgPresets.map(c => `
+            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.sub_bg_color.toUpperCase() ? "is-selected" : ""}" 
+                 style="background-color: ${c};" data-color="${c}"></div>
+          `).join("")}
+        </div>
       </div>
     `;
     leftCol.appendChild(cardBgPanel);
 
-    // カード2: 🎨 文字カラー設定
+    // パネル2: 🎨 文字カラー設定
     const cardTextPanel = document.createElement("div");
     cardTextPanel.className = "admin-theme-card-panel";
     cardTextPanel.innerHTML = `
@@ -12079,6 +12095,44 @@ export class CrudController {
       </div>
     `;
     leftCol.appendChild(cardTextPanel);
+
+    // パネル3: 🖼️ 背景・ロゴ
+    const bgLogoPanel = document.createElement("div");
+    bgLogoPanel.className = "admin-theme-card-panel";
+    bgLogoPanel.innerHTML = `
+      <div class="admin-theme-panel-head">
+        <h3 class="admin-theme-panel-title">🖼️ 背景・ロゴ</h3>
+        <p class="admin-theme-panel-desc">ページ全体の背景画像およびウォーターマーク等に使用されるロゴ画像を設定します。</p>
+      </div>
+
+      <!-- ページ全体背景画像 -->
+      <div class="admin-theme-asset-item">
+        <label class="admin-theme-field-label">ページ全体背景画像 (background)</label>
+        <div class="admin-theme-asset-row">
+          <div class="admin-theme-asset-thumb-wrap">
+            <img class="admin-theme-asset-thumb" id="tc-bg-thumb" src="${api.resolveAssetUrl(state.background, "config")}" alt="背景プレビュー" onerror="this.style.opacity='0.2';">
+          </div>
+          <input type="text" class="admin-theme-asset-input" id="tc-bg-input" value="${state.background}" placeholder="assets/config/background.jpg">
+          <button type="button" class="admin-theme-asset-btn" id="tc-bg-btn">📁 画像選択</button>
+          <input type="file" id="tc-bg-file" accept="image/*" style="display: none;">
+        </div>
+      </div>
+
+      <!-- サイトロゴ画像 -->
+      <div class="admin-theme-asset-item">
+        <label class="admin-theme-field-label">サイトロゴ画像 (logo)</label>
+        <div class="admin-theme-asset-row">
+          <div class="admin-theme-asset-thumb-wrap">
+            <img class="admin-theme-asset-thumb is-logo" id="tc-logo-thumb" src="${api.resolveAssetUrl(state.logo, "config")}" alt="ロゴプレビュー" onerror="this.style.opacity='0.2';">
+          </div>
+          <input type="text" class="admin-theme-asset-input" id="tc-logo-input" value="${state.logo}" placeholder="assets/config/logo.png">
+          <button type="button" class="admin-theme-asset-btn" id="tc-logo-btn">📁 画像選択</button>
+          <input type="file" id="tc-logo-file" accept="image/*" style="display: none;">
+        </div>
+      </div>
+    `;
+    leftCol.appendChild(bgLogoPanel);
+
     layoutGrid.appendChild(leftCol);
 
     // --- 右カラム: リアルタイム表示プレビュー ---
@@ -12088,43 +12142,31 @@ export class CrudController {
       <div class="admin-theme-preview-card-outer">
         <h3 class="admin-theme-preview-title">👁️ リアルタイム表示プレビュー</h3>
         
-        <div class="admin-theme-preview-canvas">
-          <!-- 幾何学背景デコレーション -->
-          <div class="admin-theme-preview-deco-1"></div>
-          <div class="admin-theme-preview-deco-2"></div>
-
-          <!-- 見出し -->
-          <div class="admin-theme-preview-section-title" id="preview-section-title" style="color: ${state.section_title_color};">
-            PROFILE
+        <div class="admin-theme-preview-canvas" id="preview-canvas" style="background-image: url('${api.resolveAssetUrl(state.background, "config")}');">
+          
+          <!-- サイト側セクションバー (画像2デザイン準拠) -->
+          <div class="admin-theme-preview-bar">
+            <h2 class="admin-theme-preview-bar-title" id="preview-section-title" style="color: ${state.section_title_color};">SECTION</h2>
+            <span class="admin-theme-preview-bar-desc">セクション説明</span>
           </div>
-          <div class="admin-theme-preview-section-bar"></div>
-          <div class="admin-theme-preview-section-sub">プロフィール & 活動実績のご紹介</div>
 
-          <!-- プロフィールサンプルカード -->
-          <div class="admin-theme-preview-sample-card" id="preview-sample-card">
-            <!-- アバター -->
-            <div class="admin-theme-preview-avatar">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
+          <!-- 親カード (外側カード: 単色またはグラデーション) -->
+          <div class="admin-theme-preview-outer-card" id="preview-outer-card">
+            <div class="admin-theme-preview-card-text" id="preview-outer-text" style="color: ${state.card_text_color};">カードテキスト</div>
+
+            <!-- 子カード (内側カード: sub_bg_color) -->
+            <div class="admin-theme-preview-sub-card" id="preview-sub-card" style="background-color: ${state.sub_bg_color};">
+              <div class="admin-theme-preview-sub-card-text" id="preview-sub-text" style="color: ${state.card_text_color};">カードテキスト</div>
             </div>
 
-            <!-- 情報 -->
-            <div class="admin-theme-preview-info">
-              <p class="admin-theme-preview-name" id="preview-text-name" style="color: ${state.card_text_color};">ゆきもち / yukimochi</p>
-              <p class="admin-theme-preview-role" id="preview-text-role" style="color: ${state.card_text_color};">イラストレーター・Live2Dモデラー。</p>
-              <p class="admin-theme-preview-desc" id="preview-text-desc" style="color: ${state.card_text_color};">透明感のある色彩とやわらかな光の表現を得意としています。</p>
-              <div class="admin-theme-preview-tags">
-                <span class="admin-theme-preview-tag">#イラスト</span>
-                <span class="admin-theme-preview-tag">#Live2D</span>
-                <span class="admin-theme-preview-status">受付中</span>
-              </div>
-            </div>
+            <!-- ウォーターマーク (ロゴ画像) -->
+            <img id="preview-watermark-logo" class="admin-theme-preview-watermark" src="${api.resolveAssetUrl(state.logo, "config")}" alt="logo watermark" onerror="this.style.display='none';">
           </div>
+
         </div>
 
         <p class="admin-theme-preview-note" style="margin-top: 12px;">
-          ※カード背景・文字色・見出し色の変更がLP全体のカード・見出しに即時反映されます。
+          ※カード背景・サブ背景・文字色・見出し色・背景画像・ロゴの変更がリアルタイムに確認できます。
         </p>
       </div>
     `;
@@ -12133,31 +12175,62 @@ export class CrudController {
 
     // プレビューおよびUI同期処理
     const updatePreviewAndUI = () => {
-      // 1. サンプルカード背景
-      const sampleCard = layoutGrid.querySelector("#preview-sample-card");
-      if (sampleCard) {
-        if (state.card_bg_type === "single") {
-          sampleCard.style.background = state.card_bg_color;
-        } else {
-          sampleCard.style.background = `linear-gradient(${state.card_bg_gradient_angle}deg, ${state.card_bg_gradient_start}, ${state.card_bg_gradient_end})`;
-        }
+      // 1. キャンバス背景画像
+      const canvasEl = layoutGrid.querySelector("#preview-canvas");
+      if (canvasEl) {
+        const bgUrl = api.resolveAssetUrl(state.background, "config");
+        canvasEl.style.backgroundImage = `url("${bgUrl}")`;
       }
 
-      // 2. セクション見出し色
+      // 2. セクション見出しバーのタイトル色
       const sectionTitle = layoutGrid.querySelector("#preview-section-title");
       if (sectionTitle) {
         sectionTitle.style.color = state.section_title_color;
       }
 
-      // 3. カード内文字色
-      const nameEl = layoutGrid.querySelector("#preview-text-name");
-      const roleEl = layoutGrid.querySelector("#preview-text-role");
-      const descEl = layoutGrid.querySelector("#preview-text-desc");
-      if (nameEl) nameEl.style.color = state.card_text_color;
-      if (roleEl) roleEl.style.color = state.card_text_color;
-      if (descEl) descEl.style.color = state.card_text_color;
+      // 3. 親カード (外側カード) 背景
+      const outerCard = layoutGrid.querySelector("#preview-outer-card");
+      if (outerCard) {
+        if (state.card_bg_type === "single") {
+          outerCard.style.background = state.card_bg_color;
+        } else {
+          outerCard.style.background = `linear-gradient(${state.card_bg_gradient_angle}deg, ${state.card_bg_gradient_start}, ${state.card_bg_gradient_end})`;
+        }
+      }
 
-      // 4. セグメント切り替えUI
+      // 4. 親カード & 子カード テキスト色
+      const outerText = layoutGrid.querySelector("#preview-outer-text");
+      const subText = layoutGrid.querySelector("#preview-sub-text");
+      if (outerText) outerText.style.color = state.card_text_color;
+      if (subText) subText.style.color = state.card_text_color;
+
+      // 5. 子カード (内側カード) 背景色
+      const subCard = layoutGrid.querySelector("#preview-sub-card");
+      if (subCard) {
+        subCard.style.backgroundColor = state.sub_bg_color;
+      }
+
+      // 6. ウォーターマーク (ロゴ画像)
+      const watermarkEl = layoutGrid.querySelector("#preview-watermark-logo");
+      if (watermarkEl) {
+        const logoUrl = api.resolveAssetUrl(state.logo, "config");
+        watermarkEl.src = logoUrl;
+        watermarkEl.style.display = state.logo ? "block" : "none";
+      }
+
+      // 7. サムネイル画像更新
+      const bgThumb = layoutGrid.querySelector("#tc-bg-thumb");
+      if (bgThumb) {
+        bgThumb.src = api.resolveAssetUrl(state.background, "config");
+        bgThumb.style.opacity = "1";
+      }
+      const logoThumb = layoutGrid.querySelector("#tc-logo-thumb");
+      if (logoThumb) {
+        logoThumb.src = api.resolveAssetUrl(state.logo, "config");
+        logoThumb.style.opacity = "1";
+      }
+
+      // 8. セグメント切り替えUI
       const singleBtn = layoutGrid.querySelector("#tc-type-single");
       const gradBtn = layoutGrid.querySelector("#tc-type-gradient");
       const singleWrap = layoutGrid.querySelector("#tc-single-wrap");
@@ -12177,7 +12250,7 @@ export class CrudController {
         }
       }
 
-      // 5. 単色用コントロール同期
+      // 9. 単色用コントロール同期
       const singleSwatch = layoutGrid.querySelector("#tc-single-swatch");
       const singlePicker = layoutGrid.querySelector("#tc-single-picker");
       const singleHex = layoutGrid.querySelector("#tc-single-hex");
@@ -12185,7 +12258,7 @@ export class CrudController {
       if (singlePicker && singlePicker.value !== state.card_bg_color) singlePicker.value = state.card_bg_color;
       if (singleHex && singleHex.value !== state.card_bg_color) singleHex.value = state.card_bg_color;
 
-      // 6. 開始色コントロール同期
+      // 10. 開始色コントロール同期
       const startSwatch = layoutGrid.querySelector("#tc-start-swatch");
       const startPicker = layoutGrid.querySelector("#tc-start-picker");
       const startHex = layoutGrid.querySelector("#tc-start-hex");
@@ -12193,7 +12266,7 @@ export class CrudController {
       if (startPicker && startPicker.value !== state.card_bg_gradient_start) startPicker.value = state.card_bg_gradient_start;
       if (startHex && startHex.value !== state.card_bg_gradient_start) startHex.value = state.card_bg_gradient_start;
 
-      // 7. 終了色コントロール同期
+      // 11. 終了色コントロール同期
       const endSwatch = layoutGrid.querySelector("#tc-end-swatch");
       const endPicker = layoutGrid.querySelector("#tc-end-picker");
       const endHex = layoutGrid.querySelector("#tc-end-hex");
@@ -12201,7 +12274,7 @@ export class CrudController {
       if (endPicker && endPicker.value !== state.card_bg_gradient_end) endPicker.value = state.card_bg_gradient_end;
       if (endHex && endHex.value !== state.card_bg_gradient_end) endHex.value = state.card_bg_gradient_end;
 
-      // 8. 角度同期
+      // 12. 角度同期
       const angleNum = layoutGrid.querySelector("#tc-angle-num");
       const angleBadge = layoutGrid.querySelector("#tc-angle-badge");
       const angleSlider = layoutGrid.querySelector("#tc-angle-slider");
@@ -12215,7 +12288,15 @@ export class CrudController {
         btn.classList.toggle("is-active", btnAngle === state.card_bg_gradient_angle);
       });
 
-      // 9. 文字色同期
+      // 13. サブ背景色コントロール同期
+      const subBgSwatch = layoutGrid.querySelector("#tc-subbg-swatch");
+      const subBgPicker = layoutGrid.querySelector("#tc-subbg-picker");
+      const subBgHex = layoutGrid.querySelector("#tc-subbg-hex");
+      if (subBgSwatch) subBgSwatch.style.backgroundColor = state.sub_bg_color;
+      if (subBgPicker && subBgPicker.value !== state.sub_bg_color) subBgPicker.value = state.sub_bg_color;
+      if (subBgHex && subBgHex.value !== state.sub_bg_color) subBgHex.value = state.sub_bg_color;
+
+      // 14. 文字色同期
       const textSwatch = layoutGrid.querySelector("#tc-text-swatch");
       const textPicker = layoutGrid.querySelector("#tc-text-picker");
       const textHex = layoutGrid.querySelector("#tc-text-hex");
@@ -12223,7 +12304,7 @@ export class CrudController {
       if (textPicker && textPicker.value !== state.card_text_color) textPicker.value = state.card_text_color;
       if (textHex && textHex.value !== state.card_text_color) textHex.value = state.card_text_color;
 
-      // 10. 見出し色同期
+      // 15. 見出し色同期
       const titleSwatch = layoutGrid.querySelector("#tc-title-swatch");
       const titlePicker = layoutGrid.querySelector("#tc-title-picker");
       const titleHex = layoutGrid.querySelector("#tc-title-hex");
@@ -12231,7 +12312,7 @@ export class CrudController {
       if (titlePicker && titlePicker.value !== state.section_title_color) titlePicker.value = state.section_title_color;
       if (titleHex && titleHex.value !== state.section_title_color) titleHex.value = state.section_title_color;
 
-      // 11. パレット円のアクティブリング同期
+      // 16. パレット円のアクティブリング同期
       const syncPalette = (containerId, activeColor) => {
         const el = layoutGrid.querySelector(containerId);
         if (!el) return;
@@ -12243,6 +12324,7 @@ export class CrudController {
       syncPalette("#tc-single-palette", state.card_bg_color);
       syncPalette("#tc-start-palette", state.card_bg_gradient_start);
       syncPalette("#tc-end-palette", state.card_bg_gradient_end);
+      syncPalette("#tc-subbg-palette", state.sub_bg_color);
       syncPalette("#tc-text-palette", state.card_text_color);
       syncPalette("#tc-title-palette", state.section_title_color);
     };
@@ -12299,6 +12381,7 @@ export class CrudController {
     bindColorEvents("#tc-single-picker", "#tc-single-hex", "#tc-single-palette", "card_bg_color");
     bindColorEvents("#tc-start-picker", "#tc-start-hex", "#tc-start-palette", "card_bg_gradient_start");
     bindColorEvents("#tc-end-picker", "#tc-end-hex", "#tc-end-palette", "card_bg_gradient_end");
+    bindColorEvents("#tc-subbg-picker", "#tc-subbg-hex", "#tc-subbg-palette", "sub_bg_color");
     bindColorEvents("#tc-text-picker", "#tc-text-hex", "#tc-text-palette", "card_text_color");
     bindColorEvents("#tc-title-picker", "#tc-title-hex", "#tc-title-palette", "section_title_color");
 
@@ -12319,13 +12402,54 @@ export class CrudController {
       });
     });
 
-    // ページ全体背景画像
-    const pageBgInput = layoutGrid.querySelector("#tc-page-bg-input");
-    if (pageBgInput) {
-      pageBgInput.addEventListener("input", (e) => {
-        state.background = e.target.value.trim();
-      });
-    }
+    // 背景画像 & ロゴ画像 入力・ファイルアップロード連動
+    const bindAssetUpload = (inputId, btnId, fileId, stateKey) => {
+      const inputEl = layoutGrid.querySelector(inputId);
+      const btnEl = layoutGrid.querySelector(btnId);
+      const fileEl = layoutGrid.querySelector(fileId);
+
+      if (inputEl) {
+        inputEl.addEventListener("input", (e) => {
+          state[stateKey] = e.target.value.trim();
+          updatePreviewAndUI();
+        });
+      }
+
+      if (btnEl && fileEl) {
+        btnEl.addEventListener("click", () => {
+          fileEl.click();
+        });
+
+        fileEl.addEventListener("change", async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          try {
+            this.showNotification("画像をアップロード中...", "info");
+            btnEl.disabled = true;
+            btnEl.textContent = "アップロード中...";
+
+            const result = await api.uploadAsset("assets/config", file);
+            const savedPath = result?.path || `assets/config/${file.name}`;
+            state[stateKey] = savedPath;
+            if (inputEl) inputEl.value = savedPath;
+
+            updatePreviewAndUI();
+            this.showNotification(`画像をアップロードしました: ${file.name}`, "success");
+          } catch (err) {
+            console.error(`[Upload Error ${stateKey}]:`, err);
+            this.showNotification(`画像のアップロードに失敗しました: ${err.message}`, "error");
+          } finally {
+            btnEl.disabled = false;
+            btnEl.textContent = "📁 画像選択";
+            fileEl.value = "";
+          }
+        });
+      }
+    };
+
+    bindAssetUpload("#tc-bg-input", "#tc-bg-btn", "#tc-bg-file", "background");
+    bindAssetUpload("#tc-logo-input", "#tc-logo-btn", "#tc-logo-file", "logo");
 
     // 保存ボタンイベント
     headerBar.querySelector("#tc-save-btn")?.addEventListener("click", async () => {
@@ -12344,9 +12468,11 @@ export class CrudController {
           card_bg_gradient_start: state.card_bg_gradient_start,
           card_bg_gradient_end: state.card_bg_gradient_end,
           card_bg_gradient_angle: parseInt(state.card_bg_gradient_angle, 10) || 0,
+          sub_bg_color: state.sub_bg_color,
           card_text_color: state.card_text_color,
           section_title_color: state.section_title_color,
           background: state.background,
+          logo: state.logo,
         };
 
         await api.saveTable("themeConfig", payload, 1);
