@@ -12403,7 +12403,7 @@ export class CrudController {
 
     // 背景画像 & ロゴ画像「画像を変更」モーダル連動 (YAML設定値準拠: 上書き変更)
     layoutGrid.querySelector("#tc-bg-btn")?.addEventListener("click", () => {
-      this.openThemeAssetUploadModal("background", (savedPath, blob) => {
+      this.openThemeAssetUploadModal("background", state.background, async (savedPath, blob) => {
         state.background = savedPath;
         const filenameEl = layoutGrid.querySelector("#tc-bg-filename");
         if (filenameEl) filenameEl.textContent = savedPath.split("/").pop();
@@ -12413,11 +12413,18 @@ export class CrudController {
           thumbEl.style.opacity = "1";
         }
         updatePreviewAndUI();
+
+        // 拡張子変更によるパス変更を即座に保存・同期
+        try {
+          await api.saveTable("themeConfig", { ...tc, background: savedPath }, 1);
+        } catch (e) {
+          console.warn("[ThemeConfig] Auto-sync background path error:", e);
+        }
       });
     });
 
     layoutGrid.querySelector("#tc-logo-btn")?.addEventListener("click", () => {
-      this.openThemeAssetUploadModal("logo", (savedPath, blob) => {
+      this.openThemeAssetUploadModal("logo", state.logo, async (savedPath, blob) => {
         state.logo = savedPath;
         const filenameEl = layoutGrid.querySelector("#tc-logo-filename");
         if (filenameEl) filenameEl.textContent = savedPath.split("/").pop();
@@ -12427,6 +12434,13 @@ export class CrudController {
           thumbEl.style.opacity = "1";
         }
         updatePreviewAndUI();
+
+        // 拡張子変更によるパス変更を即座に保存・同期
+        try {
+          await api.saveTable("themeConfig", { ...tc, logo: savedPath }, 1);
+        } catch (e) {
+          console.warn("[ThemeConfig] Auto-sync logo path error:", e);
+        }
       });
     });
 
@@ -12477,10 +12491,11 @@ export class CrudController {
   /**
    * テーマ設定用の画像アップロード・上書きモーダル (YAML設定値準拠: background / logo)
    */
-  async openThemeAssetUploadModal(field, onUpdated) {
+  async openThemeAssetUploadModal(field, currentPath, onUpdated) {
     const isLogo = field === "logo";
 
     // YAML設定値 (schema/themeConfig.yaml)
+    // background はアスペクト比指定なし、maxSizeBytes(5MB) の容量チェックのみ
     const cfg = isLogo
       ? {
           field: "logo",
@@ -12509,11 +12524,11 @@ export class CrudController {
           accept: ".jpg,.jpeg,.png,.webp",
           maxSizeBytes: 5242880, // 5MB
           maxSizeMB: 5,
-          aspectRatio: "16:9",
-          displayMode: "cover",
+          aspectRatio: null, // アスペクト比指定なし（元画像比率を維持）
+          displayMode: null,
           background: "#ffffff",
-          targetW: 1920,
-          targetH: 1080,
+          targetW: null,
+          targetH: null,
           ext: ".jpg",
         };
 
@@ -12522,18 +12537,18 @@ export class CrudController {
 
     let selectedImg = null;
     let currentBlob = null;
+    let selectedFile = null;
     let isSizeValid = true;
 
-    const targetW = cfg.targetW;
-    const targetH = cfg.targetH;
-    const headerTitleText = `トリミング調整 (${isLogo ? "正方形 1:1 (512×512)" : "横長 16:9 (1920×1080)"})`;
+    let targetW = cfg.targetW || 1920;
+    let targetH = cfg.targetH || 1080;
     const maxKB = Math.round(cfg.maxSizeBytes / 1024);
 
     wrap.innerHTML = `
       <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
         <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
-        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code></div>
-        <div style="color: #f59e0b; margin-top: 2px;">※更新方法: <strong>上書き変更 (overwrite: true)</strong> により <code>${cfg.uploadPath}/${cfg.fileName}${cfg.ext}</code> が直接更新されます。</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB (${maxKB} KB)</code> ${cfg.aspectRatio ? `｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code>` : "｜ 規格比率: <code>比率指定なし (元比率を維持)</code>"}</div>
+        <div style="color: #f59e0b; margin-top: 2px;">※更新方法: <strong>上書き変更 (overwrite: true)</strong> により既存ファイルを上書き更新します（拡張子の変更にも対応）。</div>
       </div>
 
       <!-- 画像選択ドロップゾーン -->
@@ -12549,21 +12564,21 @@ export class CrudController {
         <!-- ヘッダー帯 -->
         <div class="crop-header">
           <div class="crop-header-title">
-            <span>✂</span>
-            <span>${headerTitleText}</span>
+            <span>${isLogo ? "✂" : "🖼️"}</span>
+            <span id="crop-header-title-theme">${isLogo ? "トリミング調整 (正方形 1:1 (512×512))" : "画像プレビュー (元比率維持 / 容量チェック)"}</span>
           </div>
-          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+          <div class="crop-header-hint">${isLogo ? "ドラッグで移動 / スライダーでズーム" : "容量が上限以内であればそのまま上書き保存されます"}</div>
         </div>
 
         <!-- キャンバスプレビュー枠 (点線外枠) -->
         <div class="admin-upload-crop-container">
-          <div class="crop-canvas-box" style="aspect-ratio: ${isLogo ? "1 / 1" : "16 / 9"}; max-width: ${isLogo ? "360px" : "520px"}; width: 100%;">
+          <div class="crop-canvas-box" id="crop-canvas-box-theme" style="aspect-ratio: ${isLogo ? "1 / 1" : "16 / 9"}; max-width: ${isLogo ? "360px" : "520px"}; width: 100%;">
             <canvas id="crop-canvas-theme" class="admin-upload-crop-canvas"></canvas>
           </div>
         </div>
 
-        <!-- ズームコントロールバー -->
-        <div class="crop-controls">
+        <!-- ズームコントロールバー (ロゴの場合のみ操作重視、背景画像の場合も利用可能) -->
+        <div class="crop-controls" style="${isLogo ? "" : "display: none;"}">
           <div class="crop-zoom-label">
             <span>🔍</span> <span>ズーム:</span>
           </div>
@@ -12575,7 +12590,7 @@ export class CrudController {
         <!-- ステータスバーカード -->
         <div class="crop-status-card">
           <div class="crop-resolution-label">
-            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+            画像解像度: <strong class="crop-resolution-val" id="crop-res-val-theme">${targetW} × ${targetH} px</strong>
           </div>
           <span id="crop-size-badge-theme" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
         </div>
@@ -12591,7 +12606,7 @@ export class CrudController {
           <input class="admin-form-input" id="upload-filename-theme" value="${cfg.fileName}" readonly style="flex: 1; background: rgba(30, 41, 59, 0.6); color: #94a3b8; cursor: not-allowed;" />
           <span id="upload-ext-label-theme" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">${cfg.ext}</span>
         </div>
-        <span style="color: #94a3b8; font-size: 0.78rem; display: block; margin-top: 4px;">
+        <span id="upload-overwrite-note-theme" style="color: #94a3b8; font-size: 0.78rem; display: block; margin-top: 4px;">
           YAMLの定義に従い、<code>${cfg.uploadPath}/${cfg.fileName}${cfg.ext}</code> を上書き更新します。
         </span>
       </div>
@@ -12619,11 +12634,14 @@ export class CrudController {
     const fileInput = wrap.querySelector("#upload-file-input-theme");
     const cropStage = wrap.querySelector("#crop-stage-theme");
     const cropCanvas = wrap.querySelector("#crop-canvas-theme");
+    const cropCanvasBox = wrap.querySelector("#crop-canvas-box-theme");
     const zoomSlider = wrap.querySelector("#crop-zoom-slider-theme");
     const fitBtn = wrap.querySelector("#crop-fit-btn-theme");
     const centerBtn = wrap.querySelector("#crop-center-btn-theme");
     const sizeBadge = wrap.querySelector("#crop-size-badge-theme");
+    const resVal = wrap.querySelector("#crop-res-val-theme");
     const extLabel = wrap.querySelector("#upload-ext-label-theme");
+    const overwriteNote = wrap.querySelector("#upload-overwrite-note-theme");
 
     dropzone.onclick = () => fileInput.click();
 
@@ -12644,9 +12662,8 @@ export class CrudController {
       if (isLogo) {
         // ロゴ透過PNG
       } else {
-        // 背景画像: 初期白クリア
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, targetW, targetH);
+        // 背景画像: 透過部分がある場合も考慮しつつクリア
+        ctx.clearRect(0, 0, targetW, targetH);
       }
 
       const drawW = selectedImg.naturalWidth * scale;
@@ -12663,6 +12680,27 @@ export class CrudController {
 
       const calculateSize = () => {
         if (!selectedImg) return;
+
+        // 背景画像でアスペクト比指定なしの場合は選択された元ファイルそのものの容量を優先判定
+        if (!isLogo && selectedFile) {
+          currentBlob = selectedFile;
+          const sizeKB = (selectedFile.size / 1024).toFixed(1);
+          const limitKB = Math.round(cfg.maxSizeBytes / 1024);
+          const isOver = selectedFile.size > cfg.maxSizeBytes;
+
+          if (isOver) {
+            sizeBadge.className = "crop-size-badge is-over";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB 超過`;
+            isSizeValid = false;
+          } else {
+            sizeBadge.className = "crop-size-badge is-ok";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB OK`;
+            isSizeValid = true;
+          }
+          checkUploadBtnState();
+          return;
+        }
+
         const ext = extLabel.textContent.toLowerCase();
         const mimeType = isLogo || ext === ".png" ? "image/png" : "image/jpeg";
         const quality = isLogo || ext === ".png" ? undefined : (cfg.compressQuality || 0.88);
@@ -12694,7 +12732,7 @@ export class CrudController {
       }
     };
 
-    // ドラッグ移動制御
+    // ドラッグ移動制御 (ロゴの場合)
     let isDragging = false;
     let startX = 0;
     let startY = 0;
@@ -12702,7 +12740,7 @@ export class CrudController {
     let startCenterY = 0;
 
     const onDragStart = (clientX, clientY) => {
-      if (!selectedImg) return;
+      if (!isLogo || !selectedImg) return;
       isDragging = true;
       startX = clientX;
       startY = clientY;
@@ -12751,10 +12789,10 @@ export class CrudController {
     window.addEventListener("touchmove", handleWindowTouchMove);
     window.addEventListener("touchend", handleWindowTouchEnd);
 
-    // ホイールズーム
+    // ホイールズーム (ロゴの場合)
     cropCanvas.addEventListener("wheel", (e) => {
+      if (!isLogo || !selectedImg) return;
       e.preventDefault();
-      if (!selectedImg) return;
       const delta = e.deltaY < 0 ? 0.05 : -0.05;
       let newScale = scale + delta;
       const minS = parseFloat(zoomSlider.min);
@@ -12796,32 +12834,50 @@ export class CrudController {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      selectedFile = file;
       const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || cfg.ext;
       extLabel.textContent = isLogo ? ".png" : ext;
+
+      if (overwriteNote) {
+        overwriteNote.innerHTML = `YAMLの定義に従い、<code>${cfg.uploadPath}/${cfg.fileName}${isLogo ? ".png" : ext}</code> を上書き更新します。`;
+      }
 
       const reader = new FileReader();
       reader.onload = (loadEvt) => {
         const img = new Image();
         img.onload = () => {
           selectedImg = img;
-          cropCanvas.width = targetW;
-          cropCanvas.height = targetH;
 
           if (isLogo) {
+            // ロゴ: 1:1 正方形固定 (512×512)
+            targetW = 512;
+            targetH = 512;
+            cropCanvas.width = targetW;
+            cropCanvas.height = targetH;
+            cropCanvasBox.style.aspectRatio = "1 / 1";
             baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+            scale = baseScale;
+            centerX = targetW / 2;
+            centerY = targetH / 2;
+
+            zoomSlider.min = (baseScale * 0.15).toFixed(4);
+            zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+            zoomSlider.step = "0.002";
+            zoomSlider.value = scale;
           } else {
-            baseScale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
+            // 背景画像: アスペクト比指定なし、元画像の比率・解像度を100%維持
+            targetW = img.naturalWidth;
+            targetH = img.naturalHeight;
+            cropCanvas.width = targetW;
+            cropCanvas.height = targetH;
+            cropCanvasBox.style.aspectRatio = `${targetW} / ${targetH}`;
+            baseScale = 1;
+            scale = 1;
+            centerX = targetW / 2;
+            centerY = targetH / 2;
           }
 
-          scale = baseScale;
-          centerX = targetW / 2;
-          centerY = targetH / 2;
-
-          zoomSlider.min = (baseScale * 0.15).toFixed(4);
-          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
-          zoomSlider.step = "0.002";
-          zoomSlider.value = scale;
-
+          resVal.textContent = `${targetW} × ${targetH} px`;
           renderCanvas();
           scheduleSizeUpdate(true);
 
@@ -12845,16 +12901,16 @@ export class CrudController {
       Modal.close();
     };
 
-    // アップロードボタン押下 (上書き変更)
+    // アップロードボタン押下 (上書き変更: 拡張子の変更にも完全対応)
     uploadBtn.onclick = async () => {
       if (!isSizeValid || !currentBlob) {
-        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        alert("容量が制限を超えています。ファイルサイズを調整してください。");
         return;
       }
 
       const ext = extLabel.textContent || cfg.ext;
       const fullFileName = `${cfg.fileName}${ext}`;
-      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+      const newUploadPath = `${cfg.uploadPath}/${fullFileName}`;
 
       uploadBtn.disabled = true;
       uploadBtn.textContent = "上書き保存中...";
@@ -12885,16 +12941,16 @@ export class CrudController {
           Toast.info("GitHub PAT未設定のため、プレビューに即時反映します");
           cleanupListeners();
           Modal.close();
-          onUpdated(uploadPath, currentBlob);
+          onUpdated(newUploadPath, currentBlob);
           return;
         }
 
-        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+        const newGhUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${newUploadPath}`;
 
-        // 既存ファイルの sha を取得（上書き保存のため必須）
-        let sha = null;
+        // 1. 新しいファイルパスの既存 sha を取得 (上書き保存用)
+        let newSha = null;
         try {
-          const checkRes = await fetch(ghUrl, {
+          const checkRes = await fetch(newGhUrl, {
             headers: {
               Authorization: `token ${pat}`,
               Accept: "application/vnd.github.v3+json",
@@ -12902,10 +12958,10 @@ export class CrudController {
           });
           if (checkRes.ok) {
             const fileInfo = await checkRes.json();
-            sha = fileInfo.sha;
+            newSha = fileInfo.sha;
           }
         } catch (e) {
-          console.warn("[ThemeAsset Upload] Failed to fetch existing SHA:", e);
+          console.warn("[ThemeAsset Upload] Failed to fetch new path SHA:", e);
         }
 
         const bodyData = {
@@ -12913,11 +12969,12 @@ export class CrudController {
           content: base64Data,
           branch: "main",
         };
-        if (sha) {
-          bodyData.sha = sha; // 既存shaを指定して上書き
+        if (newSha) {
+          bodyData.sha = newSha; // 既存shaを指定して上書き
         }
 
-        const putRes = await fetch(ghUrl, {
+        // 新しいファイルを PUT
+        const putRes = await fetch(newGhUrl, {
           method: "PUT",
           headers: {
             Authorization: `token ${pat}`,
@@ -12932,12 +12989,47 @@ export class CrudController {
           throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
         }
 
+        // 2. 拡張子が変わった場合、古いファイル (例: background.jpg -> background.png) を GitHub から削除して完全に置き換え
+        const oldPath = currentPath;
+        if (oldPath && oldPath !== newUploadPath && oldPath.startsWith(cfg.uploadPath)) {
+          try {
+            const oldGhUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${oldPath}`;
+            const oldRes = await fetch(oldGhUrl, {
+              headers: {
+                Authorization: `token ${pat}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            });
+            if (oldRes.ok) {
+              const oldInfo = await oldRes.json();
+              if (oldInfo.sha) {
+                await fetch(oldGhUrl, {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `token ${pat}`,
+                    Accept: "application/vnd.github.v3+json",
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    message: `Remove old asset ${oldPath.split("/").pop()} after updating to ${fullFileName}`,
+                    sha: oldInfo.sha,
+                    branch: "main",
+                  }),
+                });
+                console.log(`[ThemeAsset] Cleaned up old asset: ${oldPath}`);
+              }
+            }
+          } catch (cleanupErr) {
+            console.warn("[ThemeAsset] Failed to delete old asset:", cleanupErr);
+          }
+        }
+
         Toast.success(`${fullFileName} を正常に上書き保存しました`);
 
         cleanupListeners();
         Modal.close();
 
-        onUpdated(uploadPath, currentBlob);
+        onUpdated(newUploadPath, currentBlob);
       } catch (err) {
         console.error("[ThemeAsset Upload Error]:", err);
         Toast.error(`上書き保存に失敗しました: ${err.message}`);
