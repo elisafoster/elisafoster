@@ -12105,29 +12105,28 @@ export class CrudController {
         <p class="admin-theme-panel-desc">ページ全体の背景画像およびウォーターマーク等に使用されるロゴ画像を設定します。</p>
       </div>
 
-      <!-- ページ全体背景画像 -->
-      <div class="admin-theme-asset-item">
-        <label class="admin-theme-field-label">ページ全体背景画像 (background)</label>
-        <div class="admin-theme-asset-row">
-          <div class="admin-theme-asset-thumb-wrap">
-            <img class="admin-theme-asset-thumb" id="tc-bg-thumb" src="${api.resolveAssetUrl(state.background, "config")}" alt="背景プレビュー" onerror="this.style.opacity='0.2';">
+      <!-- 横並びプレビュー & 変更ボタン -->
+      <div class="admin-theme-assets-grid">
+        <!-- ページ全体背景画像 -->
+        <div class="admin-theme-asset-card">
+          <label class="admin-theme-field-label">ページ全体背景画像 (background)</label>
+          <div class="admin-theme-asset-preview-box">
+            <img class="admin-theme-asset-preview-img" id="tc-bg-thumb" src="${api.resolveAssetUrl(state.background, "config")}" alt="背景プレビュー" onerror="this.style.opacity='0.2';">
           </div>
-          <input type="text" class="admin-theme-asset-input" id="tc-bg-input" value="${state.background}" placeholder="assets/config/background.jpg">
-          <button type="button" class="admin-theme-asset-btn" id="tc-bg-btn">📁 画像選択</button>
+          <button type="button" class="admin-theme-asset-change-btn" id="tc-bg-btn">📁 画像を変更</button>
           <input type="file" id="tc-bg-file" accept="image/*" style="display: none;">
+          <span class="admin-theme-asset-filename" id="tc-bg-filename">${state.background.split("/").pop()}</span>
         </div>
-      </div>
 
-      <!-- サイトロゴ画像 -->
-      <div class="admin-theme-asset-item">
-        <label class="admin-theme-field-label">サイトロゴ画像 (logo)</label>
-        <div class="admin-theme-asset-row">
-          <div class="admin-theme-asset-thumb-wrap">
-            <img class="admin-theme-asset-thumb is-logo" id="tc-logo-thumb" src="${api.resolveAssetUrl(state.logo, "config")}" alt="ロゴプレビュー" onerror="this.style.opacity='0.2';">
+        <!-- サイトロゴ画像 -->
+        <div class="admin-theme-asset-card">
+          <label class="admin-theme-field-label">サイトロゴ画像 (logo)</label>
+          <div class="admin-theme-asset-preview-box is-logo-box">
+            <img class="admin-theme-asset-preview-img is-logo" id="tc-logo-thumb" src="${api.resolveAssetUrl(state.logo, "config")}" alt="ロゴプレビュー" onerror="this.style.opacity='0.2';">
           </div>
-          <input type="text" class="admin-theme-asset-input" id="tc-logo-input" value="${state.logo}" placeholder="assets/config/logo.png">
-          <button type="button" class="admin-theme-asset-btn" id="tc-logo-btn">📁 画像選択</button>
+          <button type="button" class="admin-theme-asset-change-btn" id="tc-logo-btn">📁 画像を変更</button>
           <input type="file" id="tc-logo-file" accept="image/*" style="display: none;">
+          <span class="admin-theme-asset-filename" id="tc-logo-filename">${state.logo.split("/").pop()}</span>
         </div>
       </div>
     `;
@@ -12403,17 +12402,11 @@ export class CrudController {
     });
 
     // 背景画像 & ロゴ画像 入力・ファイルアップロード連動
-    const bindAssetUpload = (inputId, btnId, fileId, stateKey) => {
-      const inputEl = layoutGrid.querySelector(inputId);
+    const bindAssetUpload = (btnId, fileId, thumbId, filenameId, stateKey) => {
       const btnEl = layoutGrid.querySelector(btnId);
       const fileEl = layoutGrid.querySelector(fileId);
-
-      if (inputEl) {
-        inputEl.addEventListener("input", (e) => {
-          state[stateKey] = e.target.value.trim();
-          updatePreviewAndUI();
-        });
-      }
+      const thumbEl = layoutGrid.querySelector(thumbId);
+      const filenameEl = layoutGrid.querySelector(filenameId);
 
       if (btnEl && fileEl) {
         btnEl.addEventListener("click", () => {
@@ -12432,7 +12425,14 @@ export class CrudController {
             const result = await api.uploadAsset("assets/config", file);
             const savedPath = result?.path || `assets/config/${file.name}`;
             state[stateKey] = savedPath;
-            if (inputEl) inputEl.value = savedPath;
+
+            if (thumbEl) {
+              thumbEl.src = api.resolveAssetUrl(savedPath, "config");
+              thumbEl.style.opacity = "1";
+            }
+            if (filenameEl) {
+              filenameEl.textContent = file.name;
+            }
 
             updatePreviewAndUI();
             this.showNotification(`画像をアップロードしました: ${file.name}`, "success");
@@ -12441,15 +12441,15 @@ export class CrudController {
             this.showNotification(`画像のアップロードに失敗しました: ${err.message}`, "error");
           } finally {
             btnEl.disabled = false;
-            btnEl.textContent = "📁 画像選択";
+            btnEl.textContent = "📁 画像を変更";
             fileEl.value = "";
           }
         });
       }
     };
 
-    bindAssetUpload("#tc-bg-input", "#tc-bg-btn", "#tc-bg-file", "background");
-    bindAssetUpload("#tc-logo-input", "#tc-logo-btn", "#tc-logo-file", "logo");
+    bindAssetUpload("#tc-bg-btn", "#tc-bg-file", "#tc-bg-thumb", "#tc-bg-filename", "background");
+    bindAssetUpload("#tc-logo-btn", "#tc-logo-file", "#tc-logo-thumb", "#tc-logo-filename", "logo");
 
     // 保存ボタンイベント
     headerBar.querySelector("#tc-save-btn")?.addEventListener("click", async () => {

@@ -2317,83 +2317,81 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   color: #ffffff;
 }
 
-/* ページ全体背景・ロゴ画像用行 */
-.admin-theme-asset-item {
+/* ==========================================================================
+   背景・ロゴ設定 (横並びプレビュー & 変更ボタン)
+   ========================================================================== */
+.admin-theme-assets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.admin-theme-asset-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.admin-theme-asset-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.admin-theme-asset-thumb-wrap {
-  width: 52px;
-  height: 36px;
-  border-radius: 6px;
+.admin-theme-asset-preview-box {
+  width: 100%;
+  height: 110px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.7);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
-.admin-theme-asset-thumb {
+.admin-theme-asset-preview-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: opacity 0.2s ease;
 }
 
-.admin-theme-asset-thumb.is-logo {
+.admin-theme-asset-preview-img.is-logo {
   object-fit: contain;
-  padding: 2px;
+  padding: 10px;
+  max-height: 95px;
 }
 
-.admin-theme-asset-input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid #283548;
-  border-radius: 6px;
-  color: #f8fafc;
-  font-size: 12px;
-  padding: 0 10px;
-}
-
-.admin-theme-asset-input:focus {
-  outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
-}
-
-.admin-theme-asset-btn {
-  background: rgba(30, 41, 59, 0.8);
+.admin-theme-asset-change-btn {
+  width: 100%;
+  height: 34px;
+  background: rgba(30, 41, 59, 0.85);
   border: 1px solid #334155;
-  color: #cbd5e1;
+  color: #f1f5f9;
   font-size: 12px;
   font-weight: 600;
-  padding: 0 12px;
-  height: 36px;
   border-radius: 6px;
   cursor: pointer;
-  white-space: nowrap;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
-.admin-theme-asset-btn:hover {
-  background: #1e293b;
+.admin-theme-asset-change-btn:hover {
+  background: #0284c7;
   border-color: #38bdf8;
   color: #ffffff;
+}
+
+.admin-theme-asset-filename {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: monospace, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
 }
 
 /* リアルタイムプレビュー枠 */
@@ -2424,14 +2422,16 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 
 .admin-theme-preview-canvas {
   border-radius: 10px;
-  padding: 24px 16px 24px 0;
+  padding: 20px 16px 20px 0;
   position: relative;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  min-height: 260px;
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* サイト側セクションバー (画像2準拠) */
@@ -2439,7 +2439,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   display: inline-flex;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   padding: 6px 28px 6px 16px;
   border-radius: 0 9999px 9999px 0;
   background: linear-gradient(
@@ -2475,16 +2475,20 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   white-space: nowrap;
 }
 
-/* 親カード (外側カード) */
+/* 親カード (外側カード: 下の余白分まで広げる) */
 .admin-theme-preview-outer-card {
   margin: 0 16px 0 16px;
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 16px 18px 20px 18px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
   position: relative;
   overflow: hidden;
   transition: background 0.2s ease;
   backdrop-filter: blur(4px);
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-theme-preview-card-text {
@@ -2514,15 +2518,15 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   transition: color 0.15s ease;
 }
 
-/* ウォーターマーク (ロゴ画像) */
+/* ウォーターマーク (ロゴ画像: 外側カード右下に鮮明に表示) */
 .admin-theme-preview-watermark {
   position: absolute;
-  right: 12px;
-  bottom: 8px;
-  height: 64px;
-  max-width: 140px;
+  right: 14px;
+  bottom: 12px;
+  height: 84px;
+  max-width: 150px;
   object-fit: contain;
-  opacity: 0.18;
+  opacity: 0.32;
   pointer-events: none;
   z-index: 1;
   transition: opacity 0.2s ease;
