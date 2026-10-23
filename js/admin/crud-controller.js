@@ -11859,79 +11859,516 @@ export class CrudController {
    * 4. テーマ設定管理タブ (themeConfig)
    */
   async renderThemeConfigTab() {
-    const tc = await api.getTable("themeConfig", 1);
+    let tc = {};
+    try {
+      tc = (await api.getTable("themeConfig", 1)) || {};
+    } catch (e) {
+      console.warn("[ThemeConfig] Failed to load data, using defaults:", e);
+    }
 
-    const card = document.createElement("div");
-    card.className = "admin-card";
-    card.innerHTML = `
-      <div class="admin-card-header">
-        <div class="admin-card-title-group">
-          <h2 class="admin-card-title">テーマ・外観カラー設定</h2>
-          <p class="admin-card-desc">themeConfig テーブル (id=1)</p>
-        </div>
-      </div>
-    `;
-
-    const form = document.createElement("form");
-    form.style.padding = "24px";
-    form.innerHTML = `
-      <div class="admin-form-group">
-        <label class="admin-form-label">カード背景タイプ</label>
-        <select class="admin-form-select" name="card_bg_type" id="tc-bg-type">
-          <option value="single" ${tc?.card_bg_type === "single" ? "selected" : ""}>単色 (single)</option>
-          <option value="gradient" ${tc?.card_bg_type === "gradient" ? "selected" : ""}>グラデーション (gradient)</option>
-        </select>
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <div class="admin-form-group">
-          <label class="admin-form-label">単色用カラー (HEX)</label>
-          <input class="admin-form-input" name="card_bg_color" value="${tc?.card_bg_color || "#ffffff"}" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">グラデーション角度 (0-360)</label>
-          <input class="admin-form-input" type="number" name="card_bg_gradient_angle" value="${tc?.card_bg_gradient_angle ?? 0}" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">グラデーション開始色 (HEX)</label>
-          <input class="admin-form-input" name="card_bg_gradient_start" value="${tc?.card_bg_gradient_start || "#70cfff"}" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">グラデーション終了色 (HEX)</label>
-          <input class="admin-form-input" name="card_bg_gradient_end" value="${tc?.card_bg_gradient_end || "#f2f4fd"}" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">カード内文字色 (HEX)</label>
-          <input class="admin-form-input" name="card_text_color" value="${tc?.card_text_color || "#1e293b"}" />
-        </div>
-        <div class="admin-form-group">
-          <label class="admin-form-label">セクション見出し文字色 (HEX)</label>
-          <input class="admin-form-input" name="section_title_color" value="${tc?.section_title_color || "#1e293b"}" />
-        </div>
-      </div>
-      <div class="admin-form-group">
-        <label class="admin-form-label">ページ全体背景画像 (画面横幅100%フィット)</label>
-        <input class="admin-form-input" name="background" value="${tc?.background || "assets/config/background.jpg"}" />
-        <span class="admin-form-hint">assets/config/background.jpg 等</span>
-      </div>
-      <div style="margin-top: 20px;">
-        <button type="submit" class="app-btn app-btn-primary">外観設定を保存</button>
-      </div>
-    `;
-
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const formData = new FormData(form);
-      const payload = { ...tc };
-      for (const [k, v] of formData.entries()) {
-        payload[k] = v;
-      }
-      await api.saveTable("themeConfig", payload, 1);
+    // 内部ステート管理
+    const state = {
+      card_bg_type: tc.card_bg_type || "gradient",
+      card_bg_color: tc.card_bg_color || "#FFFFFF",
+      card_bg_gradient_start: tc.card_bg_gradient_start || "#A8E5FF",
+      card_bg_gradient_end: tc.card_bg_gradient_end || "#FFFFFF",
+      card_bg_gradient_angle: parseInt(tc.card_bg_gradient_angle ?? 0, 10),
+      card_text_color: tc.card_text_color || "#1E293B",
+      section_title_color: tc.section_title_color || "#1E293B",
+      background: tc.background || "assets/config/background.jpg",
+      sub_bg_color: tc.sub_bg_color || "",
+      logo: tc.logo || "",
     };
 
-    card.appendChild(form);
+    // プリセットカラー定義 (画像準拠)
+    const bgPresets = [
+      "#FFFFFF", "#F8FAFC", "#F1F5F9", "#E0F2FE", "#BAE6FD",
+      "#A8E5FF", "#FEF08A", "#FBCFE8", "#F5D0FE", "#334155"
+    ];
+
+    const textPresets = [
+      "#1E293B", "#0F172A", "#334155", "#475569", "#64748B",
+      "#F8FAFC", "#FFFFFF", "#CBD5E1"
+    ];
+
+    const titlePresets = [
+      "#1E293B", "#2563EB", "#3B82F6", "#6366F1", "#8B5CF6",
+      "#10B981", "#EF4444", "#F59E0B", "#FFFFFF"
+    ];
+
+    const anglePresets = [
+      { angle: 0, label: "0° (下→上)" },
+      { angle: 45, label: "45° (斜め上)" },
+      { angle: 90, label: "90° (左→右)" },
+      { angle: 135, label: "135° (斜め下)" },
+      { angle: 180, label: "180° (上→下)" },
+      { angle: 270, label: "270° (右→左)" },
+    ];
+
+    // 全体ラッパー
+    const wrapper = document.createElement("div");
+    wrapper.className = "admin-theme-wrapper";
+
+    // 1. ヘッダーバー (タイトル & 変更保存ボタン)
+    const headerBar = document.createElement("div");
+    headerBar.className = "admin-theme-header-bar";
+    headerBar.innerHTML = `
+      <div class="admin-theme-header-title-group">
+        <h2 class="admin-theme-main-title">🎨 外観カラー設定</h2>
+        <p class="admin-theme-main-desc">カード背景（単色/グラデーション）、カード文字色、セクション見出し色の編集</p>
+      </div>
+      <button type="button" class="admin-theme-save-btn" id="tc-save-btn">
+        <span>💾</span> 変更保存
+      </button>
+    `;
+    wrapper.appendChild(headerBar);
+
+    // 2. 2カラムレイアウト
+    const layoutGrid = document.createElement("div");
+    layoutGrid.className = "admin-theme-layout-grid";
+
+    // --- 左カラム: コントロールパネル ---
+    const leftCol = document.createElement("div");
+    leftCol.style.display = "flex";
+    leftCol.style.flexDirection = "column";
+    leftCol.style.gap = "18px";
+
+    // カード1: 🖼️ カード背景スタイル
+    const cardBgPanel = document.createElement("div");
+    cardBgPanel.className = "admin-theme-card-panel";
+    cardBgPanel.innerHTML = `
+      <div class="admin-theme-panel-head">
+        <h3 class="admin-theme-panel-title">🖼️ カード背景スタイル</h3>
+        <p class="admin-theme-panel-desc">プロフィール、料金プラン、お問い合わせ枠の背景デザインを設定します。</p>
+      </div>
+
+      <!-- セグメント切り替え -->
+      <div class="admin-theme-seg-container">
+        <div class="admin-theme-seg-btn ${state.card_bg_type === "single" ? "is-active" : ""}" id="tc-type-single">
+          <span class="admin-theme-radio-dot"></span>
+          <span>単色 (ソリッドカラー)</span>
+        </div>
+        <div class="admin-theme-seg-btn ${state.card_bg_type === "gradient" ? "is-active" : ""}" id="tc-type-gradient">
+          <span class="admin-theme-radio-dot"></span>
+          <span>グラデーション</span>
+        </div>
+      </div>
+
+      <!-- 単色用設定 -->
+      <div class="admin-theme-color-block" id="tc-single-wrap" style="display: ${state.card_bg_type === "single" ? "flex" : "none"};">
+        <label class="admin-theme-field-label">背景色 (Color)</label>
+        <div class="admin-theme-picker-row">
+          <div class="admin-theme-swatch-box" id="tc-single-swatch" style="background-color: ${state.card_bg_color};">
+            <input type="color" class="admin-theme-hidden-picker" id="tc-single-picker" value="${state.card_bg_color}">
+          </div>
+          <input type="text" class="admin-theme-hex-input" id="tc-single-hex" value="${state.card_bg_color}" maxlength="7" spellcheck="false">
+        </div>
+        <div class="admin-theme-palette-row" id="tc-single-palette">
+          ${bgPresets.map(c => `
+            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_color.toUpperCase() ? "is-selected" : ""}" 
+                 style="background-color: ${c};" data-color="${c}"></div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- グラデーション用設定 -->
+      <div id="tc-gradient-wrap" style="display: ${state.card_bg_type === "gradient" ? "flex" : "none"}; flex-direction: column; gap: 16px;">
+        <!-- 開始色 (Start) -->
+        <div class="admin-theme-color-block">
+          <label class="admin-theme-field-label">開始色 (Start)</label>
+          <div class="admin-theme-picker-row">
+            <div class="admin-theme-swatch-box" id="tc-start-swatch" style="background-color: ${state.card_bg_gradient_start};">
+              <input type="color" class="admin-theme-hidden-picker" id="tc-start-picker" value="${state.card_bg_gradient_start}">
+            </div>
+            <input type="text" class="admin-theme-hex-input" id="tc-start-hex" value="${state.card_bg_gradient_start}" maxlength="7" spellcheck="false">
+          </div>
+          <div class="admin-theme-palette-row" id="tc-start-palette">
+            ${bgPresets.map(c => `
+              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_gradient_start.toUpperCase() ? "is-selected" : ""}" 
+                   style="background-color: ${c};" data-color="${c}"></div>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- 終了色 (End) -->
+        <div class="admin-theme-color-block">
+          <label class="admin-theme-field-label">終了色 (End)</label>
+          <div class="admin-theme-picker-row">
+            <div class="admin-theme-swatch-box" id="tc-end-swatch" style="background-color: ${state.card_bg_gradient_end};">
+              <input type="color" class="admin-theme-hidden-picker" id="tc-end-picker" value="${state.card_bg_gradient_end}">
+            </div>
+            <input type="text" class="admin-theme-hex-input" id="tc-end-hex" value="${state.card_bg_gradient_end}" maxlength="7" spellcheck="false">
+          </div>
+          <div class="admin-theme-palette-row" id="tc-end-palette">
+            ${bgPresets.map(c => `
+              <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_bg_gradient_end.toUpperCase() ? "is-selected" : ""}" 
+                   style="background-color: ${c};" data-color="${c}"></div>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- グラデーション角度 -->
+        <div class="admin-theme-angle-block">
+          <div class="admin-theme-angle-top">
+            <label class="admin-theme-field-label">グラデーション角度</label>
+            <div class="admin-theme-angle-badge-wrap">
+              <span class="admin-theme-angle-num" id="tc-angle-num">${state.card_bg_gradient_angle}</span>
+              <span class="admin-theme-angle-badge" id="tc-angle-badge">${state.card_bg_gradient_angle}°</span>
+            </div>
+          </div>
+          <input type="range" class="admin-theme-angle-slider" id="tc-angle-slider" min="0" max="360" step="1" value="${state.card_bg_gradient_angle}">
+          <div class="admin-theme-angle-presets">
+            ${anglePresets.map(p => `
+              <button type="button" class="admin-theme-angle-btn ${state.card_bg_gradient_angle === p.angle ? "is-active" : ""}" data-angle="${p.angle}">
+                ${p.label}
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+
+      <!-- ページ全体背景画像保持用 -->
+      <div class="admin-theme-bg-fold">
+        <label class="admin-theme-field-label" style="font-size: 11.5px; color: #94a3b8;">ページ全体背景画像 (画面横幅100%フィット)</label>
+        <input type="text" class="admin-form-input" id="tc-page-bg-input" value="${state.background}" style="font-size: 12px; height: 32px;" placeholder="assets/config/background.jpg">
+      </div>
+    `;
+    leftCol.appendChild(cardBgPanel);
+
+    // カード2: 🎨 文字カラー設定
+    const cardTextPanel = document.createElement("div");
+    cardTextPanel.className = "admin-theme-card-panel";
+    cardTextPanel.innerHTML = `
+      <div class="admin-theme-panel-head">
+        <h3 class="admin-theme-panel-title">🎨 文字カラー設定</h3>
+        <p class="admin-theme-panel-desc">カード内の文字色および各セクション見出しのカラーを設定します。</p>
+      </div>
+
+      <!-- カード内文字色 -->
+      <div class="admin-theme-color-block">
+        <label class="admin-theme-field-label">カード内文字色</label>
+        <div class="admin-theme-picker-row">
+          <div class="admin-theme-swatch-box" id="tc-text-swatch" style="background-color: ${state.card_text_color};">
+            <input type="color" class="admin-theme-hidden-picker" id="tc-text-picker" value="${state.card_text_color}">
+          </div>
+          <input type="text" class="admin-theme-hex-input" id="tc-text-hex" value="${state.card_text_color}" maxlength="7" spellcheck="false">
+        </div>
+        <div class="admin-theme-palette-row" id="tc-text-palette">
+          ${textPresets.map(c => `
+            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.card_text_color.toUpperCase() ? "is-selected" : ""}" 
+                 style="background-color: ${c};" data-color="${c}"></div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- セクション見出し色 -->
+      <div class="admin-theme-color-block">
+        <label class="admin-theme-field-label">セクション見出し色</label>
+        <div class="admin-theme-picker-row">
+          <div class="admin-theme-swatch-box" id="tc-title-swatch" style="background-color: ${state.section_title_color};">
+            <input type="color" class="admin-theme-hidden-picker" id="tc-title-picker" value="${state.section_title_color}">
+          </div>
+          <input type="text" class="admin-theme-hex-input" id="tc-title-hex" value="${state.section_title_color}" maxlength="7" spellcheck="false">
+        </div>
+        <div class="admin-theme-palette-row" id="tc-title-palette">
+          ${titlePresets.map(c => `
+            <div class="admin-theme-palette-circle ${c.toUpperCase() === state.section_title_color.toUpperCase() ? "is-selected" : ""}" 
+                 style="background-color: ${c};" data-color="${c}"></div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+    leftCol.appendChild(cardTextPanel);
+    layoutGrid.appendChild(leftCol);
+
+    // --- 右カラム: リアルタイム表示プレビュー ---
+    const rightCol = document.createElement("div");
+    rightCol.className = "admin-theme-preview-wrap";
+    rightCol.innerHTML = `
+      <div class="admin-theme-preview-card-outer">
+        <h3 class="admin-theme-preview-title">👁️ リアルタイム表示プレビュー</h3>
+        
+        <div class="admin-theme-preview-canvas">
+          <!-- 幾何学背景デコレーション -->
+          <div class="admin-theme-preview-deco-1"></div>
+          <div class="admin-theme-preview-deco-2"></div>
+
+          <!-- 見出し -->
+          <div class="admin-theme-preview-section-title" id="preview-section-title" style="color: ${state.section_title_color};">
+            PROFILE
+          </div>
+          <div class="admin-theme-preview-section-bar"></div>
+          <div class="admin-theme-preview-section-sub">プロフィール & 活動実績のご紹介</div>
+
+          <!-- プロフィールサンプルカード -->
+          <div class="admin-theme-preview-sample-card" id="preview-sample-card">
+            <!-- アバター -->
+            <div class="admin-theme-preview-avatar">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+
+            <!-- 情報 -->
+            <div class="admin-theme-preview-info">
+              <p class="admin-theme-preview-name" id="preview-text-name" style="color: ${state.card_text_color};">ゆきもち / yukimochi</p>
+              <p class="admin-theme-preview-role" id="preview-text-role" style="color: ${state.card_text_color};">イラストレーター・Live2Dモデラー。</p>
+              <p class="admin-theme-preview-desc" id="preview-text-desc" style="color: ${state.card_text_color};">透明感のある色彩とやわらかな光の表現を得意としています。</p>
+              <div class="admin-theme-preview-tags">
+                <span class="admin-theme-preview-tag">#イラスト</span>
+                <span class="admin-theme-preview-tag">#Live2D</span>
+                <span class="admin-theme-preview-status">受付中</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="admin-theme-preview-note" style="margin-top: 12px;">
+          ※カード背景・文字色・見出し色の変更がLP全体のカード・見出しに即時反映されます。
+        </p>
+      </div>
+    `;
+    layoutGrid.appendChild(rightCol);
+    wrapper.appendChild(layoutGrid);
+
+    // プレビューおよびUI同期処理
+    const updatePreviewAndUI = () => {
+      // 1. サンプルカード背景
+      const sampleCard = layoutGrid.querySelector("#preview-sample-card");
+      if (sampleCard) {
+        if (state.card_bg_type === "single") {
+          sampleCard.style.background = state.card_bg_color;
+        } else {
+          sampleCard.style.background = `linear-gradient(${state.card_bg_gradient_angle}deg, ${state.card_bg_gradient_start}, ${state.card_bg_gradient_end})`;
+        }
+      }
+
+      // 2. セクション見出し色
+      const sectionTitle = layoutGrid.querySelector("#preview-section-title");
+      if (sectionTitle) {
+        sectionTitle.style.color = state.section_title_color;
+      }
+
+      // 3. カード内文字色
+      const nameEl = layoutGrid.querySelector("#preview-text-name");
+      const roleEl = layoutGrid.querySelector("#preview-text-role");
+      const descEl = layoutGrid.querySelector("#preview-text-desc");
+      if (nameEl) nameEl.style.color = state.card_text_color;
+      if (roleEl) roleEl.style.color = state.card_text_color;
+      if (descEl) descEl.style.color = state.card_text_color;
+
+      // 4. セグメント切り替えUI
+      const singleBtn = layoutGrid.querySelector("#tc-type-single");
+      const gradBtn = layoutGrid.querySelector("#tc-type-gradient");
+      const singleWrap = layoutGrid.querySelector("#tc-single-wrap");
+      const gradWrap = layoutGrid.querySelector("#tc-gradient-wrap");
+
+      if (singleBtn && gradBtn && singleWrap && gradWrap) {
+        if (state.card_bg_type === "single") {
+          singleBtn.classList.add("is-active");
+          gradBtn.classList.remove("is-active");
+          singleWrap.style.display = "flex";
+          gradWrap.style.display = "none";
+        } else {
+          singleBtn.classList.remove("is-active");
+          gradBtn.classList.add("is-active");
+          singleWrap.style.display = "none";
+          gradWrap.style.display = "flex";
+        }
+      }
+
+      // 5. 単色用コントロール同期
+      const singleSwatch = layoutGrid.querySelector("#tc-single-swatch");
+      const singlePicker = layoutGrid.querySelector("#tc-single-picker");
+      const singleHex = layoutGrid.querySelector("#tc-single-hex");
+      if (singleSwatch) singleSwatch.style.backgroundColor = state.card_bg_color;
+      if (singlePicker && singlePicker.value !== state.card_bg_color) singlePicker.value = state.card_bg_color;
+      if (singleHex && singleHex.value !== state.card_bg_color) singleHex.value = state.card_bg_color;
+
+      // 6. 開始色コントロール同期
+      const startSwatch = layoutGrid.querySelector("#tc-start-swatch");
+      const startPicker = layoutGrid.querySelector("#tc-start-picker");
+      const startHex = layoutGrid.querySelector("#tc-start-hex");
+      if (startSwatch) startSwatch.style.backgroundColor = state.card_bg_gradient_start;
+      if (startPicker && startPicker.value !== state.card_bg_gradient_start) startPicker.value = state.card_bg_gradient_start;
+      if (startHex && startHex.value !== state.card_bg_gradient_start) startHex.value = state.card_bg_gradient_start;
+
+      // 7. 終了色コントロール同期
+      const endSwatch = layoutGrid.querySelector("#tc-end-swatch");
+      const endPicker = layoutGrid.querySelector("#tc-end-picker");
+      const endHex = layoutGrid.querySelector("#tc-end-hex");
+      if (endSwatch) endSwatch.style.backgroundColor = state.card_bg_gradient_end;
+      if (endPicker && endPicker.value !== state.card_bg_gradient_end) endPicker.value = state.card_bg_gradient_end;
+      if (endHex && endHex.value !== state.card_bg_gradient_end) endHex.value = state.card_bg_gradient_end;
+
+      // 8. 角度同期
+      const angleNum = layoutGrid.querySelector("#tc-angle-num");
+      const angleBadge = layoutGrid.querySelector("#tc-angle-badge");
+      const angleSlider = layoutGrid.querySelector("#tc-angle-slider");
+      if (angleNum) angleNum.textContent = state.card_bg_gradient_angle;
+      if (angleBadge) angleBadge.textContent = `${state.card_bg_gradient_angle}°`;
+      if (angleSlider && parseInt(angleSlider.value, 10) !== state.card_bg_gradient_angle) {
+        angleSlider.value = state.card_bg_gradient_angle;
+      }
+      layoutGrid.querySelectorAll(".admin-theme-angle-btn").forEach(btn => {
+        const btnAngle = parseInt(btn.getAttribute("data-angle"), 10);
+        btn.classList.toggle("is-active", btnAngle === state.card_bg_gradient_angle);
+      });
+
+      // 9. 文字色同期
+      const textSwatch = layoutGrid.querySelector("#tc-text-swatch");
+      const textPicker = layoutGrid.querySelector("#tc-text-picker");
+      const textHex = layoutGrid.querySelector("#tc-text-hex");
+      if (textSwatch) textSwatch.style.backgroundColor = state.card_text_color;
+      if (textPicker && textPicker.value !== state.card_text_color) textPicker.value = state.card_text_color;
+      if (textHex && textHex.value !== state.card_text_color) textHex.value = state.card_text_color;
+
+      // 10. 見出し色同期
+      const titleSwatch = layoutGrid.querySelector("#tc-title-swatch");
+      const titlePicker = layoutGrid.querySelector("#tc-title-picker");
+      const titleHex = layoutGrid.querySelector("#tc-title-hex");
+      if (titleSwatch) titleSwatch.style.backgroundColor = state.section_title_color;
+      if (titlePicker && titlePicker.value !== state.section_title_color) titlePicker.value = state.section_title_color;
+      if (titleHex && titleHex.value !== state.section_title_color) titleHex.value = state.section_title_color;
+
+      // 11. パレット円のアクティブリング同期
+      const syncPalette = (containerId, activeColor) => {
+        const el = layoutGrid.querySelector(containerId);
+        if (!el) return;
+        el.querySelectorAll(".admin-theme-palette-circle").forEach(circle => {
+          const c = circle.getAttribute("data-color");
+          circle.classList.toggle("is-selected", c && c.toUpperCase() === (activeColor || "").toUpperCase());
+        });
+      };
+      syncPalette("#tc-single-palette", state.card_bg_color);
+      syncPalette("#tc-start-palette", state.card_bg_gradient_start);
+      syncPalette("#tc-end-palette", state.card_bg_gradient_end);
+      syncPalette("#tc-text-palette", state.card_text_color);
+      syncPalette("#tc-title-palette", state.section_title_color);
+    };
+
+    // イベントリスナーの登録
+    // セグメント切り替え
+    layoutGrid.querySelector("#tc-type-single")?.addEventListener("click", () => {
+      state.card_bg_type = "single";
+      updatePreviewAndUI();
+    });
+    layoutGrid.querySelector("#tc-type-gradient")?.addEventListener("click", () => {
+      state.card_bg_type = "gradient";
+      updatePreviewAndUI();
+    });
+
+    // カラーピッカー & HEXヘルパー
+    const bindColorEvents = (pickerId, hexId, paletteId, stateKey) => {
+      const picker = layoutGrid.querySelector(pickerId);
+      const hex = layoutGrid.querySelector(hexId);
+      const palette = layoutGrid.querySelector(paletteId);
+
+      if (picker) {
+        picker.addEventListener("input", (e) => {
+          state[stateKey] = e.target.value.toUpperCase();
+          updatePreviewAndUI();
+        });
+      }
+
+      if (hex) {
+        hex.addEventListener("input", (e) => {
+          let val = e.target.value.trim();
+          if (!val.startsWith("#")) val = "#" + val;
+          if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(val)) {
+            state[stateKey] = val.toUpperCase();
+            updatePreviewAndUI();
+          }
+        });
+      }
+
+      if (palette) {
+        palette.addEventListener("click", (e) => {
+          const circle = e.target.closest(".admin-theme-palette-circle");
+          if (circle) {
+            const color = circle.getAttribute("data-color");
+            if (color) {
+              state[stateKey] = color.toUpperCase();
+              updatePreviewAndUI();
+            }
+          }
+        });
+      }
+    };
+
+    bindColorEvents("#tc-single-picker", "#tc-single-hex", "#tc-single-palette", "card_bg_color");
+    bindColorEvents("#tc-start-picker", "#tc-start-hex", "#tc-start-palette", "card_bg_gradient_start");
+    bindColorEvents("#tc-end-picker", "#tc-end-hex", "#tc-end-palette", "card_bg_gradient_end");
+    bindColorEvents("#tc-text-picker", "#tc-text-hex", "#tc-text-palette", "card_text_color");
+    bindColorEvents("#tc-title-picker", "#tc-title-hex", "#tc-title-palette", "section_title_color");
+
+    // グラデーション角度スライダー & ボタン
+    const angleSlider = layoutGrid.querySelector("#tc-angle-slider");
+    if (angleSlider) {
+      angleSlider.addEventListener("input", (e) => {
+        state.card_bg_gradient_angle = parseInt(e.target.value, 10);
+        updatePreviewAndUI();
+      });
+    }
+
+    layoutGrid.querySelectorAll(".admin-theme-angle-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const val = parseInt(btn.getAttribute("data-angle"), 10);
+        state.card_bg_gradient_angle = val;
+        updatePreviewAndUI();
+      });
+    });
+
+    // ページ全体背景画像
+    const pageBgInput = layoutGrid.querySelector("#tc-page-bg-input");
+    if (pageBgInput) {
+      pageBgInput.addEventListener("input", (e) => {
+        state.background = e.target.value.trim();
+      });
+    }
+
+    // 保存ボタンイベント
+    headerBar.querySelector("#tc-save-btn")?.addEventListener("click", async () => {
+      const saveBtn = headerBar.querySelector("#tc-save-btn");
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = "0.7";
+      }
+
+      try {
+        const payload = {
+          ...tc,
+          id: 1,
+          card_bg_type: state.card_bg_type,
+          card_bg_color: state.card_bg_color,
+          card_bg_gradient_start: state.card_bg_gradient_start,
+          card_bg_gradient_end: state.card_bg_gradient_end,
+          card_bg_gradient_angle: parseInt(state.card_bg_gradient_angle, 10) || 0,
+          card_text_color: state.card_text_color,
+          section_title_color: state.section_title_color,
+          background: state.background,
+        };
+
+        await api.saveTable("themeConfig", payload, 1);
+        this.showNotification("外観カラー設定を保存しました", "success");
+      } catch (err) {
+        console.error("[ThemeConfig Save Error]:", err);
+        this.showNotification(`保存に失敗しました: ${err.message}`, "error");
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = "1";
+        }
+      }
+    });
+
+    // 初期反映
+    updatePreviewAndUI();
+
     this.container.innerHTML = "";
-    this.container.appendChild(card);
+    this.container.appendChild(wrapper);
   }
+
 
   /**
    * 5. GitHub PAT設定タブ (githubPAT)
