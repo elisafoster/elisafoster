@@ -12401,55 +12401,34 @@ export class CrudController {
       });
     });
 
-    // 背景画像 & ロゴ画像 入力・ファイルアップロード連動
-    const bindAssetUpload = (btnId, fileId, thumbId, filenameId, stateKey) => {
-      const btnEl = layoutGrid.querySelector(btnId);
-      const fileEl = layoutGrid.querySelector(fileId);
-      const thumbEl = layoutGrid.querySelector(thumbId);
-      const filenameEl = layoutGrid.querySelector(filenameId);
+    // 背景画像 & ロゴ画像「画像を変更」モーダル連動 (YAML設定値準拠: 上書き変更)
+    layoutGrid.querySelector("#tc-bg-btn")?.addEventListener("click", () => {
+      this.openThemeAssetUploadModal("background", (savedPath, blob) => {
+        state.background = savedPath;
+        const filenameEl = layoutGrid.querySelector("#tc-bg-filename");
+        if (filenameEl) filenameEl.textContent = savedPath.split("/").pop();
+        const thumbEl = layoutGrid.querySelector("#tc-bg-thumb");
+        if (thumbEl && blob) {
+          thumbEl.src = URL.createObjectURL(blob);
+          thumbEl.style.opacity = "1";
+        }
+        updatePreviewAndUI();
+      });
+    });
 
-      if (btnEl && fileEl) {
-        btnEl.addEventListener("click", () => {
-          fileEl.click();
-        });
-
-        fileEl.addEventListener("change", async (e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-
-          try {
-            this.showNotification("画像をアップロード中...", "info");
-            btnEl.disabled = true;
-            btnEl.textContent = "アップロード中...";
-
-            const result = await api.uploadAsset("assets/config", file);
-            const savedPath = result?.path || `assets/config/${file.name}`;
-            state[stateKey] = savedPath;
-
-            if (thumbEl) {
-              thumbEl.src = api.resolveAssetUrl(savedPath, "config");
-              thumbEl.style.opacity = "1";
-            }
-            if (filenameEl) {
-              filenameEl.textContent = file.name;
-            }
-
-            updatePreviewAndUI();
-            this.showNotification(`画像をアップロードしました: ${file.name}`, "success");
-          } catch (err) {
-            console.error(`[Upload Error ${stateKey}]:`, err);
-            this.showNotification(`画像のアップロードに失敗しました: ${err.message}`, "error");
-          } finally {
-            btnEl.disabled = false;
-            btnEl.textContent = "📁 画像を変更";
-            fileEl.value = "";
-          }
-        });
-      }
-    };
-
-    bindAssetUpload("#tc-bg-btn", "#tc-bg-file", "#tc-bg-thumb", "#tc-bg-filename", "background");
-    bindAssetUpload("#tc-logo-btn", "#tc-logo-file", "#tc-logo-thumb", "#tc-logo-filename", "logo");
+    layoutGrid.querySelector("#tc-logo-btn")?.addEventListener("click", () => {
+      this.openThemeAssetUploadModal("logo", (savedPath, blob) => {
+        state.logo = savedPath;
+        const filenameEl = layoutGrid.querySelector("#tc-logo-filename");
+        if (filenameEl) filenameEl.textContent = savedPath.split("/").pop();
+        const thumbEl = layoutGrid.querySelector("#tc-logo-thumb");
+        if (thumbEl && blob) {
+          thumbEl.src = URL.createObjectURL(blob);
+          thumbEl.style.opacity = "1";
+        }
+        updatePreviewAndUI();
+      });
+    });
 
     // 保存ボタンイベント
     headerBar.querySelector("#tc-save-btn")?.addEventListener("click", async () => {
@@ -12493,6 +12472,489 @@ export class CrudController {
 
     this.container.innerHTML = "";
     this.container.appendChild(wrapper);
+  }
+
+  /**
+   * テーマ設定用の画像アップロード・上書きモーダル (YAML設定値準拠: background / logo)
+   */
+  async openThemeAssetUploadModal(field, onUpdated) {
+    const isLogo = field === "logo";
+
+    // YAML設定値 (schema/themeConfig.yaml)
+    const cfg = isLogo
+      ? {
+          field: "logo",
+          label: "ロゴ画像",
+          description: "サイトロゴ",
+          uploadPath: "assets/config",
+          fileName: "logo",
+          overwrite: true,
+          accept: ".png",
+          maxSizeBytes: 1048576, // 1MB
+          maxSizeMB: 1,
+          aspectRatio: "1:1",
+          displayMode: "contain",
+          background: "transparent",
+          targetW: 512,
+          targetH: 512,
+          ext: ".png",
+        }
+      : {
+          field: "background",
+          label: "背景画像",
+          description: "基本背景画像",
+          uploadPath: "assets/config",
+          fileName: "background",
+          overwrite: true,
+          accept: ".jpg,.jpeg,.png,.webp",
+          maxSizeBytes: 5242880, // 5MB
+          maxSizeMB: 5,
+          aspectRatio: "16:9",
+          displayMode: "cover",
+          background: "#ffffff",
+          targetW: 1920,
+          targetH: 1080,
+          ext: ".jpg",
+        };
+
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    const targetW = cfg.targetW;
+    const targetH = cfg.targetH;
+    const headerTitleText = `トリミング調整 (${isLogo ? "正方形 1:1 (512×512)" : "横長 16:9 (1920×1080)"})`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code></div>
+        <div style="color: #f59e0b; margin-top: 2px;">※更新方法: <strong>上書き変更 (overwrite: true)</strong> により <code>${cfg.uploadPath}/${cfg.fileName}${cfg.ext}</code> が直接更新されます。</div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-theme">
+        <input type="file" id="upload-file-input-theme" accept="${cfg.accept}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックまたはドラッグ＆ドロップで新しい画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-theme" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${headerTitleText}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box" style="aspect-ratio: ${isLogo ? "1 / 1" : "16 / 9"}; max-width: ${isLogo ? "360px" : "520px"}; width: 100%;">
+            <canvas id="crop-canvas-theme" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-theme" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-theme" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-theme" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-theme" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- 上書き保存対象ファイル名表示 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          保存ファイル名 (上書き変更)
+          <span style="color: #f59e0b; font-size: 0.78rem; margin-left: 6px;">[上書き固定: overwrite]</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-theme" value="${cfg.fileName}" readonly style="flex: 1; background: rgba(30, 41, 59, 0.6); color: #94a3b8; cursor: not-allowed;" />
+          <span id="upload-ext-label-theme" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">${cfg.ext}</span>
+        </div>
+        <span style="color: #94a3b8; font-size: 0.78rem; display: block; margin-top: 4px;">
+          YAMLの定義に従い、<code>${cfg.uploadPath}/${cfg.fileName}${cfg.ext}</code> を上書き更新します。
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "上書き保存";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    const dropzone = wrap.querySelector("#upload-dropzone-theme");
+    const fileInput = wrap.querySelector("#upload-file-input-theme");
+    const cropStage = wrap.querySelector("#crop-stage-theme");
+    const cropCanvas = wrap.querySelector("#crop-canvas-theme");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-theme");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-theme");
+    const centerBtn = wrap.querySelector("#crop-center-btn-theme");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-theme");
+    const extLabel = wrap.querySelector("#upload-ext-label-theme");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const checkUploadBtnState = () => {
+      uploadBtn.disabled = !selectedImg || !isSizeValid;
+    };
+
+    const renderCanvas = () => {
+      if (!selectedImg) return;
+      const ctx = cropCanvas.getContext("2d");
+      ctx.clearRect(0, 0, targetW, targetH);
+
+      if (isLogo) {
+        // ロゴ透過PNG
+      } else {
+        // 背景画像: 初期白クリア
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, targetW, targetH);
+      }
+
+      const drawW = selectedImg.naturalWidth * scale;
+      const drawH = selectedImg.naturalHeight * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+    };
+
+    let sizeCalcTimer = null;
+    const scheduleSizeUpdate = (immediate = false) => {
+      if (sizeCalcTimer) clearTimeout(sizeCalcTimer);
+
+      const calculateSize = () => {
+        if (!selectedImg) return;
+        const ext = extLabel.textContent.toLowerCase();
+        const mimeType = isLogo || ext === ".png" ? "image/png" : "image/jpeg";
+        const quality = isLogo || ext === ".png" ? undefined : (cfg.compressQuality || 0.88);
+
+        cropCanvas.toBlob((blob) => {
+          if (!blob) return;
+          currentBlob = blob;
+          const sizeKB = (blob.size / 1024).toFixed(1);
+          const limitKB = Math.round(cfg.maxSizeBytes / 1024);
+          const isOver = blob.size > cfg.maxSizeBytes;
+
+          if (isOver) {
+            sizeBadge.className = "crop-size-badge is-over";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB 超過`;
+            isSizeValid = false;
+          } else {
+            sizeBadge.className = "crop-size-badge is-ok";
+            sizeBadge.textContent = `${sizeKB} KB / ${limitKB} KB OK`;
+            isSizeValid = true;
+          }
+          checkUploadBtnState();
+        }, mimeType, quality);
+      };
+
+      if (immediate) {
+        calculateSize();
+      } else {
+        sizeCalcTimer = setTimeout(calculateSize, 90);
+      }
+    };
+
+    // ドラッグ移動制御
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startCenterX = 0;
+    let startCenterY = 0;
+
+    const onDragStart = (clientX, clientY) => {
+      if (!selectedImg) return;
+      isDragging = true;
+      startX = clientX;
+      startY = clientY;
+      startCenterX = centerX;
+      startCenterY = centerY;
+      cropCanvas.classList.add("is-dragging");
+    };
+
+    const onDragMove = (clientX, clientY) => {
+      if (!isDragging || !selectedImg) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const factorX = targetW / rect.width;
+      const factorY = targetH / rect.height;
+      const dx = (clientX - startX) * factorX;
+      const dy = (clientY - startY) * factorY;
+      centerX = startCenterX + dx;
+      centerY = startCenterY + dy;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      cropCanvas.classList.remove("is-dragging");
+      scheduleSizeUpdate(true);
+    };
+
+    cropCanvas.onmousedown = (e) => onDragStart(e.clientX, e.clientY);
+    const handleWindowMouseMove = (e) => onDragMove(e.clientX, e.clientY);
+    const handleWindowMouseUp = () => onDragEnd();
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+
+    cropCanvas.ontouchstart = (e) => {
+      if (e.touches.length === 1) {
+        onDragStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+    const handleWindowTouchMove = (e) => {
+      if (e.touches.length === 1) {
+        onDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+    const handleWindowTouchEnd = () => onDragEnd();
+    window.addEventListener("touchmove", handleWindowTouchMove);
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    // ホイールズーム
+    cropCanvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      if (!selectedImg) return;
+      const delta = e.deltaY < 0 ? 0.05 : -0.05;
+      let newScale = scale + delta;
+      const minS = parseFloat(zoomSlider.min);
+      const maxS = parseFloat(zoomSlider.max);
+      newScale = Math.max(minS, Math.min(maxS, newScale));
+      scale = newScale;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    }, { passive: false });
+
+    // スライダー操作
+    zoomSlider.oninput = (e) => {
+      scale = parseFloat(e.target.value);
+      renderCanvas();
+      scheduleSizeUpdate(false);
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      scale = baseScale;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      zoomSlider.value = scale;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    centerBtn.onclick = () => {
+      if (!selectedImg) return;
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+      scheduleSizeUpdate(true);
+    };
+
+    // ファイル選択処理
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || cfg.ext;
+      extLabel.textContent = isLogo ? ".png" : ext;
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+
+          if (isLogo) {
+            baseScale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          } else {
+            baseScale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
+          }
+
+          scale = baseScale;
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          zoomSlider.min = (baseScale * 0.15).toFixed(4);
+          zoomSlider.max = Math.max(baseScale * 5, 3.5).toFixed(4);
+          zoomSlider.step = "0.002";
+          zoomSlider.value = scale;
+
+          renderCanvas();
+          scheduleSizeUpdate(true);
+
+          cropStage.style.display = "flex";
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    cancelBtn.onclick = () => {
+      cleanupListeners();
+      Modal.close();
+    };
+
+    // アップロードボタン押下 (上書き変更)
+    uploadBtn.onclick = async () => {
+      if (!isSizeValid || !currentBlob) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const ext = extLabel.textContent || cfg.ext;
+      const fullFileName = `${cfg.fileName}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "上書き保存中...";
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.info("GitHub PAT未設定のため、プレビューに即時反映します");
+          cleanupListeners();
+          Modal.close();
+          onUpdated(uploadPath, currentBlob);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        // 既存ファイルの sha を取得（上書き保存のため必須）
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {
+          console.warn("[ThemeAsset Upload] Failed to fetch existing SHA:", e);
+        }
+
+        const bodyData = {
+          message: `Update ${fullFileName} (overwrite: true) for themeConfig via admin`,
+          content: base64Data,
+          branch: "main",
+        };
+        if (sha) {
+          bodyData.sha = sha; // 既存shaを指定して上書き
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(bodyData),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`${fullFileName} を正常に上書き保存しました`);
+
+        cleanupListeners();
+        Modal.close();
+
+        onUpdated(uploadPath, currentBlob);
+      } catch (err) {
+        console.error("[ThemeAsset Upload Error]:", err);
+        Toast.error(`上書き保存に失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "上書き保存";
+      }
+    };
+
+    Modal.open({
+      title: `${cfg.label} の上書き変更`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+      },
+    });
   }
 
 
