@@ -69,6 +69,21 @@ const forbiddenResponse = (message = "権限がありません (Forbidden)") => 
   });
 };
 
+// メールアドレスのマスク化ヘルパー (例: elisafoster867@gmail.com -> e***7@gmail.com)
+const maskEmail = (email) => {
+  if (!email || typeof email !== "string") return "";
+  const atIdx = email.indexOf("@");
+  if (atIdx === -1) {
+    return email.length <= 2 ? "**" : email[0] + "***" + email.slice(-1);
+  }
+  const local = email.slice(0, atIdx);
+  const domain = email.slice(atIdx);
+  if (local.length <= 2) {
+    return local[0] + "***" + domain;
+  }
+  return local[0] + "***" + local.slice(-1) + domain;
+};
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -78,19 +93,25 @@ export default {
     const url = new URL(request.url);
     const pathParts = url.pathname.split("/").filter(Boolean); // e.g. ["api", "tables", "profile"]
 
-    // ユーザー認可チェック関数
+    // ユーザー認可チェック関数 (リクエスト内キャッシュ付き)
+    let cachedAuthUser = undefined;
     const isAuthorized = async () => {
+      if (cachedAuthUser !== undefined) return cachedAuthUser;
       const email = request.headers.get("x-user-email") || 
                     url.searchParams.get("mail") ||
                     url.searchParams.get("email") ||
                     (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-      if (!email) return false;
+      if (!email) {
+        cachedAuthUser = null;
+        return false;
+      }
 
       const user = await env.DB.prepare(
         "SELECT id, name, mail, role FROM whitelist WHERE mail = ?"
       ).bind(email).first();
 
-      return user || null;
+      cachedAuthUser = user || null;
+      return cachedAuthUser;
     };
 
     // ============================================================
@@ -228,6 +249,17 @@ export default {
           if (record.moves) try { record.moves = JSON.parse(record.moves); } catch (e) {}
         }
 
+        // アカウント管理 (whitelist): admin権限の閲覧者には admin以上の権限アカウントのmailをマスク化
+        if (tableName === "whitelist") {
+          const authorized = await isAuthorized();
+          if (authorized && authorized.role === "admin") {
+            const roleStr = (record.role || "").toLowerCase();
+            if (roleStr === "owner" || roleStr === "admin") {
+              record.mail = maskEmail(record.mail);
+            }
+          }
+        }
+
         return jsonResponse(record);
       }
 
@@ -242,7 +274,26 @@ export default {
       }
 
       const { results } = await env.DB.prepare(query).all();
-      return jsonResponse(results || []);
+      let rows = results || [];
+
+      // アカウント管理 (whitelist): admin権限の閲覧者には admin以上の権限アカウントのmailをマスク化
+      if (tableName === "whitelist") {
+        const authorized = await isAuthorized();
+        if (authorized && authorized.role === "admin") {
+          rows = rows.map((r) => {
+            const roleStr = (r.role || "").toLowerCase();
+            if (roleStr === "owner" || roleStr === "admin") {
+              return {
+                ...r,
+                mail: maskEmail(r.mail),
+              };
+            }
+            return r;
+          });
+        }
+      }
+
+      return jsonResponse(rows);
     }
 
     // ============================================================

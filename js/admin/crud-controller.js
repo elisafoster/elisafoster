@@ -86,6 +86,20 @@ function getMovieThumbnailUrlSync(movie, resolveFn) {
   return null;
 }
 
+function maskEmail(email) {
+  if (!email || typeof email !== "string") return "";
+  const atIdx = email.indexOf("@");
+  if (atIdx === -1) {
+    return email.length <= 2 ? "**" : email[0] + "***" + email.slice(-1);
+  }
+  const local = email.slice(0, atIdx);
+  const domain = email.slice(atIdx);
+  if (local.length <= 2) {
+    return local[0] + "***" + domain;
+  }
+  return local[0] + "***" + local.slice(-1) + domain;
+}
+
 /**
  * 一体型ドラムロールピッカークラス (iOS風 Wheel Date Picker)
  */
@@ -1479,6 +1493,20 @@ export class CrudController {
                 }
               } else if (typeof val === "boolean" || colCfg.key === "isFeatured" || colCfg.key === "is_active") {
                 td.textContent = (val === 1 || val === true) ? "✓ 表示" : "✕ 非表示";
+              } else if (tableName === "whitelist" && colCfg.key === "mail") {
+                const isTargetRole = ["owner", "admin"].includes(String(row.role || "").toLowerCase());
+                let displayMail = String(val || "");
+                if (this.currentUser?.role === "admin" && isTargetRole) {
+                  if (!displayMail.includes("***")) {
+                    displayMail = maskEmail(displayMail);
+                  }
+                  td.innerHTML = `<span style="font-family: monospace; color: #94a3b8; display: inline-flex; align-items: center; gap: 6px;" title="admin権限では保護されています">
+                    <span style="font-size: 0.82rem; opacity: 0.7;">🔒</span>
+                    <span>${escapeHtml(displayMail)}</span>
+                  </span>`;
+                } else {
+                  td.textContent = displayMail;
+                }
               } else {
                 const str = String(val);
                 td.textContent = str.length > 40 ? str.slice(0, 40) + "..." : str;
@@ -13190,6 +13218,13 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.whitelistState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
+        // admin権限の場合、owner または admin アカウントの削除はスキップ（保護）
+        if (this.currentUser?.role === "admin") {
+          const rRole = String(rec.role || "").toLowerCase();
+          if (rRole === "owner" || rRole === "admin") {
+            continue;
+          }
+        }
         await api.deleteRecord("whitelist", rec.id);
       }
 
@@ -13197,6 +13232,13 @@ export class CrudController {
       for (const rec of this.whitelistState.currentRecords) {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
+          // admin権限の場合、owner または admin アカウントの新規作成は不可
+          if (this.currentUser?.role === "admin") {
+            const rRole = String(rec.role || "").toLowerCase();
+            if (rRole === "owner" || rRole === "admin") {
+              continue;
+            }
+          }
           // 新規追加 (id を除いたペイロードを POST)
           const payload = {
             name: rec.name,
@@ -13212,6 +13254,13 @@ export class CrudController {
             return vCurr !== vOrig;
           });
           if (hasDiff) {
+            // admin権限の場合、owner または admin アカウントの更新はスキップ（保護）
+            if (this.currentUser?.role === "admin") {
+              const origRole = String(orig.role || "").toLowerCase();
+              if (origRole === "owner" || origRole === "admin") {
+                continue;
+              }
+            }
             const payload = {
               name: rec.name,
               mail: rec.mail,
