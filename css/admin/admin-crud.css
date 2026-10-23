@@ -1923,4 +1923,21 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   text-align: center;
 }
 
+/* 2カラムフォームグリッド */
+.admin-form-row.admin-form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* ボタン画像用プレビュー枠 (5:1) */
+.admin-visual-preview-box.is-link-button-box {
+  aspect-ratio: 5 / 1;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  min-height: 52px;
+}
+
+
 

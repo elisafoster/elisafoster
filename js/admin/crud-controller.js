@@ -280,6 +280,16 @@ export class CrudController {
     // ショップグッズ (shop) 専用ライブラリキャッシュ
     this.shopLibraryCache = null;
 
+    // リンクリスト (linkList) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.linkListState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+    // リンクリスト (linkList) 専用ライブラリキャッシュ
+    this.linkListLibraryCache = null;
+
     // 誤った離脱防止
     window.addEventListener("beforeunload", (e) => {
       if (
@@ -289,7 +299,8 @@ export class CrudController {
         this.scheduleState?.hasPendingChanges ||
         this.galleryState?.hasPendingChanges ||
         this.movieState?.hasPendingChanges ||
-        this.shopState?.hasPendingChanges
+        this.shopState?.hasPendingChanges ||
+        this.linkListState?.hasPendingChanges
       ) {
         e.preventDefault();
         e.returnValue = "";
@@ -366,6 +377,16 @@ export class CrudController {
       if (!ok) return;
       this.shopState.hasPendingChanges = false;
       this.shopState.isInitialized = false;
+    }
+
+    // リンクリスト管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "linkList" && tabKey !== "linkList" && this.linkListState?.hasPendingChanges) {
+      const ok = confirm(
+        "リンクリスト管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.linkListState.hasPendingChanges = false;
+      this.linkListState.isInitialized = false;
     }
 
     this.currentTab = tabKey;
@@ -560,6 +581,17 @@ export class CrudController {
         this.galleryState.isInitialized = true;
       }
       rows = this.galleryState.currentRecords;
+    } else if (tableName === "linkList") {
+      if (!this.linkListState.isInitialized) {
+        const records = await api.getTable("linkList");
+        const loaded = Array.isArray(records) ? records : (records ? [records] : []);
+        this.linkListState.originalRecords = JSON.parse(JSON.stringify(loaded));
+        this.linkListState.currentRecords = JSON.parse(JSON.stringify(loaded));
+        this.linkListState.hasPendingChanges = false;
+        this.linkListState.isInitialized = true;
+      }
+      rows = this.linkListState.currentRecords;
+      rows.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
     } else {
       const records = await api.getTable(tableName);
       rows = Array.isArray(records) ? records : (records ? [records] : []);
@@ -709,6 +741,30 @@ export class CrudController {
       actions.appendChild(commitBtn);
     }
 
+    // リンクリスト管理: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    if (tableName === "linkList") {
+      const commitBtn = document.createElement("button");
+      commitBtn.id = "linkList-commit-btn";
+      commitBtn.className = "app-btn app-btn-orange";
+
+      const changesCount = this.getLinkListChangesCount();
+      if (this.linkListState.hasPendingChanges && changesCount > 0) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+        commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+
+      commitBtn.onclick = async () => {
+        await this.commitLinkListChanges();
+      };
+      actions.appendChild(commitBtn);
+    }
+
     header.appendChild(actions);
 
     card.appendChild(header);
@@ -788,6 +844,26 @@ export class CrudController {
         `;
         alertBar.querySelector("button").onclick = async () => {
           await this.commitGalleryChanges();
+        };
+        card.appendChild(alertBar);
+      }
+    }
+
+    // リンクリスト管理で未反映の変更がある場合は通知アラートを表示
+    if (tableName === "linkList" && this.linkListState.hasPendingChanges) {
+      const changesCount = this.getLinkListChangesCount();
+      if (changesCount > 0) {
+        const alertBar = document.createElement("div");
+        alertBar.className = "admin-pending-alert";
+        alertBar.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+        `;
+        alertBar.querySelector("button").onclick = async () => {
+          await this.commitLinkListChanges();
         };
         card.appendChild(alertBar);
       }
@@ -1010,10 +1086,19 @@ export class CrudController {
                 const newColor = colorInput.value;
                 codeSpan.textContent = newColor;
                 row.buttonTextColor = newColor;
-                try {
-                  await api.saveTable(tableName, { ...row, buttonTextColor: newColor }, row.id);
-                } catch (err) {
-                  console.error("文字色の保存に失敗しました:", err);
+                if (tableName === "linkList") {
+                  const idx = this.linkListState.currentRecords.findIndex((r) => Number(r.id) === Number(row.id));
+                  if (idx !== -1) {
+                    this.linkListState.currentRecords[idx].buttonTextColor = newColor;
+                  }
+                  this.linkListState.hasPendingChanges = true;
+                  await this.loadTab("linkList");
+                } else {
+                  try {
+                    await api.saveTable(tableName, { ...row, buttonTextColor: newColor }, row.id);
+                  } catch (err) {
+                    console.error("文字色の保存に失敗しました:", err);
+                  }
                 }
               };
 
@@ -9237,6 +9322,789 @@ export class CrudController {
   }
 
   /**
+   * リンクリスト (linkList) 専用の新規・編集モーダル
+   */
+  async openLinkListModal(record, restoreState = null) {
+    const isNew = !record;
+
+    // 全linkListレコードを取得して自動採番とライブラリ一覧作成
+    let allLinks = [];
+    if (this.linkListState && this.linkListState.isInitialized && this.linkListState.currentRecords.length > 0) {
+      allLinks = this.linkListState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("linkList");
+        allLinks = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allLinks = [];
+      }
+    }
+
+    // 自動採番 (新規時)
+    const nextId = allLinks.length > 0 ? Math.max(...allLinks.map((r) => Number(r.id) || 0)) + 1 : 1;
+    const nextPriority = allLinks.length > 0 ? Math.max(...allLinks.map((r) => Number(r.priority) || 0)) + 1 : 1;
+
+    // 現在のデータ (復元データがある場合は復元データを優先)
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      priority: isNew ? nextPriority : (record?.priority ?? 1),
+      title: record?.title || "",
+      buttonTextColor: record?.buttonTextColor || "#ffffff",
+      link: record?.link || "",
+      buttonImage: record?.buttonImage || "",
+      ...restoreState,
+    };
+
+    // ライブラリ候補の集約
+    if (!this.linkListLibraryCache) {
+      this.linkListLibraryCache = [];
+    }
+    const librarySet = new Set(["defaultbutton_typeA.svg", "defaultbutton_typeB.svg", "booth.svg", ...this.linkListLibraryCache]);
+    allLinks.forEach((row) => {
+      if (row.buttonImage && typeof row.buttonImage === "string" && !row.buttonImage.startsWith("http")) {
+        librarySet.add(row.buttonImage.split("/").pop());
+      }
+    });
+    this.linkListLibraryCache = Array.from(librarySet);
+
+    // GoogleドライブURL変換ヘルパー
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode = currentData.buttonImage_mode ||
+      (currentData.buttonImage && (currentData.buttonImage.startsWith("http://") || currentData.buttonImage.startsWith("https://")) ? "url" : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    const initialHex = currentData.buttonTextColor && /^#[0-9a-fA-F]{6}$/.test(currentData.buttonTextColor)
+      ? currentData.buttonTextColor
+      : "#ffffff";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ 表示順 (自動採番) -->
+      <div class="admin-form-row admin-form-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須 (自動採番)</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${escapeHtml(currentData.id)}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            表示順
+            <span class="admin-form-label-required">*必須${isNew ? " (自動採番)" : ""}</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="priority"
+            type="number"
+            min="1"
+            step="1"
+            value="${escapeHtml(currentData.priority)}"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- 行2: ボタンテキスト ｜ 文字色 -->
+      <div class="admin-form-row admin-form-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            ボタンテキスト
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="title"
+            type="text"
+            value="${escapeHtml(currentData.title)}"
+            placeholder="例: BOOTH、公式ファンクラブ"
+            required
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">文字色</label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input
+              type="color"
+              id="link-modal-color-picker"
+              value="${initialHex}"
+              style="width: 44px; height: 38px; padding: 2px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: #0f172a; cursor: pointer;"
+            />
+            <input
+              class="admin-form-input"
+              type="text"
+              name="buttonTextColor"
+              id="link-modal-color-input"
+              value="${escapeHtml(currentData.buttonTextColor || "#ffffff")}"
+              placeholder="#ffffff"
+              style="flex: 1;"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 行3: リンク -->
+      <div class="admin-form-group">
+        <label class="admin-form-label">
+          リンク
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <input
+          class="admin-form-input"
+          name="link"
+          type="url"
+          value="${escapeHtml(currentData.link)}"
+          placeholder="https://booth.pm/ja 等"
+          required
+        />
+      </div>
+
+      <!-- 行4: ボタン画像 (イベントバナー画像と同じ形式) -->
+      <div class="admin-visual-field-card" style="margin-top: 4px;">
+        <div class="admin-visual-field-header">
+          <label class="admin-form-label" style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            ボタン画像
+          </label>
+          <div class="admin-visual-mode-toggle">
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="buttonImage_mode" value="library" ${initialMode === "library" ? "checked" : ""}>
+              <span>ライブラリ参照</span>
+            </label>
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="buttonImage_mode" value="url" ${initialMode === "url" ? "checked" : ""}>
+              <span>直URL指定</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-visual-field-body">
+          <div class="admin-visual-input-col">
+            <!-- ライブラリ選択UI -->
+            <div id="mode-library-buttonImage" class="admin-visual-mode-panel" style="${initialMode === "library" ? "" : "display: none;"}">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="admin-form-input admin-visual-file-select" data-field="buttonImage" style="flex: 1;">
+                  <option value="">-- デフォルト画像 (defaultbutton_typeA.svg) --</option>
+                  ${this.linkListLibraryCache.map((fn) => `
+                    <option value="${escapeHtml(fn)}" ${currentData.buttonImage === fn || currentData.buttonImage === "assets/link/" + fn ? "selected" : ""}>
+                      ${escapeHtml(fn)}
+                    </option>
+                  `).join("")}
+                </select>
+                <button type="button" class="app-btn app-btn-secondary admin-link-upload-btn" data-field="buttonImage" style="white-space: nowrap;">
+                  📤 アップロード
+                </button>
+              </div>
+              <span class="admin-form-hint">assets/link 配下の画像をプルダウンで選択、または新規アップロードできます（未指定時はデフォルト画像を使用）</span>
+            </div>
+
+            <!-- 直URL指定UI -->
+            <div id="mode-url-buttonImage" class="admin-visual-mode-panel" style="${initialMode === "url" ? "" : "display: none;"}">
+              <input
+                class="admin-form-input admin-visual-url-input"
+                data-field="buttonImage"
+                type="url"
+                value="${initialMode === "url" ? escapeHtml(currentData.buttonImage || "") : ""}"
+                placeholder="https://drive.google.com/file/d/... または画像URL"
+              />
+              <span class="admin-form-hint">Googleドライブの共有URL、または画像の直接URLを入力してください（ドライブURLは自動変換されます）</span>
+            </div>
+          </div>
+
+          <!-- プレビュー枠 (5:1 横長ボタンバナー) -->
+          <div class="admin-visual-preview-col" style="min-width: 220px; max-width: 260px;">
+            <div id="preview-box-buttonImage" class="admin-visual-preview-box is-link-button-box" style="aspect-ratio: 5 / 1; min-height: 48px; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; overflow: hidden; padding: 4px;">
+              <span class="admin-visual-preview-empty">プレビューなし</span>
+            </div>
+            <div id="preview-caption-buttonImage" style="font-size: 0.74rem; color: #94a3b8; text-align: center; margin-top: 4px;"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // プレビュー更新関数
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-buttonImage");
+      const caption = form.querySelector("#preview-caption-buttonImage");
+      if (!pBox) return;
+
+      const mode = form.querySelector('[name="buttonImage_mode"]:checked')?.value || "library";
+      let imgVal = "";
+      if (mode === "library") {
+        imgVal = form.querySelector('.admin-visual-file-select[data-field="buttonImage"]')?.value || "";
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="buttonImage"]')?.value?.trim() || "";
+        imgVal = convertGoogleDriveUrl(raw);
+      }
+
+      const isDefault = !imgVal;
+      const effectiveImg = imgVal || "assets/link/defaultbutton_typeA.svg";
+      const fullUrl = api.resolveAssetUrl(effectiveImg, "link");
+
+      pBox.innerHTML = `
+        <img src="${escapeHtml(fullUrl)}" alt="ボタン画像プレビュー" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\' style=\\'color:#ef4444;\\'>読込失敗</span>';" />
+      `;
+      if (caption) {
+        caption.textContent = isDefault ? "(デフォルト画像)" : "(選択中の画像)";
+      }
+    };
+
+    // カラーピッカー同期リスナー
+    const colorPicker = form.querySelector("#link-modal-color-picker");
+    const colorInput = form.querySelector("#link-modal-color-input");
+    if (colorPicker && colorInput) {
+      colorPicker.oninput = () => {
+        colorInput.value = colorPicker.value;
+      };
+      colorInput.oninput = () => {
+        const raw = colorInput.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+          colorPicker.value = raw;
+        }
+      };
+    }
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="buttonImage_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-buttonImage");
+        const urlPanel = form.querySelector("#mode-url-buttonImage");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    // プルダウン & URL入力変更
+    form.querySelector('.admin-visual-file-select[data-field="buttonImage"]').onchange = updatePreview;
+    form.querySelector('.admin-visual-url-input[data-field="buttonImage"]').oninput = updatePreview;
+
+    // アップロードボタン
+    const uploadBtn = form.querySelector(".admin-link-upload-btn");
+    if (uploadBtn) {
+      uploadBtn.onclick = () => {
+        const fd = new FormData(form);
+        const mode = form.querySelector('[name="buttonImage_mode"]:checked')?.value || "library";
+        let bannerVal = null;
+        if (mode === "library") {
+          bannerVal = form.querySelector('.admin-visual-file-select[data-field="buttonImage"]')?.value?.trim() || "";
+        } else {
+          bannerVal = form.querySelector('.admin-visual-url-input[data-field="buttonImage"]')?.value?.trim() || "";
+        }
+        const savedState = {
+          id: Number(fd.get("id")),
+          priority: Number(fd.get("priority")) || 1,
+          title: fd.get("title")?.toString().trim() || "",
+          buttonTextColor: fd.get("buttonTextColor")?.toString().trim() || "#ffffff",
+          link: fd.get("link")?.toString().trim() || "",
+          buttonImage: bannerVal,
+          buttonImage_mode: mode,
+        };
+        const cfg = {
+          label: "ボタン画像",
+          uploadPath: "assets/link",
+          accept: ".png,.jpg,.jpeg,.svg",
+          maxSizeBytes: 1048576, // 1MB
+          maxSizeMB: 1,
+          aspectRatio: "5:1",
+          displayMode: "contain",
+          maxLongEdge: 1000,
+        };
+        this.openLinkListUploadModal("buttonImage", record, savedState, cfg);
+      };
+    }
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const titleVal = fd.get("title")?.toString().trim();
+      const linkVal = fd.get("link")?.toString().trim();
+
+      if (!titleVal) {
+        alert("ボタンテキストは必須項目です");
+        return;
+      }
+      if (!linkVal) {
+        alert("リンクURLは必須項目です");
+        return;
+      }
+
+      const mode = form.querySelector('[name="buttonImage_mode"]:checked')?.value || "library";
+      let bannerVal = null;
+      if (mode === "library") {
+        bannerVal = form.querySelector('.admin-visual-file-select[data-field="buttonImage"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="buttonImage"]')?.value?.trim() || null;
+        bannerVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const priorityNum = Number(fd.get("priority")) || 1;
+      const colorVal = fd.get("buttonTextColor")?.toString().trim() || "#ffffff";
+
+      const payload = {
+        id: Number(fd.get("id")),
+        title: titleVal,
+        buttonTextColor: colorVal,
+        link: linkVal,
+        buttonImage: bannerVal || "assets/link/defaultbutton_typeA.svg",
+        priority: priorityNum,
+      };
+
+      // リンクリスト (linkList) の場合は D1 には直接保存せず、保留バッファ（ドラフト）を更新
+      if (isNew) {
+        this.linkListState.currentRecords.push(payload);
+      } else {
+        const idx = this.linkListState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.linkListState.currentRecords[idx] = {
+            ...this.linkListState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.linkListState.currentRecords.push(payload);
+        }
+      }
+
+      this.linkListState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(isNew ? "リンクリストを追加（保留）しました。「更新反映」でD1に保存されます" : "リンクリストを変更（保留）しました。「更新反映」でD1に保存されます");
+      await this.loadTab("linkList");
+    };
+
+    Modal.open({
+      title: `リンクリストの${isNew ? "新規作成" : "編集"}`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * リンクリスト (linkList) 用の画像アップロード・トリミングモーダル
+   */
+  async openLinkListUploadModal(field, currentRecord, savedState, cfg) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    let targetW = 500;
+    let targetH = 100;
+    const headerTitleText = `トリミング調整 (横長 5:1 (500×100))`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${cfg.label}</strong> (保存先: <code>${cfg.uploadPath}</code>)</div>
+        <div>対応形式: <code>${cfg.accept}</code> ｜ 容量上限: <code>${cfg.maxSizeMB}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${cfg.aspectRatio} (${cfg.displayMode})</code></div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-link">
+        <input type="file" id="upload-file-input-link" accept="${cfg.accept}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCからボタンバナー画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-link" class="admin-upload-crop-wrapper" style="display: none;">
+        <!-- ヘッダー帯 -->
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${headerTitleText}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <!-- キャンバスプレビュー枠 (点線外枠) -->
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box" style="aspect-ratio: 5 / 1; max-width: 500px; width: 100%;">
+            <canvas id="crop-canvas-link" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- ズームコントロールバー -->
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-link" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-link" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-link" class="crop-btn">中央揃え</button>
+        </div>
+
+        <!-- ステータスバーカード -->
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-link" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input-link" placeholder="例: custom_link_banner" style="flex: 1;" />
+          <span id="upload-ext-label-link" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.png</span>
+        </div>
+        <span id="upload-name-error-link" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    // フッターボタン
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+
+    const uploadBtn = document.createElement("button");
+    uploadBtn.type = "button";
+    uploadBtn.className = "app-btn app-btn-primary";
+    uploadBtn.textContent = "アップロード";
+    uploadBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(uploadBtn);
+
+    cancelBtn.onclick = () => {
+      this.openLinkListModal(currentRecord, savedState);
+    };
+
+    const dropzone = wrap.querySelector("#upload-dropzone-link");
+    const fileInput = wrap.querySelector("#upload-file-input-link");
+    const cropStage = wrap.querySelector("#crop-stage-link");
+    const cropCanvas = wrap.querySelector("#crop-canvas-link");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-link");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-link");
+    const centerBtn = wrap.querySelector("#crop-center-btn-link");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-link");
+    const nameInput = wrap.querySelector("#upload-filename-input-link");
+    const extLabel = wrap.querySelector("#upload-ext-label-link");
+    const nameError = wrap.querySelector("#upload-name-error-link");
+
+    dropzone.onclick = () => fileInput.click();
+
+    let scale = 1;
+    let baseScale = 1;
+    let centerX = targetW / 2;
+    let centerY = targetH / 2;
+
+    const checkUploadBtnState = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      uploadBtn.disabled = !selectedImg || !isValid || !isSizeValid;
+    };
+
+    const renderCanvas = () => {
+      if (!selectedImg) return;
+      const ctx = cropCanvas.getContext("2d");
+      cropCanvas.width = targetW;
+      cropCanvas.height = targetH;
+
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      const drawW = selectedImg.width * scale;
+      const drawH = selectedImg.height * scale;
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.drawImage(selectedImg, drawX, drawY, drawW, drawH);
+
+      cropCanvas.toBlob((blob) => {
+        if (!blob) return;
+        currentBlob = blob;
+        const kb = Math.round(blob.size / 1024);
+        isSizeValid = kb <= maxKB;
+        if (sizeBadge) {
+          sizeBadge.textContent = `${kb} KB / ${maxKB} KB ${isSizeValid ? "OK" : "容量超過"}`;
+          sizeBadge.className = `crop-size-badge ${isSizeValid ? "is-ok" : "is-error"}`;
+        }
+        checkUploadBtnState();
+      }, "image/png");
+    };
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    cropCanvas.onmousedown = (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+    };
+    cropCanvas.ontouchstart = (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    };
+
+    const handleWindowMouseMove = (e) => {
+      if (!isDragging) return;
+      const dx = (e.clientX - startX) * (targetW / cropCanvas.clientWidth);
+      const dy = (e.clientY - startY) * (targetH / cropCanvas.clientHeight);
+      centerX += dx;
+      centerY += dy;
+      startX = e.clientX;
+      startY = e.clientY;
+      renderCanvas();
+    };
+
+    const handleWindowTouchMove = (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const dx = (e.touches[0].clientX - startX) * (targetW / cropCanvas.clientWidth);
+      const dy = (e.touches[0].clientY - startY) * (targetH / cropCanvas.clientHeight);
+      centerX += dx;
+      centerY += dy;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      renderCanvas();
+    };
+
+    const handleWindowMouseUp = () => { isDragging = false; };
+    const handleWindowTouchEnd = () => { isDragging = false; };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+    window.addEventListener("touchmove", handleWindowTouchMove);
+    window.addEventListener("touchend", handleWindowTouchEnd);
+
+    zoomSlider.oninput = (e) => {
+      const mult = parseFloat(e.target.value);
+      scale = baseScale * mult;
+      renderCanvas();
+    };
+
+    fitBtn.onclick = () => {
+      if (!selectedImg) return;
+      baseScale = Math.min(targetW / selectedImg.width, targetH / selectedImg.height);
+      scale = baseScale;
+      zoomSlider.value = "1";
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+    };
+
+    centerBtn.onclick = () => {
+      centerX = targetW / 2;
+      centerY = targetH / 2;
+      renderCanvas();
+    };
+
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+      extLabel.textContent = ext === ".svg" ? ".svg" : ".png";
+
+      const baseName = file.name.substring(0, file.name.lastIndexOf(".")).replace(/[^a-zA-Z0-9_-]/g, "_");
+      nameInput.value = baseName;
+
+      const reader = new FileReader();
+      reader.onload = (loadEvt) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          dropzone.style.display = "none";
+          cropStage.style.display = "flex";
+
+          baseScale = Math.min(targetW / img.width, targetH / img.height);
+          scale = baseScale;
+          zoomSlider.value = "1";
+          centerX = targetW / 2;
+          centerY = targetH / 2;
+
+          renderCanvas();
+          checkUploadBtnState();
+        };
+        img.src = loadEvt.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    nameInput.oninput = () => {
+      const val = nameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      nameError.style.display = isValid || val === "" ? "none" : "block";
+      checkUploadBtnState();
+    };
+
+    uploadBtn.onclick = async () => {
+      if (!currentBlob || !selectedImg) return;
+      const baseName = nameInput.value.trim();
+      const ext = extLabel.textContent;
+      const fullFileName = `${baseName}${ext}`;
+      const uploadPath = `${cfg.uploadPath}/${fullFileName}`;
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = "アップロード中...";
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.linkListLibraryCache.includes(fullFileName)) {
+            this.linkListLibraryCache.push(fullFileName);
+          }
+          savedState["buttonImage"] = fullFileName;
+          savedState["buttonImage_mode"] = "library";
+          cleanupListeners();
+          this.openLinkListModal(currentRecord, savedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for link button via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
+        Toast.success(`画像 (${fullFileName}) をアップロードしました`);
+
+        if (!this.linkListLibraryCache.includes(fullFileName)) {
+          this.linkListLibraryCache.push(fullFileName);
+        }
+        savedState["buttonImage"] = fullFileName;
+        savedState["buttonImage_mode"] = "library";
+
+        cleanupListeners();
+        this.openLinkListModal(currentRecord, savedState);
+      } catch (err) {
+        console.error("アップロード失敗:", err);
+        alert(`アップロードに失敗しました: ${err.message}`);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "アップロード";
+      }
+    };
+
+    const cleanupListeners = () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+      window.removeEventListener("touchmove", handleWindowTouchMove);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+    };
+
+    Modal.open({
+      title: `${cfg.label} の画像アップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+      onClose: () => {
+        cleanupListeners();
+        this.openLinkListModal(currentRecord, savedState);
+      },
+    });
+  }
+
+  /**
    * 編集・新規モーダル生成
    */
   async openEditModal(tableName, record) {
@@ -9261,6 +10129,9 @@ export class CrudController {
     if (tableName === "shop") {
       return this.openShopModal(record);
     }
+    if (tableName === "linkList") {
+      return this.openLinkListModal(record);
+    }
 
     const isNew = !record;
     const currentData = record ? { ...record } : {};
@@ -9272,11 +10143,7 @@ export class CrudController {
 
     // レコードの各キーに応じた入力項目自動生成
     let keys;
-    if (tableName === "linkList") {
-      keys = isNew
-        ? ["title", "buttonTextColor", "link", "buttonImage", "priority"]
-        : ["id", "title", "buttonTextColor", "link", "buttonImage", "priority"];
-    } else if (record) {
+    if (record) {
       keys = Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at");
     } else if (tableName === "visual") {
       keys = ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"];
@@ -9368,41 +10235,8 @@ export class CrudController {
         input.type = "text";
         input.value = val;
         input.name = key;
-        if (tableName === "linkList" && key === "buttonImage") {
-          input.placeholder = "assets/link/defaultbutton_typeA.svg 等";
-        } else {
-          input.placeholder = "assets/... または sample.png";
-        }
+        input.placeholder = "assets/... または sample.png";
         group.appendChild(input);
-        if (tableName === "linkList" && key === "buttonImage") {
-          const hint = document.createElement("span");
-          hint.className = "admin-form-hint";
-          hint.style.cssText = "font-size: 0.78rem; color: #94a3b8; margin-top: 4px; display: block;";
-          hint.textContent = "未入力の場合はデフォルト画像 (assets/link/defaultbutton_typeA.svg) が使用されます";
-          group.appendChild(hint);
-
-          const previewWrap = document.createElement("div");
-          previewWrap.style.cssText = "margin-top: 8px; display: flex; align-items: center; gap: 10px; background: rgba(15, 23, 42, 0.5); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);";
-
-          const previewImg = document.createElement("img");
-          previewImg.style.cssText = "width: 130px; height: 30px; aspect-ratio: 5 / 1; object-fit: contain; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(15, 23, 42, 0.7); display: block;";
-
-          const previewText = document.createElement("span");
-          previewText.style.cssText = "font-size: 0.76rem; color: #94a3b8;";
-
-          const syncPreview = () => {
-            const curVal = input.value.trim();
-            const src = curVal || "assets/link/defaultbutton_typeA.svg";
-            previewImg.src = api.resolveAssetUrl(src, "link");
-            previewText.textContent = curVal ? "プレビュー (カスタム画像)" : "プレビュー (デフォルト画像)";
-          };
-          syncPreview();
-          input.addEventListener("input", syncPreview);
-
-          previewWrap.appendChild(previewImg);
-          previewWrap.appendChild(previewText);
-          group.appendChild(previewWrap);
-        }
       } else if (key === "buttonTextColor" || key === "color") {
         const colorWrap = document.createElement("div");
         colorWrap.style.cssText = "display: flex; align-items: center; gap: 10px;";
@@ -9517,12 +10351,6 @@ export class CrudController {
         payload.scheduled_at = null;
       }
 
-      if (tableName === "linkList") {
-        if (payload.priority !== undefined && payload.priority !== "") {
-          payload.priority = Number(payload.priority);
-        }
-      }
-
       try {
         await api.saveTable(tableName, payload, isNew ? null : record.id);
         Modal.close();
@@ -9535,7 +10363,6 @@ export class CrudController {
     let modalTitleText = `${tableName} の${isNew ? "新規作成" : "編集"}`;
     if (tableName === "notice") modalTitleText = `お知らせの${isNew ? "新規作成" : "編集"}`;
     if (tableName === "gallery") modalTitleText = `ギャラリー画像の${isNew ? "新規作成" : "編集"}`;
-    if (tableName === "linkList") modalTitleText = `リンクリストの${isNew ? "新規作成" : "編集"}`;
 
     Modal.open({
       title: modalTitleText,
@@ -9622,6 +10449,17 @@ export class CrudController {
       this.shopState.hasPendingChanges = true;
       Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
       await this.renderShopTab();
+      return;
+    }
+
+    if (tableName === "linkList") {
+      if (!confirm(`ID: ${id} のリンクリストデータを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.linkListState.currentRecords = this.linkListState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.linkListState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.loadTab("linkList");
       return;
     }
 
@@ -10209,6 +11047,93 @@ export class CrudController {
       await this.loadTab("shop");
     } catch (err) {
       console.error("[Commit Shop Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * リンクリスト (linkList) の未反映変更件数の算出
+   */
+  getLinkListChangesCount() {
+    if (!this.linkListState || !this.linkListState.isInitialized) return 0;
+    const origMap = new Map(this.linkListState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.linkListState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => {
+          const vCurr = curr[k] === null || curr[k] === undefined ? "" : String(curr[k]);
+          const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+          return vCurr !== vOrig;
+        });
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * リンクリスト (linkList) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitLinkListChanges() {
+    const count = this.getLinkListChangesCount();
+    if (!this.linkListState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に未反映の変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `リンクリスト管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\nこの操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.linkListState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.linkListState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.linkListState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("linkList", rec.id);
+      }
+
+      // 2. 新規追加 (POST) ・ 更新 (PUT) の反映
+      for (const rec of this.linkListState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          await api.saveTable("linkList", rec, null);
+        } else {
+          const hasDiff = Object.keys(rec).some((k) => {
+            const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+            const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+            return vCurr !== vOrig;
+          });
+          if (hasDiff) {
+            await api.saveTable("linkList", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("リンクリスト管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.linkListState.hasPendingChanges = false;
+      this.linkListState.isInitialized = false;
+      await this.loadTab("linkList");
+    } catch (err) {
+      console.error("[Commit LinkList Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();
