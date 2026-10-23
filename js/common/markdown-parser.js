@@ -96,6 +96,89 @@ export class MarkdownParser {
   }
 
   /**
+   * HTML要素またはHTML文字列から安全にMarkdown文字列へ逆変換
+   * (太字: **テキスト**, 斜体: *テキスト*, リンク: [テキスト](URL), 見出し: # 見出し, リスト: - 項目)
+   */
+  static htmlToMarkdown(htmlOrNode) {
+    if (!htmlOrNode) return "";
+
+    let root;
+    if (typeof htmlOrNode === "string") {
+      const div = document.createElement("div");
+      div.innerHTML = htmlOrNode;
+      root = div;
+    } else {
+      root = htmlOrNode;
+    }
+
+    const processInline = (node) => {
+      let res = "";
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          res += child.nodeValue;
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const tag = child.tagName.toLowerCase();
+          const inner = processInline(child);
+          if (!inner && tag !== "br") continue;
+
+          const isBold = tag === "strong" || tag === "b" || child.style?.fontWeight === "bold" || parseInt(child.style?.fontWeight, 10) >= 600;
+          const isItalic = tag === "em" || tag === "i" || child.style?.fontStyle === "italic";
+
+          if (isBold) {
+            const trimmed = inner.trim();
+            if (trimmed) {
+              res += `**${trimmed}**`;
+            }
+          } else if (isItalic) {
+            const trimmed = inner.trim();
+            if (trimmed) {
+              res += `*${trimmed}*`;
+            }
+          } else if (tag === "a") {
+            const href = child.getAttribute("href") || "";
+            res += `[${inner.trim() || href}](${href})`;
+          } else if (tag === "br") {
+            res += "\n";
+          } else {
+            res += inner;
+          }
+        }
+      }
+      return res;
+    };
+
+    const blocks = [];
+    for (const child of root.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const t = child.nodeValue.trim();
+        if (t) blocks.push(t);
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const tag = child.tagName.toLowerCase();
+        if (tag === "h1" || tag === "h2" || tag === "h3") {
+          const text = processInline(child).trim();
+          if (text) blocks.push(`# ${text}`);
+        } else if (tag === "blockquote") {
+          const text = processInline(child).trim();
+          if (text) blocks.push(`> ${text}`);
+        } else if (tag === "ul" || tag === "ol") {
+          for (const li of child.querySelectorAll("li")) {
+            const text = processInline(li).trim();
+            if (text) blocks.push(`- ${text}`);
+          }
+        } else if (tag === "p" || tag === "div") {
+          const text = processInline(child).trim();
+          if (text) blocks.push(text);
+        } else {
+          const text = processInline(child).trim();
+          if (text) blocks.push(text);
+        }
+      }
+    }
+
+    return blocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  /**
    * 編集用テキストから構造化Markdownへ正規化
    */
   static normalizeMarkdown(text) {

@@ -95,7 +95,7 @@
   border-color: #475569;
 }
 
-/* テキストエリア本体 */
+/* テキストエリア本体 (旧互換用) */
 .admin-rte-textarea {
   width: 100%;
   min-height: 380px;
@@ -113,7 +113,99 @@
   outline: none;
 }
 
-/* リアルタイムプレビュー領域 */
+/* プレビュー形式のリアルタイムWYSIWYGエディタ */
+.admin-rte-editor {
+  width: 100%;
+  min-height: 420px;
+  max-height: 700px;
+  padding: 22px 24px;
+  border: none;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  color: #cbd5e1;
+  background: #0f172a;
+  outline: none;
+  overflow-y: auto;
+  user-select: text;
+  box-sizing: border-box;
+}
+
+.admin-rte-editor:focus {
+  outline: none;
+}
+
+/* エディタ内のタイポグラフィ装飾 */
+.admin-rte-editor strong,
+.admin-rte-editor b {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.admin-rte-editor em,
+.admin-rte-editor i {
+  font-style: italic;
+  color: #e2e8f0;
+}
+
+.admin-rte-editor h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 22px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid rgba(59, 130, 246, 0.4);
+}
+
+.admin-rte-editor h2:first-child {
+  margin-top: 0;
+}
+
+.admin-rte-editor h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #93c5fd;
+  margin: 18px 0 10px;
+}
+
+.admin-rte-editor p {
+  margin-bottom: 12px;
+  line-height: 1.8;
+  color: #cbd5e1;
+}
+
+.admin-rte-editor blockquote {
+  background: rgba(245, 158, 11, 0.12);
+  border-left: 4px solid #f59e0b;
+  padding: 10px 14px;
+  margin: 14px 0;
+  color: #fef3c7;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.admin-rte-editor ul {
+  padding-left: 24px;
+  margin-bottom: 12px;
+  list-style: disc;
+  color: #cbd5e1;
+}
+
+.admin-rte-editor ol {
+  padding-left: 24px;
+  margin-bottom: 12px;
+  list-style: decimal;
+  color: #cbd5e1;
+}
+
+.admin-rte-editor li {
+  margin-bottom: 4px;
+}
+
+.admin-rte-editor a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* リアルタイムプレビュー領域 (旧互換用) */
 .admin-rte-preview {
   min-height: 380px;
   padding: 24px;

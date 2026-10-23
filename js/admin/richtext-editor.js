@@ -1,6 +1,7 @@
 /**
- * Rich Text Editor Component
- * guideline 本文編集用ツールバー & 構造化Markdownシリアライズ/デシリアライズ
+ * Rich Text Editor Component (WYSIWYG)
+ * guideline 本文用リッチテキストエディタ
+ * 常にプレビュー形式で直接編集でき、D1保存時にMarkdown記法（**太字**等）へ自動変換
  */
 
 import { MarkdownParser } from "../common/markdown-parser.js";
@@ -8,10 +9,10 @@ import { MarkdownParser } from "../common/markdown-parser.js";
 export class RichTextEditor {
   constructor(container, initialMarkdown = "") {
     this.container = container;
-    this.markdown = initialMarkdown || "";
-    this.textarea = null;
-    this.previewArea = null;
-    this.mode = "edit"; // "edit" | "preview"
+    this.initialMarkdown = initialMarkdown || "";
+    this.editor = null;
+    this.boldBtn = null;
+    this.italicBtn = null;
   }
 
   render() {
@@ -25,18 +26,23 @@ export class RichTextEditor {
     const toolbar = document.createElement("div");
     toolbar.className = "admin-rte-toolbar";
 
-    // ブロック種別切り替え (見出し / 本文 / 引用 / リスト)
+    // ブロック種別切り替え (見出し / 本文 / 引用 / 箇条書き)
     const blockSelect = document.createElement("select");
     blockSelect.className = "admin-rte-select";
     blockSelect.innerHTML = `
-      <option value="paragraph">本文 (通常の段落)</option>
-      <option value="heading">項目 (見出し: # )</option>
-      <option value="alert">注意書き (引用: > )</option>
-      <option value="list">箇条書き (リスト: - )</option>
+      <option value="p">本文 (通常の段落)</option>
+      <option value="h2">項目 (大見出し)</option>
+      <option value="blockquote">注意書き (引用ブロック)</option>
+      <option value="ul">箇条書き (リスト)</option>
     `;
     blockSelect.onchange = (e) => {
-      this.applyBlockFormat(e.target.value);
-      e.target.value = "paragraph"; // リセット
+      const val = e.target.value;
+      if (val === "ul") {
+        this.formatDoc("insertUnorderedList");
+      } else {
+        this.formatDoc("formatBlock", `<${val}>`);
+      }
+      e.target.value = "p"; // 選択後にリセット
     };
     toolbar.appendChild(blockSelect);
 
@@ -44,179 +50,159 @@ export class RichTextEditor {
     div1.className = "admin-rte-divider";
     toolbar.appendChild(div1);
 
-    // インライン装飾ボタン群
+    // B 太字ボタン (太字 ⇔ 通常のトグル)
     const boldBtn = document.createElement("button");
     boldBtn.type = "button";
     boldBtn.className = "admin-rte-btn";
     boldBtn.innerHTML = "<strong>B</strong> 太字";
-    boldBtn.title = "太字装飾 (**テキスト**)";
-    boldBtn.onclick = () => this.applyInlineFormat("bold");
+    boldBtn.title = "太字装飾の適用・解除（トグル）";
+    // ボタンクリック時にエディタの選択範囲が解除されないよう onmousedown で preventDefault
+    boldBtn.onmousedown = (e) => e.preventDefault();
+    boldBtn.onclick = () => this.formatDoc("bold");
+    this.boldBtn = boldBtn;
     toolbar.appendChild(boldBtn);
 
+    // I 斜体ボタン (斜体 ⇔ 通常のトグル)
     const italicBtn = document.createElement("button");
     italicBtn.type = "button";
     italicBtn.className = "admin-rte-btn";
     italicBtn.innerHTML = "<em>I</em> 斜体";
-    italicBtn.title = "斜体装飾 (*テキスト*)";
-    italicBtn.onclick = () => this.applyInlineFormat("italic");
+    italicBtn.title = "斜体装飾の適用・解除（トグル）";
+    italicBtn.onmousedown = (e) => e.preventDefault();
+    italicBtn.onclick = () => this.formatDoc("italic");
+    this.italicBtn = italicBtn;
     toolbar.appendChild(italicBtn);
 
+    // 🔗 リンクボタン
     const linkBtn = document.createElement("button");
     linkBtn.type = "button";
     linkBtn.className = "admin-rte-btn";
     linkBtn.innerHTML = "🔗 リンク";
-    linkBtn.title = "リンク挿入 ([テキスト](URL))";
-    linkBtn.onclick = () => this.applyLinkFormat();
+    linkBtn.title = "リンクの挿入";
+    linkBtn.onmousedown = (e) => e.preventDefault();
+    linkBtn.onclick = () => this.formatLink();
     toolbar.appendChild(linkBtn);
 
-    // 編集 / プレビュー切り替えタブ
-    const tabs = document.createElement("div");
-    tabs.className = "admin-rte-tabs";
-
-    const editTab = document.createElement("button");
-    editTab.type = "button";
-    editTab.className = "admin-rte-tab-btn is-active";
-    editTab.textContent = "エディタ";
-    editTab.onclick = () => this.switchMode("edit", editTab, prevTab);
-
-    const prevTab = document.createElement("button");
-    prevTab.type = "button";
-    prevTab.className = "admin-rte-tab-btn";
-    prevTab.textContent = "プレビュー";
-    prevTab.onclick = () => this.switchMode("preview", editTab, prevTab);
-
-    tabs.appendChild(editTab);
-    tabs.appendChild(prevTab);
-    toolbar.appendChild(tabs);
+    // 右側のリアルタイムWYSIWYG案内バッジ
+    const hint = document.createElement("div");
+    hint.className = "admin-rte-live-badge";
+    hint.style.cssText = "margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: #94a3b8;";
+    hint.innerHTML = `<span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span><span>WYSIWYG プレビュー直接編集</span>`;
+    toolbar.appendChild(hint);
 
     wrapper.appendChild(toolbar);
 
-    // 2. テキストエリア本体
-    const textarea = document.createElement("textarea");
-    textarea.className = "admin-rte-textarea";
-    textarea.value = this.markdown;
-    textarea.placeholder = "ガイドラインの本文を入力してください...";
-    textarea.oninput = (e) => {
-      this.markdown = e.target.value;
-    };
-    this.textarea = textarea;
-    wrapper.appendChild(textarea);
+    // 2. プレビュー形式のまま直接編集できる contenteditable エディタ本体
+    const editor = document.createElement("div");
+    editor.className = "admin-rte-editor";
+    editor.contentEditable = "true";
+    editor.spellcheck = false;
 
-    // 3. リアルタイムプレビュー領域
-    const previewArea = document.createElement("div");
-    previewArea.className = "admin-rte-preview";
-    this.previewArea = previewArea;
-    wrapper.appendChild(previewArea);
+    // 初期値の適用 (MarkdownをHTMLに展開してプレビュー表示で流し込む)
+    const initialHtml = MarkdownParser.toHtml(this.initialMarkdown);
+    editor.innerHTML = initialHtml || "<p>ガイドラインの本文を入力してください...</p>";
+
+    // キャレット・選択範囲移動時にツールバーボタンのアクティブ状態を更新
+    editor.addEventListener("keyup", () => this.updateToolbarState());
+    editor.addEventListener("mouseup", () => this.updateToolbarState());
+    editor.addEventListener("focus", () => {
+      try {
+        document.execCommand("defaultParagraphSeparator", false, "p");
+      } catch (e) {}
+      this.updateToolbarState();
+    });
+
+    this.editor = editor;
+    wrapper.appendChild(editor);
 
     this.container.appendChild(wrapper);
   }
 
-  switchMode(mode, editTab, prevTab) {
-    this.mode = mode;
-    if (mode === "edit") {
-      editTab.classList.add("is-active");
-      prevTab.classList.remove("is-active");
-      this.textarea.style.display = "block";
-      this.previewArea.classList.remove("is-active");
-    } else {
-      prevTab.classList.add("is-active");
-      editTab.classList.remove("is-active");
-      this.textarea.style.display = "none";
-      this.previewArea.classList.add("is-active");
-      this.previewArea.innerHTML = MarkdownParser.toHtml(this.markdown);
+  /**
+   * document.execCommand による安全な書式適用・トグル
+   */
+  formatDoc(command, value = null) {
+    if (!this.editor) return;
+    this.editor.focus();
+    try {
+      document.execCommand(command, false, value);
+    } catch (e) {
+      console.warn("[RichTextEditor execCommand Error]:", e);
     }
+    this.updateToolbarState();
   }
 
   /**
-   * ブロックフォーマットの適用
+   * リンク挿入
    */
-  applyBlockFormat(type) {
-    const ta = this.textarea;
-    if (!ta) return;
+  formatLink() {
+    if (!this.editor) return;
+    this.editor.focus();
 
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const text = ta.value;
-
-    // カーソル位置の行全体を検出
-    const lineStart = text.lastIndexOf("\n", start - 1) + 1;
-    let lineEnd = text.indexOf("\n", end);
-    if (lineEnd === -1) lineEnd = text.length;
-
-    const currentLine = text.slice(lineStart, lineEnd);
-    // 既存のプレフィックスを除去
-    const cleanLine = currentLine.replace(/^(#+\s*|>\s*|[-*]\s*)/, "");
-
-    let newLine = cleanLine;
-    if (type === "heading") {
-      newLine = `# ${cleanLine}`;
-    } else if (type === "alert") {
-      newLine = `> ${cleanLine}`;
-    } else if (type === "list") {
-      newLine = `- ${cleanLine}`;
-    }
-
-    ta.value = text.slice(0, lineStart) + newLine + text.slice(lineEnd);
-    this.markdown = ta.value;
-    ta.focus();
-    ta.setSelectionRange(lineStart + newLine.length, lineStart + newLine.length);
-  }
-
-  /**
-   * インラインフォーマット（太字・斜体）の適用
-   */
-  applyInlineFormat(type) {
-    const ta = this.textarea;
-    if (!ta) return;
-
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const selected = ta.value.substring(start, end);
-
-    const marker = type === "bold" ? "**" : "*";
-    const defaultText = type === "bold" ? "太字テキスト" : "斜体テキスト";
-    const insertion = `${marker}${selected || defaultText}${marker}`;
-
-    ta.setRangeText(insertion, start, end, "select");
-    this.markdown = ta.value;
-    ta.focus();
-  }
-
-  /**
-   * リンクフォーマットの適用
-   */
-  applyLinkFormat() {
-    const ta = this.textarea;
-    if (!ta) return;
-
-    const start = ta.selectionStart;
-    const end = ta.selectionEnd;
-    const selected = ta.value.substring(start, end) || "リンクテキスト";
+    const selection = window.getSelection();
+    const selectedText = selection ? selection.toString().trim() : "";
 
     const url = prompt("リンク先URLを入力してください (例: https://example.com)", "https://");
-    if (!url) return;
+    if (!url || url === "https://") return;
 
-    const insertion = `[${selected}](${url})`;
-    ta.setRangeText(insertion, start, end, "select");
-    this.markdown = ta.value;
-    ta.focus();
+    if (!selectedText) {
+      // 選択テキストがない場合はリンクHTMLを直接挿入
+      const linkHtml = `<a href="${encodeURI(url)}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      document.execCommand("insertHTML", false, linkHtml);
+    } else {
+      document.execCommand("createLink", false, url);
+      // 生成された a タグに target="_blank" を付与
+      if (selection && selection.anchorNode) {
+        let parent = selection.anchorNode.parentElement;
+        if (parent && parent.tagName.toLowerCase() === "a") {
+          parent.target = "_blank";
+          parent.rel = "noopener noreferrer";
+        }
+      }
+    }
+    this.updateToolbarState();
   }
 
   /**
-   * シリアライズされたMarkdown文字列の取得
+   * ツールバーボタン（太字・斜体）のアクティブ状態をキャレット位置に応じて更新
+   */
+  updateToolbarState() {
+    try {
+      if (this.boldBtn) {
+        if (document.queryCommandState("bold")) {
+          this.boldBtn.classList.add("is-active");
+        } else {
+          this.boldBtn.classList.remove("is-active");
+        }
+      }
+      if (this.italicBtn) {
+        if (document.queryCommandState("italic")) {
+          this.italicBtn.classList.add("is-active");
+        } else {
+          this.italicBtn.classList.remove("is-active");
+        }
+      }
+    } catch (e) {}
+  }
+
+  /**
+   * D1保存用のシリアライズされたMarkdown文字列の取得
+   * (エディタ内の太字 <b> / <strong> は **テキスト** 形式に変換される)
    */
   getValue() {
-    return MarkdownParser.normalizeMarkdown(this.markdown);
+    if (!this.editor) return "";
+    return MarkdownParser.htmlToMarkdown(this.editor);
   }
 
   /**
    * 読み込み
    */
   setValue(newMarkdown) {
-    this.markdown = newMarkdown || "";
-    if (this.textarea) {
-      this.textarea.value = this.markdown;
+    this.initialMarkdown = newMarkdown || "";
+    if (this.editor) {
+      this.editor.innerHTML = MarkdownParser.toHtml(this.initialMarkdown);
     }
   }
 }
+
 
