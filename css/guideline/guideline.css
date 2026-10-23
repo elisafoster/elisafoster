@@ -127,10 +127,26 @@
 .gl-content ul,
 .gl-content .gl-list {
   padding-left: 24px;
-  list-style: disc;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  list-style: disc !important;
+  margin: 12px 0 16px 0;
+}
+
+.gl-content ol {
+  padding-left: 24px;
+  list-style: decimal !important;
+  margin: 12px 0 16px 0;
+}
+
+.gl-content li {
+  display: list-item !important;
+  list-style-type: disc !important;
+  margin-bottom: 8px;
+  line-height: 1.85;
+  color: #334155;
+}
+
+.gl-content ol li {
+  list-style-type: decimal !important;
 }
 
 .gl-content blockquote,

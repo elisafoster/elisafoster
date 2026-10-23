@@ -79,9 +79,9 @@ export class MarkdownParser {
         continue;
       }
 
-      // 箇条書きリスト (- 項目)
-      if (line.startsWith("- ") || line.startsWith("* ")) {
-        const itemContent = line.replace(/^[-*]\s*/, "");
+      // 箇条書きリスト (- 項目, * 項目, + 項目, ・項目)
+      if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ") || line.startsWith("・") || line.startsWith("・ ")) {
+        const itemContent = line.replace(/^([-*+]\s*|・\s*)/, "");
         currentList.push(`<li>${this.parseInline(itemContent)}</li>`);
         continue;
       }
@@ -148,37 +148,57 @@ export class MarkdownParser {
     };
 
     const blocks = [];
-    for (const child of root.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) {
-        const t = child.nodeValue.trim();
-        if (t) blocks.push(t);
-      } else if (child.nodeType === Node.ELEMENT_NODE) {
-        const tag = child.tagName.toLowerCase();
-        if (tag === "h1" || tag === "h2" || tag === "h3") {
-          const text = processInline(child).trim();
-          if (text) blocks.push(`# ${text}`);
-        } else if (tag === "blockquote") {
-          const lines = processInline(child)
-            .split(/\r?\n/)
-            .map((l) => l.trim())
-            .filter((l) => l.length > 0);
-          if (lines.length > 0) {
-            blocks.push(lines.map((l) => `> ${l}`).join("\n"));
-          }
-        } else if (tag === "ul" || tag === "ol") {
-          for (const li of child.querySelectorAll("li")) {
-            const text = processInline(li).trim();
+
+    // 再帰的にブロック要素を走査・収集
+    const collectBlocks = (node) => {
+      for (const child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          const t = child.nodeValue.trim();
+          if (t) blocks.push(t);
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          const tag = child.tagName.toLowerCase();
+
+          if (tag === "h1" || tag === "h2" || tag === "h3") {
+            const text = processInline(child).trim();
+            if (text) blocks.push(`# ${text}`);
+          } else if (tag === "blockquote") {
+            const lines = processInline(child)
+              .split(/\r?\n/)
+              .map((l) => l.trim())
+              .filter((l) => l.length > 0);
+            if (lines.length > 0) {
+              blocks.push(lines.map((l) => `> ${l}`).join("\n"));
+            }
+          } else if (tag === "ul" || tag === "ol") {
+            const listItems = [];
+            for (const li of child.querySelectorAll("li")) {
+              const text = processInline(li).trim();
+              if (text) listItems.push(`- ${text}`);
+            }
+            if (listItems.length > 0) {
+              blocks.push(listItems.join("\n")); // リスト項目は連続した改行で結合
+            }
+          } else if (tag === "li") {
+            const text = processInline(child).trim();
             if (text) blocks.push(`- ${text}`);
+          } else if (tag === "p" || tag === "div") {
+            // ネストされたブロック要素があるかチェック
+            const hasNestedBlock = child.querySelector("ul, ol, h1, h2, h3, blockquote, p, div");
+            if (hasNestedBlock) {
+              collectBlocks(child);
+            } else {
+              const text = processInline(child).trim();
+              if (text) blocks.push(text);
+            }
+          } else {
+            const text = processInline(child).trim();
+            if (text) blocks.push(text);
           }
-        } else if (tag === "p" || tag === "div") {
-          const text = processInline(child).trim();
-          if (text) blocks.push(text);
-        } else {
-          const text = processInline(child).trim();
-          if (text) blocks.push(text);
         }
       }
-    }
+    };
+
+    collectBlocks(root);
 
     return blocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
   }
@@ -190,4 +210,3 @@ export class MarkdownParser {
     return (text || "").replace(/\r\n/g, "\n").trim();
   }
 }
-
