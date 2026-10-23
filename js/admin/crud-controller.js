@@ -307,6 +307,15 @@ export class CrudController {
       hasPendingChanges: false,
     };
 
+    // 再生リスト管理 (movieList) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
+    this.movieListState = {
+      isInitialized: false,
+      originalRecords: [],
+      currentRecords: [],
+      hasPendingChanges: false,
+    };
+    this.movieListLibraryCache = ["sampleList.png"];
+
     // セクション設定 (section) 専用のドラフト状態（更新反映ボタンを押すまでD1に保存しない）
     this.sectionState = {
       isInitialized: false,
@@ -328,6 +337,7 @@ export class CrudController {
         this.scheduleState?.hasPendingChanges ||
         this.galleryState?.hasPendingChanges ||
         this.movieState?.hasPendingChanges ||
+        this.movieListState?.hasPendingChanges ||
         this.shopState?.hasPendingChanges ||
         this.linkListState?.hasPendingChanges ||
         this.sectionState?.hasPendingChanges ||
@@ -411,6 +421,16 @@ export class CrudController {
       if (!ok) return;
       this.movieState.hasPendingChanges = false;
       this.movieState.isInitialized = false;
+    }
+
+    // 再生リスト管理で未反映の変更がある状態で他タブへ移動しようとした場合
+    if (this.currentTab === "movieList" && tabKey !== "movieList" && this.movieListState?.hasPendingChanges) {
+      const ok = confirm(
+        "再生リスト管理に未反映の変更（未保存）があります。\n保存（更新反映）せずに移動すると変更が破棄されますが、よろしいですか？"
+      );
+      if (!ok) return;
+      this.movieListState.hasPendingChanges = false;
+      this.movieListState.isInitialized = false;
     }
 
     // ショップグッズ管理で未反映の変更がある状態で他タブへ移動しようとした場合
@@ -560,6 +580,23 @@ export class CrudController {
         case "movie":
           await this.renderMovieTab();
           break;
+        case "movieList":
+          await this.renderTableListTab(
+            "movieList",
+            "再生リスト管理",
+            [
+              { key: "actions", label: "操作", isAction: true, style: { width: "80px", textAlign: "center" } },
+              { key: "id", label: "id", style: { width: "60px", textAlign: "center" } },
+              { key: "listName", label: "リスト名", style: { minWidth: "200px" } },
+              { key: "listImage", label: "画像", type: "image", category: "movieList", style: { width: "160px", textAlign: "center" } },
+            ],
+            {
+              hideDesc: true,
+              showCountBadge: true,
+              verticalActions: true,
+            }
+          );
+          break;
         case "shop":
           await this.renderShopTab();
           break;
@@ -670,6 +707,16 @@ export class CrudController {
         this.galleryState.isInitialized = true;
       }
       rows = this.galleryState.currentRecords;
+    } else if (tableName === "movieList") {
+      if (!this.movieListState.isInitialized) {
+        const records = await api.getTable("movieList");
+        const loaded = Array.isArray(records) ? records : (records ? [records] : []);
+        this.movieListState.originalRecords = JSON.parse(JSON.stringify(loaded));
+        this.movieListState.currentRecords = JSON.parse(JSON.stringify(loaded));
+        this.movieListState.hasPendingChanges = false;
+        this.movieListState.isInitialized = true;
+      }
+      rows = this.movieListState.currentRecords;
     } else if (tableName === "linkList") {
       if (!this.linkListState.isInitialized) {
         const records = await api.getTable("linkList");
@@ -840,6 +887,30 @@ export class CrudController {
       actions.appendChild(commitBtn);
     }
 
+    // 再生リスト管理: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
+    if (tableName === "movieList") {
+      const commitBtn = document.createElement("button");
+      commitBtn.id = "movieList-commit-btn";
+      commitBtn.className = "app-btn app-btn-orange";
+
+      const changesCount = this.getMovieListChangesCount();
+      if (this.movieListState.hasPendingChanges && changesCount > 0) {
+        commitBtn.classList.add("has-changes");
+        commitBtn.innerHTML = `<span>更新反映</span><span class="admin-badge-count">${changesCount}</span>`;
+        commitBtn.title = `${changesCount}件の未反映の変更があります。クリックしてD1に保存（更新反映）します`;
+        commitBtn.disabled = false;
+      } else {
+        commitBtn.innerHTML = `<span>更新反映</span>`;
+        commitBtn.title = "D1に未反映の変更はありません";
+        commitBtn.disabled = true;
+      }
+
+      commitBtn.onclick = async () => {
+        await this.commitMovieListChanges();
+      };
+      actions.appendChild(commitBtn);
+    }
+
     // リンクリスト管理: 新規追加ボタンの横に「更新反映」ボタンを設置（オレンジ色）
     if (tableName === "linkList") {
       const commitBtn = document.createElement("button");
@@ -967,6 +1038,26 @@ export class CrudController {
         `;
         alertBar.querySelector("button").onclick = async () => {
           await this.commitGalleryChanges();
+        };
+        card.appendChild(alertBar);
+      }
+    }
+
+    // 再生リスト管理で未反映の変更がある場合は通知アラートを表示
+    if (tableName === "movieList" && this.movieListState.hasPendingChanges) {
+      const changesCount = this.getMovieListChangesCount();
+      if (changesCount > 0) {
+        const alertBar = document.createElement("div");
+        alertBar.className = "admin-pending-alert";
+        alertBar.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span>
+            <span>現在 <strong>${changesCount}件の変更</strong> が保留されています。「更新反映」ボタンを押すまでD1データベースには保存されません。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-orange" style="padding: 5px 14px; font-size: 0.85rem;">更新反映する</button>
+        `;
+        alertBar.querySelector("button").onclick = async () => {
+          await this.commitMovieListChanges();
         };
         card.appendChild(alertBar);
       }
@@ -8573,6 +8664,640 @@ export class CrudController {
   }
 
   /**
+   * 再生リスト (movieList) 用の新規・編集モーダル
+   */
+  async openMovieListModal(record, restoreState = null) {
+    const isNew = !record;
+
+    let allMovieLists = [];
+    if (this.movieListState && this.movieListState.isInitialized && this.movieListState.currentRecords.length > 0) {
+      allMovieLists = this.movieListState.currentRecords;
+    } else {
+      try {
+        const res = await api.getTable("movieList");
+        allMovieLists = Array.isArray(res) ? res : (res ? [res] : []);
+      } catch (e) {
+        allMovieLists = [];
+      }
+    }
+
+    const nextId = allMovieLists.length > 0 ? Math.max(...allMovieLists.map((r) => Number(r.id) || 0)) + 1 : 1;
+
+    const currentData = {
+      id: isNew ? nextId : record.id,
+      listName: record?.listName || "",
+      listImage: record?.listImage || "",
+      ...restoreState,
+    };
+
+    if (!this.movieListLibraryCache) {
+      this.movieListLibraryCache = ["sampleList.png"];
+    }
+    const librarySet = new Set(["sampleList.png", ...this.movieListLibraryCache]);
+    allMovieLists.forEach((row) => {
+      const img = row.listImage;
+      if (img && typeof img === "string" && !img.startsWith("http")) {
+        librarySet.add(img.split("/").pop());
+      }
+    });
+    this.movieListLibraryCache = Array.from(librarySet);
+
+    const convertGoogleDriveUrl = (url) => {
+      if (!url) return url;
+      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1600`;
+      }
+      return url;
+    };
+
+    const initialMode =
+      currentData.image_mode ||
+      (currentData.listImage && (currentData.listImage.startsWith("http://") || currentData.listImage.startsWith("https://"))
+        ? "url"
+        : "library");
+
+    const form = document.createElement("form");
+    form.className = "admin-modal-form";
+    form.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
+
+    form.innerHTML = `
+      <!-- 行1: id ｜ リスト名 -->
+      <div class="admin-form-row admin-form-grid-2">
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            id
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="id"
+            type="number"
+            value="${escapeHtml(currentData.id)}"
+            readonly
+            style="background: rgba(15, 23, 42, 0.7); color: #94a3b8; cursor: not-allowed;"
+          />
+        </div>
+
+        <div class="admin-form-group">
+          <label class="admin-form-label">
+            リスト名
+            <span class="admin-form-label-required">*必須</span>
+          </label>
+          <input
+            class="admin-form-input"
+            name="listName"
+            type="text"
+            value="${escapeHtml(currentData.listName)}"
+            placeholder="例: 歌ってみた、ゲーム配信、雑談など"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- 行2: 画像選択 (listImage) -->
+      <div class="admin-visual-field-card" style="margin-top: 4px;">
+        <div class="admin-visual-field-header">
+          <label class="admin-form-label" style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            画像選択 (listImage)
+          </label>
+          <div class="admin-visual-mode-toggle">
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="library" ${initialMode === "library" ? "checked" : ""}>
+              <span>ライブラリ参照</span>
+            </label>
+            <label class="admin-visual-radio-label">
+              <input type="radio" name="image_mode" value="url" ${initialMode === "url" ? "checked" : ""}>
+              <span>直URL指定</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-visual-field-body">
+          <div class="admin-visual-input-col">
+            <!-- ライブラリ選択UI -->
+            <div id="mode-library-movielist" class="admin-visual-mode-panel" style="${initialMode === "library" ? "" : "display: none;"}">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="admin-form-input admin-visual-file-select" data-field="listImage" style="flex: 1;">
+                  <option value="">-- 画像を選択してください --</option>
+                  ${this.movieListLibraryCache.map((fn) => `
+                    <option value="${escapeHtml(fn)}" ${currentData.listImage === fn ? "selected" : ""}>${escapeHtml(fn)}</option>
+                  `).join("")}
+                </select>
+                <button type="button" class="app-btn app-btn-secondary admin-movielist-upload-btn" data-field="listImage" style="white-space: nowrap;">
+                  📤 アップロード
+                </button>
+              </div>
+              <span class="admin-form-hint">assets/movieList 配下の画像をプルダウンで選択、または新規アップロードできます</span>
+            </div>
+
+            <!-- 直URL指定UI -->
+            <div id="mode-url-movielist" class="admin-visual-mode-panel" style="${initialMode === "url" ? "" : "display: none;"}">
+              <input
+                class="admin-form-input admin-visual-url-input"
+                data-field="listImage"
+                type="url"
+                value="${initialMode === "url" ? escapeHtml(currentData.listImage || "") : ""}"
+                placeholder="https://drive.google.com/file/d/... または画像URL"
+              />
+              <span class="admin-form-hint">Googleドライブの共有URL、または画像の直接URLを入力してください（ドライブURLは自動変換されます）</span>
+            </div>
+          </div>
+
+          <!-- プレビュー枠 (アスペクト比 16:9) -->
+          <div class="admin-visual-preview-col" style="min-width: 240px; max-width: 280px;">
+            <div id="preview-box-movielist-image" class="admin-visual-preview-box is-notice-box">
+              <span class="admin-visual-preview-empty">プレビューなし</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // プレビュー更新関数
+    const updatePreview = () => {
+      const pBox = form.querySelector("#preview-box-movielist-image");
+      if (!pBox) return;
+
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imgVal = "";
+      if (mode === "library") {
+        imgVal = form.querySelector('.admin-visual-file-select[data-field="listImage"]')?.value || "";
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="listImage"]')?.value?.trim() || "";
+        imgVal = convertGoogleDriveUrl(raw);
+      }
+
+      if (imgVal) {
+        const fullUrl = api.resolveAssetUrl(imgVal, "movieList");
+        pBox.innerHTML = `
+          <img src="${escapeHtml(fullUrl)}" alt="再生リスト画像プレビュー" onerror="this.parentElement.innerHTML='<span class=\\'admin-visual-preview-empty\\' style=\\'color:#ef4444;\\'>読込失敗</span>';" />
+        `;
+      } else {
+        pBox.innerHTML = '<span class="admin-visual-preview-empty">プレビューなし</span>';
+      }
+    };
+
+    // モード切り替えリスナー
+    form.querySelectorAll('[name="image_mode"]').forEach((radio) => {
+      radio.onchange = (e) => {
+        const mode = e.target.value;
+        const libPanel = form.querySelector("#mode-library-movielist");
+        const urlPanel = form.querySelector("#mode-url-movielist");
+        if (mode === "library") {
+          libPanel.style.display = "block";
+          urlPanel.style.display = "none";
+        } else {
+          libPanel.style.display = "none";
+          urlPanel.style.display = "block";
+        }
+        updatePreview();
+      };
+    });
+
+    form.querySelector('.admin-visual-file-select[data-field="listImage"]').onchange = updatePreview;
+    form.querySelector('.admin-visual-url-input[data-field="listImage"]').oninput = () => {
+      const urlInput = form.querySelector('.admin-visual-url-input[data-field="listImage"]');
+      const converted = convertGoogleDriveUrl(urlInput.value);
+      if (converted !== urlInput.value) {
+        urlInput.value = converted;
+      }
+      updatePreview();
+    };
+
+    // アップロードボタン押下
+    form.querySelector('.admin-movielist-upload-btn[data-field="listImage"]').onclick = () => {
+      const savedState = this.collectMovieListFormData(form);
+      const cfg = {
+        label: "再生リスト画像",
+        category: "movieList",
+        uploadPath: "assets/movieList",
+        accept: ".png,.jpg,.jpeg,.webp",
+        maxSizeBytes: 2097152, // 2MB
+        maxSizeMB: 2,
+        aspectRatio: "16:9",
+        displayMode: "contain",
+        maxLongEdge: 1280,
+      };
+      this.openMovieListUploadModal("listImage", record, savedState, cfg);
+    };
+
+    updatePreview();
+
+    // 送信ボタン
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "app-btn app-btn-primary";
+    submitBtn.style.padding = "10px 24px";
+    submitBtn.textContent = isNew ? "新規作成" : "変更を保存する";
+
+    submitBtn.onclick = async () => {
+      const fd = new FormData(form);
+      const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+      let imageVal = null;
+      if (mode === "library") {
+        imageVal = form.querySelector('.admin-visual-file-select[data-field="listImage"]')?.value?.trim() || null;
+      } else {
+        const raw = form.querySelector('.admin-visual-url-input[data-field="listImage"]')?.value?.trim() || null;
+        imageVal = raw ? convertGoogleDriveUrl(raw) : null;
+      }
+
+      const listNameVal = fd.get("listName")?.toString().trim();
+
+      if (!listNameVal) {
+        alert("リスト名は必須項目です");
+        return;
+      }
+
+      const payload = {
+        id: Number(fd.get("id")),
+        listName: listNameVal,
+        listImage: imageVal,
+      };
+
+      if (isNew) {
+        this.movieListState.currentRecords.push(payload);
+      } else {
+        const idx = this.movieListState.currentRecords.findIndex(
+          (r) => Number(r.id) === Number(currentData.id)
+        );
+        if (idx !== -1) {
+          this.movieListState.currentRecords[idx] = {
+            ...this.movieListState.currentRecords[idx],
+            ...payload,
+          };
+        } else {
+          this.movieListState.currentRecords.push(payload);
+        }
+      }
+
+      this.movieListState.hasPendingChanges = true;
+      Modal.close();
+      Toast.info(
+        isNew
+          ? "再生リストを一覧に追加しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+          : "再生リストの変更を一覧に反映しました（※「更新反映」ボタンを押すまでD1には保存されません）"
+      );
+      await this.loadTab("movieList");
+    };
+
+    Modal.open({
+      title: isNew ? "再生リストの新規追加" : `再生リストの編集 (id: ${currentData.id})`,
+      content: form,
+      footer: submitBtn,
+      isLarge: true,
+    });
+  }
+
+  /**
+   * 再生リスト 編集フォームの現在の入力値を収集するヘルパー (アップロード時の一時退避用)
+   */
+  collectMovieListFormData(form) {
+    if (!form) return {};
+    const fd = new FormData(form);
+    const data = {};
+    for (const [k, v] of fd.entries()) {
+      data[k] = v;
+    }
+    const mode = form.querySelector('[name="image_mode"]:checked')?.value || "library";
+    data["image_mode"] = mode;
+    if (mode === "library") {
+      data["listImage"] = form.querySelector('.admin-visual-file-select[data-field="listImage"]')?.value || "";
+    } else {
+      data["listImage"] = form.querySelector('.admin-visual-url-input[data-field="listImage"]')?.value || "";
+    }
+    return data;
+  }
+
+  /**
+   * 再生リスト 画像アップロードモーダル (インタラクティブ・クロッパー 16:9)
+   */
+  async openMovieListUploadModal(field, currentRecord, savedState, cfg) {
+    const wrap = document.createElement("div");
+    wrap.className = "admin-upload-dialog-wrap";
+
+    let selectedImg = null;
+    let currentBlob = null;
+    let isSizeValid = true;
+
+    let targetW = 1280;
+    let targetH = 720;
+    const headerTitleText = `トリミング調整 (横長 16:9 (1280×720))`;
+    const maxKB = Math.round(cfg.maxSizeBytes / 1024);
+
+    wrap.innerHTML = `
+      <div style="font-size: 0.88rem; color: #94a3b8; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08); line-height: 1.6;">
+        <div>項目: <strong style="color: #60a5fa; font-size: 0.95rem;">${escapeHtml(cfg.label)}</strong> (保存先: <code>${escapeHtml(cfg.uploadPath)}</code>)</div>
+        <div>対応形式: <code>${escapeHtml(cfg.accept)}</code> ｜ 容量上限: <code>${escapeHtml(cfg.maxSizeMB)}MB (${maxKB} KB)</code> ｜ 規格比率: <code>${escapeHtml(cfg.aspectRatio)} (${escapeHtml(cfg.displayMode)})</code></div>
+      </div>
+
+      <!-- 画像選択ドロップゾーン -->
+      <div class="admin-upload-dropzone" id="upload-dropzone-movielist">
+        <input type="file" id="upload-file-input-movielist" accept="${escapeHtml(cfg.accept)}" style="display: none;" />
+        <span style="font-size: 2.2rem;">📁</span>
+        <div style="font-weight: 700; color: #f8fafc; font-size: 1rem;">画像ファイルを選択</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">クリックしてPCから再生リスト画像を選択してください</div>
+      </div>
+
+      <!-- 画像プレビュー＆トリミングコンテナ -->
+      <div id="crop-stage-movielist" class="admin-upload-crop-wrapper" style="display: none;">
+        <div class="crop-header">
+          <div class="crop-header-title">
+            <span>✂</span>
+            <span>${escapeHtml(headerTitleText)}</span>
+          </div>
+          <div class="crop-header-hint">ドラッグで移動 / スライダーでズーム</div>
+        </div>
+
+        <div class="admin-upload-crop-container">
+          <div class="crop-canvas-box">
+            <canvas id="crop-canvas-movielist" class="admin-upload-crop-canvas"></canvas>
+          </div>
+        </div>
+
+        <div class="crop-controls">
+          <div class="crop-zoom-label">
+            <span>🔍</span> <span>ズーム:</span>
+          </div>
+          <input type="range" id="crop-zoom-slider-movielist" class="crop-zoom-slider" min="0.1" max="3" step="0.005" value="1" />
+          <button type="button" id="crop-fit-btn-movielist" class="crop-btn">フィット</button>
+          <button type="button" id="crop-center-btn-movielist" class="crop-btn">中央揃え</button>
+        </div>
+
+        <div class="crop-status-card">
+          <div class="crop-resolution-label">
+            仕上がり解像度: <strong class="crop-resolution-val">${targetW} × ${targetH} px</strong>
+          </div>
+          <span id="crop-size-badge-movielist" class="crop-size-badge is-ok">-- KB / ${maxKB} KB OK</span>
+        </div>
+      </div>
+
+      <!-- ファイル名入力欄 -->
+      <div class="admin-form-group" style="margin-bottom: 0;">
+        <label class="admin-form-label">
+          ファイル名 (半角英数字, ハイフン, アンダースコアのみ)
+          <span class="admin-form-label-required">*必須</span>
+        </label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input class="admin-form-input" id="upload-filename-input-movielist" placeholder="例: list_sing_cover" style="flex: 1;" />
+          <span id="upload-ext-label-movielist" style="color: #60a5fa; font-weight: 700; font-size: 0.95rem;">.png</span>
+        </div>
+        <span id="upload-name-error-movielist" style="color: #f87171; font-size: 0.78rem; display: none; margin-top: 4px;">
+          半角英数字、ハイフン、アンダースコアのみ使用可能です
+        </span>
+      </div>
+    `;
+
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; width: 100%;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "app-btn app-btn-secondary";
+    cancelBtn.textContent = "キャンセル";
+    cancelBtn.onclick = () => {
+      this.openMovieListModal(currentRecord, savedState);
+    };
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "app-btn app-btn-primary";
+    confirmBtn.textContent = "この画像を確定して設定";
+    confirmBtn.disabled = true;
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(confirmBtn);
+
+    Modal.open({
+      title: `${cfg.label} のアップロード`,
+      content: wrap,
+      footer: footer,
+      isLarge: true,
+    });
+
+    const dropzone = wrap.querySelector("#upload-dropzone-movielist");
+    const fileInput = wrap.querySelector("#upload-file-input-movielist");
+    const cropStage = wrap.querySelector("#crop-stage-movielist");
+    const canvas = wrap.querySelector("#crop-canvas-movielist");
+    const ctx = canvas.getContext("2d");
+    const zoomSlider = wrap.querySelector("#crop-zoom-slider-movielist");
+    const fitBtn = wrap.querySelector("#crop-fit-btn-movielist");
+    const centerBtn = wrap.querySelector("#crop-center-btn-movielist");
+    const sizeBadge = wrap.querySelector("#crop-size-badge-movielist");
+    const filenameInput = wrap.querySelector("#upload-filename-input-movielist");
+    const extLabel = wrap.querySelector("#upload-ext-label-movielist");
+    const nameError = wrap.querySelector("#upload-name-error-movielist");
+
+    let originalExt = ".png";
+    let state = {
+      zoom: 1,
+      minZoom: 0.1,
+      maxZoom: 3,
+      panX: 0,
+      panY: 0,
+      isDragging: false,
+      startX: 0,
+      startY: 0,
+    };
+
+    dropzone.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const dotIdx = file.name.lastIndexOf(".");
+      if (dotIdx !== -1) {
+        originalExt = file.name.substring(dotIdx).toLowerCase();
+        extLabel.textContent = originalExt;
+        const stem = file.name.substring(0, dotIdx).replace(/[^a-zA-Z0-9_-]/g, "_");
+        filenameInput.value = stem || `playlist_${Date.now()}`;
+      } else {
+        originalExt = ".png";
+        extLabel.textContent = ".png";
+        filenameInput.value = `playlist_${Date.now()}`;
+      }
+      validateFilename();
+
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        const img = new Image();
+        img.onload = () => {
+          selectedImg = img;
+          dropzone.style.display = "none";
+          cropStage.style.display = "flex";
+          initCropper();
+        };
+        img.src = re.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    const initCropper = () => {
+      canvas.width = targetW;
+      canvas.height = targetH;
+
+      const scaleX = targetW / selectedImg.width;
+      const scaleY = targetH / selectedImg.height;
+      state.minZoom = Math.min(scaleX, scaleY);
+      state.zoom = Math.max(scaleX, scaleY);
+
+      zoomSlider.min = (state.minZoom * 0.8).toFixed(3);
+      zoomSlider.max = (Math.max(scaleX, scaleY) * 3).toFixed(3);
+      zoomSlider.value = state.zoom;
+
+      centerImage();
+    };
+
+    const centerImage = () => {
+      if (!selectedImg) return;
+      const renderW = selectedImg.width * state.zoom;
+      const renderH = selectedImg.height * state.zoom;
+      state.panX = (targetW - renderW) / 2;
+      state.panY = (targetH - renderH) / 2;
+      draw();
+    };
+
+    const fitImage = () => {
+      if (!selectedImg) return;
+      const scaleX = targetW / selectedImg.width;
+      const scaleY = targetH / selectedImg.height;
+      state.zoom = Math.min(scaleX, scaleY);
+      zoomSlider.value = state.zoom;
+      centerImage();
+    };
+
+    fitBtn.onclick = fitImage;
+    centerBtn.onclick = centerImage;
+
+    zoomSlider.oninput = () => {
+      const oldZoom = state.zoom;
+      const newZoom = parseFloat(zoomSlider.value);
+      const canvasCenterX = targetW / 2;
+      const canvasCenterY = targetH / 2;
+      state.panX = canvasCenterX - (canvasCenterX - state.panX) * (newZoom / oldZoom);
+      state.panY = canvasCenterY - (canvasCenterY - state.panY) * (newZoom / oldZoom);
+      state.zoom = newZoom;
+      draw();
+    };
+
+    canvas.onmousedown = (e) => {
+      state.isDragging = true;
+      state.startX = e.clientX - state.panX;
+      state.startY = e.clientY - state.panY;
+      canvas.style.cursor = "grabbing";
+    };
+
+    window.addEventListener("mousemove", (e) => {
+      if (!state.isDragging) return;
+      state.panX = e.clientX - state.startX;
+      state.panY = e.clientY - state.startY;
+      draw();
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (state.isDragging) {
+        state.isDragging = false;
+        canvas.style.cursor = "grab";
+        updateBlob();
+      }
+    });
+
+    const draw = () => {
+      if (!selectedImg) return;
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(
+        selectedImg,
+        state.panX,
+        state.panY,
+        selectedImg.width * state.zoom,
+        selectedImg.height * state.zoom
+      );
+    };
+
+    let blobTimer = null;
+    const updateBlob = () => {
+      clearTimeout(blobTimer);
+      blobTimer = setTimeout(() => {
+        let mime = "image/png";
+        let quality = 0.9;
+        if (originalExt === ".jpg" || originalExt === ".jpeg") {
+          mime = "image/jpeg";
+          quality = 0.85;
+        } else if (originalExt === ".webp") {
+          mime = "image/webp";
+          quality = 0.85;
+        }
+
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          currentBlob = blob;
+          const kb = Math.round(blob.size / 1024);
+          if (blob.size > cfg.maxSizeBytes) {
+            isSizeValid = false;
+            sizeBadge.className = "crop-size-badge is-error";
+            sizeBadge.textContent = `${kb} KB / ${maxKB} KB (容量超過)`;
+          } else {
+            isSizeValid = true;
+            sizeBadge.className = "crop-size-badge is-ok";
+            sizeBadge.textContent = `${kb} KB / ${maxKB} KB OK`;
+          }
+          checkCanSubmit();
+        }, mime, quality);
+      }, 100);
+    };
+
+    const validateFilename = () => {
+      const val = filenameInput.value.trim();
+      const isValid = /^[a-zA-Z0-9_-]+$/.test(val);
+      if (!isValid && val.length > 0) {
+        nameError.style.display = "block";
+      } else {
+        nameError.style.display = "none";
+      }
+      return isValid && val.length > 0;
+    };
+
+    filenameInput.oninput = () => {
+      validateFilename();
+      checkCanSubmit();
+    };
+
+    const checkCanSubmit = () => {
+      const isNameOk = validateFilename();
+      confirmBtn.disabled = !(selectedImg && currentBlob && isSizeValid && isNameOk);
+    };
+
+    confirmBtn.onclick = async () => {
+      if (!currentBlob) return;
+      const finalFileName = `${filenameInput.value.trim()}${originalExt}`;
+      api.showLoading();
+      try {
+        await api.uploadFile(currentBlob, finalFileName, "movieList");
+        Toast.success(`画像「${finalFileName}」をアップロードしました`);
+
+        if (!this.movieListLibraryCache.includes(finalFileName)) {
+          this.movieListLibraryCache.push(finalFileName);
+        }
+
+        Modal.close();
+        await this.openMovieListModal(currentRecord, {
+          ...savedState,
+          image_mode: "library",
+          listImage: finalFileName,
+        });
+      } catch (err) {
+        console.error("[Upload MovieList Image Error]:", err);
+        Toast.error(`アップロードに失敗しました: ${err.message}`);
+      } finally {
+        api.hideLoading();
+      }
+    };
+  }
+
+  /**
    * ショップグッズ (shop) 専用の新規・編集モーダル
    */
   async openShopModal(record, tags = null, restoreState = null) {
@@ -10431,6 +11156,9 @@ export class CrudController {
     if (tableName === "movie") {
       return this.openMovieModal(record);
     }
+    if (tableName === "movieList") {
+      return this.openMovieListModal(record);
+    }
     if (tableName === "shop") {
       return this.openShopModal(record);
     }
@@ -10743,6 +11471,17 @@ export class CrudController {
       this.movieState.hasPendingChanges = true;
       Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
       await this.renderMovieTab();
+      return;
+    }
+
+    if (tableName === "movieList") {
+      if (!confirm(`ID: ${id} の再生リストデータを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
+      this.movieListState.currentRecords = this.movieListState.currentRecords.filter(
+        (r) => Number(r.id) !== Number(id)
+      );
+      this.movieListState.hasPendingChanges = true;
+      Toast.info(`ID: ${id} を削除しました（※「更新反映」を押すまでD1には保存されません）`);
+      await this.loadTab("movieList");
       return;
     }
 
@@ -11456,6 +12195,93 @@ export class CrudController {
       await this.loadTab("linkList");
     } catch (err) {
       console.error("[Commit LinkList Error]:", err);
+      Toast.error(`更新反映に失敗しました: ${err.message}`);
+    } finally {
+      api.hideLoading();
+    }
+  }
+
+  /**
+   * 再生リスト管理 (movieList) の未反映変更件数の算出
+   */
+  getMovieListChangesCount() {
+    if (!this.movieListState || !this.movieListState.isInitialized) return 0;
+    const origMap = new Map(this.movieListState.originalRecords.map((r) => [Number(r.id), r]));
+    const currMap = new Map(this.movieListState.currentRecords.map((r) => [Number(r.id), r]));
+
+    let changes = 0;
+    // 削除されたレコード
+    for (const [id] of origMap) {
+      if (!currMap.has(id)) changes++;
+    }
+    // 新規追加または変更されたレコード
+    for (const [id, curr] of currMap) {
+      const orig = origMap.get(id);
+      if (!orig) {
+        changes++;
+      } else {
+        const hasDiff = Object.keys(curr).some((k) => {
+          const vCurr = curr[k] === null || curr[k] === undefined ? "" : String(curr[k]);
+          const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+          return vCurr !== vOrig;
+        });
+        if (hasDiff) changes++;
+      }
+    }
+    return changes;
+  }
+
+  /**
+   * 再生リスト管理 (movieList) の保留変更をD1に一括保存（更新反映）
+   */
+  async commitMovieListChanges() {
+    const count = this.getMovieListChangesCount();
+    if (!this.movieListState?.hasPendingChanges || count === 0) {
+      Toast.info("D1に反映する変更はありません");
+      return;
+    }
+
+    const ok = confirm(
+      `再生リスト管理の変更内容（${count}件）をD1データベースに更新反映しますか？\n\n※この操作によりD1データベースが最新の状態に保存されます。`
+    );
+    if (!ok) return;
+
+    api.showLoading();
+    try {
+      const origMap = new Map(this.movieListState.originalRecords.map((r) => [Number(r.id), r]));
+      const currMap = new Map(this.movieListState.currentRecords.map((r) => [Number(r.id), r]));
+
+      // 1. 削除されたレコードの反映 (DELETE)
+      const toDelete = this.movieListState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
+      for (const rec of toDelete) {
+        await api.deleteRecord("movieList", rec.id);
+      }
+
+      // 2. 新規追加 (POST) ・ 更新 (PUT) の反映
+      for (const rec of this.movieListState.currentRecords) {
+        const orig = origMap.get(Number(rec.id));
+        if (!orig) {
+          await api.saveTable("movieList", rec, null);
+        } else {
+          const hasDiff = Object.keys(rec).some((k) => {
+            const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
+            const vOrig = orig[k] === null || orig[k] === undefined ? "" : String(orig[k]);
+            return vCurr !== vOrig;
+          });
+          if (hasDiff) {
+            await api.saveTable("movieList", rec, rec.id);
+          }
+        }
+      }
+
+      Toast.success("再生リスト管理の変更をD1データベースに反映しました");
+
+      // 反映完了: ドラフト状態をリフレッシュしD1から最新データを再ロード
+      this.movieListState.hasPendingChanges = false;
+      this.movieListState.isInitialized = false;
+      await this.loadTab("movieList");
+    } catch (err) {
+      console.error("[Commit MovieList Error]:", err);
       Toast.error(`更新反映に失敗しました: ${err.message}`);
     } finally {
       api.hideLoading();

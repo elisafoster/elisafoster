@@ -6,16 +6,16 @@
 export const ROLE_PERMISSIONS = {
   owner: [
     "profile", "visual", "event", "notice", "schedule",
-    "gallery", "movie", "shop", "linkList",
+    "gallery", "movie", "movieList", "shop", "linkList",
     "themeConfig", "section", "whitelist", "githubPAT", "guideline"
   ],
   admin: [
     "profile", "visual", "event", "notice", "schedule",
-    "gallery", "movie", "shop", "linkList",
+    "gallery", "movie", "movieList", "shop", "linkList",
     "themeConfig", "section", "whitelist", "guideline"
   ],
   editor: [
-    "event", "notice", "schedule", "gallery", "movie", "shop", "linkList"
+    "event", "notice", "schedule", "gallery", "movie", "movieList", "shop", "linkList"
   ],
   writer: [
     "event", "notice", "schedule"
