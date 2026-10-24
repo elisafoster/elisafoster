@@ -154,14 +154,14 @@ export class ProfileSection {
       return val;
     };
 
-    // ⑤ PROFILE SPECS
+    // ⑤ PROFILE SPECS（未設定項目は "---" で表示）
     const specs = [
-      { icon: "🎂", label: "誕生日", value: formatDisplayBirthday(this.profile.birthday) },
-      { icon: "🚀", label: "活動開始日", value: formatDisplayStreaming(this.profile.streaming) },
-      { icon: "✨", label: "年齢", value: this.profile.age ? `${this.profile.age} 歳` : null },
-      { icon: "📏", label: "身長", value: this.profile.height ? `${this.profile.height} cm` : null },
-      { icon: "💫", label: "ファンネーム", value: this.profile.fanName },
-    ].filter((s) => s.value);
+      { icon: "🎂", label: "誕生日", value: formatDisplayBirthday(this.profile.birthday) || "---" },
+      { icon: "🚀", label: "活動開始日", value: formatDisplayStreaming(this.profile.streaming) || "---" },
+      { icon: "✨", label: "年齢", value: this.profile.age ? `${this.profile.age} 歳` : "---" },
+      { icon: "📏", label: "身長", value: this.profile.height ? `${this.profile.height} cm` : "---" },
+      { icon: "💫", label: "ファンネーム", value: this.profile.fanName || "---" },
+    ];
 
     const specsCard = document.createElement("div");
     specsCard.className = "lp-profile-theme-card lp-profile-specs-card";
@@ -181,19 +181,13 @@ export class ProfileSection {
     specsCard.appendChild(specsList);
     twoColCards.appendChild(specsCard);
 
-    // ⑥ CREATIVE CREDITS
-    const credits = [];
-    if (currentVisual?.characterDesign) credits.push({ label: "キャラクターデザイン", val: currentVisual.characterDesign });
-    if (currentVisual?.illustrator) credits.push({ label: "イラストレーター", val: currentVisual.illustrator });
-    if (currentVisual?.live2d) credits.push({ label: "Live2Dモデラー", val: currentVisual.live2d });
-    if (currentVisual?.["3dModeling"]) credits.push({ label: "3Dモデラー", val: currentVisual["3dModeling"] });
-
-    // 初期空時のフォールバック
-    if (credits.length === 0) {
-      credits.push({ label: "キャラクターデザイン", val: "テスト" });
-      credits.push({ label: "イラストレーター", val: "テスト" });
-      credits.push({ label: "Live2Dモデラー", val: "-" });
-    }
+    // ⑥ CREATIVE CREDITS（未設定項目は "---" で表示）
+    const credits = [
+      { label: "キャラクターデザイン", val: currentVisual?.characterDesign || "---" },
+      { label: "イラストレーター", val: currentVisual?.illustrator || "---" },
+      { label: "Live2Dモデラー", val: currentVisual?.live2d || "---" },
+      { label: "3Dモデラー", val: currentVisual?.["3dModeling"] || "---" },
+    ];
 
     const creditsCard = document.createElement("div");
     creditsCard.className = "lp-profile-theme-card lp-profile-credits-card";

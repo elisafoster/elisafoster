@@ -644,7 +644,7 @@
 .lp-profile-deformed-img {
   position: absolute;
   bottom: 210px; /* サムネイルの左斜め上・立ち絵の太もも前へ引き上げ */
-  left: calc(50% - 270px); /* 立ち絵中心より左寄り（CREATIVE CREDITSカードの右側空間） */
+  left: calc(50% - 310px); /* クレジットカードにかぶらないギリギリまで左へ移動 */
   right: auto;
   width: auto;
   height: 465px; /* 従来の1.5倍サイズ */
@@ -666,7 +666,7 @@
 
 @media (max-width: 900px) {
   .lp-profile-deformed-img {
-    left: calc(50% - 150px);
+    left: calc(50% - 175px);
     right: auto;
     bottom: 60px;
     height: 260px;
@@ -676,7 +676,7 @@
 
 @media (max-width: 600px) {
   .lp-profile-deformed-img {
-    left: calc(50% - 120px);
+    left: calc(50% - 135px);
     right: auto;
     bottom: 40px;
     height: 200px;
