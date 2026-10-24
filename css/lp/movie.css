@@ -726,3 +726,356 @@
   padding: 32px 0;
   margin: 0;
 }
+
+/* --------------------------------------------------------------------------
+   5. 再生リストセクション (動画リスト最下部・独立表示)
+   -------------------------------------------------------------------------- */
+.lp-movie-playlist-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 28px;
+  border-top: 1px dashed var(--color-border, #cbd5e1);
+}
+
+.lp-movie-playlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-movie-playlist-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.lp-movie-playlist-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--theme-section-title-color, var(--color-text-main, #0f172a));
+  letter-spacing: 0.02em;
+  margin: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lp-movie-playlist-title::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 1.1em;
+  background: var(--color-primary, #3b82f6);
+  margin-right: 8px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.lp-movie-playlist-subtitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #64748b);
+}
+
+.lp-movie-playlist-count-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: var(--color-text-muted, #64748b);
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+}
+
+/* 再生リストカード */
+.lp-playlist-card {
+  cursor: pointer;
+}
+
+.lp-playlist-thumb-wrapper {
+  position: relative;
+}
+
+/* YouTube風 再生リストオーバーレイ (右側帯) */
+.lp-playlist-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.75) 30%, rgba(15, 23, 42, 0.92) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: background var(--transition-fast, 0.2s ease);
+}
+
+.lp-playlist-card:hover .lp-playlist-overlay {
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 30%, rgba(15, 23, 42, 0.96) 100%);
+}
+
+.lp-playlist-overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #ffffff;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.lp-playlist-overlay-icon {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.lp-playlist-overlay-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* 再生リストカード下部情報 */
+.lp-playlist-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+}
+
+.lp-playlist-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--theme-card-text-color, #1e293b);
+  margin: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-playlist-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lp-playlist-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-primary, #3b82f6);
+}
+
+.lp-playlist-count-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #64748b);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   6. 再生リストモーダル用スタイル
+   -------------------------------------------------------------------------- */
+.lp-playlist-modal-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.lp-playlist-modal-player-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+.lp-playlist-modal-player-wrap.is-tall {
+  max-width: 360px;
+  margin: 0 auto;
+  aspect-ratio: 9 / 16;
+}
+
+.lp-playlist-modal-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.lp-playlist-modal-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+  flex-wrap: wrap;
+}
+
+.lp-playlist-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-playlist-nav-btn {
+  background: #f1f5f9;
+  border: 1px solid var(--color-border, #e2e8f0);
+  color: var(--color-text-main, #1e293b);
+  padding: 6px 14px;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.2s ease);
+}
+
+.lp-playlist-nav-btn:hover:not(:disabled) {
+  background: var(--color-primary, #3b82f6);
+  color: #ffffff;
+  border-color: var(--color-primary, #3b82f6);
+}
+
+.lp-playlist-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lp-playlist-nav-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted, #64748b);
+  padding: 0 4px;
+}
+
+.lp-playlist-ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary, #3b82f6);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(59, 130, 246, 0.08);
+  transition: all var(--transition-fast, 0.2s ease);
+}
+
+.lp-playlist-ext-link:hover {
+  background: rgba(59, 130, 246, 0.16);
+  text-decoration: underline;
+}
+
+.lp-playlist-modal-list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border, #e2e8f0);
+}
+
+.lp-playlist-modal-list-head {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-main, #1e293b);
+}
+
+.lp-playlist-modal-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.lp-playlist-modal-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.2s ease);
+}
+
+.lp-playlist-modal-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.lp-playlist-modal-item.is-active {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: var(--color-primary, #3b82f6);
+}
+
+.lp-playlist-item-num {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-muted, #94a3b8);
+  min-width: 20px;
+  text-align: center;
+}
+
+.lp-playlist-modal-item.is-active .lp-playlist-item-num {
+  color: var(--color-primary, #3b82f6);
+}
+
+.lp-playlist-item-thumb {
+  width: 72px;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.lp-playlist-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lp-playlist-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lp-playlist-item-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-main, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-playlist-item-playing {
+  display: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-primary, #3b82f6);
+  flex-shrink: 0;
+}
+
+.lp-playlist-modal-item.is-active .lp-playlist-item-playing {
+  display: inline-block;
+}

@@ -123,6 +123,12 @@ export class MovieSection {
     contentArea.className = "lp-movie-content-area";
     mainWrapper.appendChild(contentArea);
 
+    // 3. 再生リストセクション (動画リストの一番下に配置、表示形式の変更には影響しない)
+    const playlistSection = this.renderPlaylistSection();
+    if (playlistSection) {
+      mainWrapper.appendChild(playlistSection);
+    }
+
     this.container.appendChild(mainWrapper);
 
     // 初回コンテンツ描画
@@ -1047,5 +1053,413 @@ export class MovieSection {
     });
 
     return () => hasDragged;
+  }
+
+  /**
+   * =========================================================================
+   * ③ 再生リストセクション (動画リストの一番下・独立コンポーネント)
+   * - 動画リストの表示形式（カテゴリー別 / 一覧）の変更には影響しない
+   * - 各再生リストは、紐づく動画リストが1つもない場合は非表示
+   * - 有効な再生リストが1件もない場合はセクション自体を非表示
+   * =========================================================================
+   */
+  renderPlaylistSection() {
+    if (!this.playlists || this.playlists.length === 0) return null;
+
+    // 各再生リストに紐づく有効な動画を抽出・ソート
+    const validPlaylists = [];
+    this.playlists.forEach((pl) => {
+      const matchedMovies = this.movies
+        .filter((m) => String(m.movieList) === String(pl.id))
+        .sort((a, b) => {
+          const oA = a.movieList_order != null && a.movieList_order !== "" ? Number(a.movieList_order) : 999999;
+          const oB = b.movieList_order != null && b.movieList_order !== "" ? Number(b.movieList_order) : 999999;
+          if (oA !== oB) return oA - oB;
+          return Number(a.id) - Number(b.id);
+        });
+
+      // 動画リストが1つもない場合は非表示
+      if (matchedMovies.length > 0) {
+        validPlaylists.push({
+          playlist: pl,
+          movies: matchedMovies,
+        });
+      }
+    });
+
+    // 動画リストを持つ再生リストが1つもない場合は非表示
+    if (validPlaylists.length === 0) return null;
+
+    const groupEl = document.createElement("div");
+    groupEl.className = "lp-movie-playlist-section";
+
+    // ヘッダー (見出し)
+    const headerEl = document.createElement("div");
+    headerEl.className = "lp-movie-playlist-header";
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "lp-movie-playlist-title-wrap";
+
+    const titleEl = document.createElement("h3");
+    titleEl.className = "lp-movie-playlist-title";
+    titleEl.textContent = "PLAYLISTS";
+
+    const subTitleEl = document.createElement("span");
+    subTitleEl.className = "lp-movie-playlist-subtitle";
+    subTitleEl.textContent = "再生リスト";
+
+    const countBadge = document.createElement("span");
+    countBadge.className = "lp-movie-playlist-count-badge";
+    countBadge.textContent = `${validPlaylists.length}`;
+
+    titleWrap.appendChild(titleEl);
+    titleWrap.appendChild(subTitleEl);
+    titleWrap.appendChild(countBadge);
+    headerEl.appendChild(titleWrap);
+    groupEl.appendChild(headerEl);
+
+    // 1行スライダーコンテナ
+    const sliderContainer = document.createElement("div");
+    sliderContainer.className = "lp-movie-slider-container lp-movie-playlist-slider-container";
+
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "lp-movie-slider-arrow lp-movie-arrow-prev is-hidden";
+    prevBtn.type = "button";
+    prevBtn.setAttribute("aria-label", "前の再生リストへ");
+    prevBtn.innerHTML = "‹";
+
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "lp-movie-slider-arrow lp-movie-arrow-next is-hidden";
+    nextBtn.type = "button";
+    nextBtn.setAttribute("aria-label", "次の再生リストへ");
+    nextBtn.innerHTML = "›";
+
+    const track = document.createElement("div");
+    track.className = "lp-movie-slider-track lp-movie-playlist-track";
+
+    // スライダーのインタラクション初期化（ドラッグ、矢印、スワイプ）
+    const getHasDragged = this.setupSliderInteractions(track, prevBtn, nextBtn, false);
+
+    validPlaylists.forEach((plData) => {
+      const card = this.createPlaylistCard(plData, getHasDragged);
+      track.appendChild(card);
+    });
+
+    sliderContainer.appendChild(prevBtn);
+    sliderContainer.appendChild(track);
+    sliderContainer.appendChild(nextBtn);
+    groupEl.appendChild(sliderContainer);
+
+    return groupEl;
+  }
+
+  /**
+   * 再生リストカードの生成
+   */
+  createPlaylistCard(plData, getHasDragged) {
+    const { playlist, movies } = plData;
+    const card = document.createElement("div");
+    card.className = "lp-movie-card lp-playlist-card is-slide-item is-wide";
+
+    // サムネイルラッパー (16:9)
+    const thumbWrapper = document.createElement("div");
+    thumbWrapper.className = "lp-movie-thumb-wrapper is-wide lp-playlist-thumb-wrapper";
+
+    const thumbImg = document.createElement("img");
+    thumbImg.className = "lp-movie-thumb-img lp-playlist-thumb-img";
+    thumbImg.alt = playlist.listName || "再生リスト";
+    thumbImg.loading = "lazy";
+
+    // サムネイル解決: playlist.listImage があれば優先、なければ先頭動画のサムネイル
+    if (playlist.listImage && String(playlist.listImage).trim() !== "") {
+      thumbImg.src = api.resolveAssetUrl(playlist.listImage, "movieList");
+      thumbImg.onerror = () => {
+        if (movies[0]) {
+          this.resolveAndApplyThumbnail(thumbImg, movies[0]);
+        } else {
+          thumbImg.src = GENERIC_PLACEHOLDER_SVG;
+        }
+      };
+    } else if (movies[0]) {
+      this.resolveAndApplyThumbnail(thumbImg, movies[0]);
+    } else {
+      thumbImg.src = GENERIC_PLACEHOLDER_SVG;
+    }
+
+    thumbWrapper.appendChild(thumbImg);
+
+    // 再生リストオーバーレイバッジ (YouTube風 右側オーバーレイ)
+    const overlay = document.createElement("div");
+    overlay.className = "lp-playlist-overlay";
+    overlay.innerHTML = `
+      <div class="lp-playlist-overlay-content">
+        <svg class="lp-playlist-overlay-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm12 0l6 4-6 4v-8z"/>
+        </svg>
+        <span class="lp-playlist-overlay-text">${movies.length}本の動画</span>
+      </div>
+    `;
+    thumbWrapper.appendChild(overlay);
+
+    // ホバー時の中央再生ボタン
+    const playBtn = document.createElement("div");
+    playBtn.className = "lp-movie-play-btn lp-playlist-play-btn";
+    playBtn.innerHTML = '<div class="lp-movie-play-icon">▶</div>';
+    thumbWrapper.appendChild(playBtn);
+
+    // クリックで再生リストモーダルを開く
+    card.onclick = () => {
+      if (typeof getHasDragged === "function" && getHasDragged()) return;
+      this.openPlaylistModal(playlist, movies);
+    };
+
+    card.appendChild(thumbWrapper);
+
+    // カード下部情報
+    const info = document.createElement("div");
+    info.className = "lp-movie-info lp-playlist-info";
+
+    const titleEl = document.createElement("h4");
+    titleEl.className = "lp-playlist-name";
+    titleEl.textContent = playlist.listName || "再生リスト";
+    titleEl.title = playlist.listName || "";
+    info.appendChild(titleEl);
+
+    const metaRow = document.createElement("div");
+    metaRow.className = "lp-playlist-meta";
+    metaRow.innerHTML = `
+      <span class="lp-playlist-badge">再生リスト</span>
+      <span class="lp-playlist-count-label">${movies.length} videos</span>
+    `;
+    info.appendChild(metaRow);
+
+    card.appendChild(info);
+    return card;
+  }
+
+  /**
+   * 動画埋め込みURL情報の解決ヘルパー
+   */
+  getVideoEmbedInfo(movie) {
+    const url = movie.movieUrl || "";
+    let embedUrl = url;
+    let isTall = false;
+
+    // カテゴリーのアスペクト比判定
+    const cat = this.categories.find((c) => String(c.id) === String(movie.movieCategory_id));
+    if (cat && cat.aspectRatio === "tall") {
+      isTall = true;
+    }
+
+    try {
+      // 1. YouTube Shorts
+      const ytShortsMatch = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
+      if (ytShortsMatch && ytShortsMatch[1]) {
+        embedUrl = `https://www.youtube.com/embed/${ytShortsMatch[1]}?autoplay=1`;
+        isTall = true;
+        return { embedUrl, isTall };
+      }
+
+      // 2. YouTube 通常
+      const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/);
+      if (ytMatch && ytMatch[1]) {
+        embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+        return { embedUrl, isTall };
+      }
+
+      // 3. TikTok
+      if (url.includes("tiktok.com")) {
+        isTall = true;
+        let videoId = null;
+        const ttVideoMatch = url.match(/\/video\/(\d+)/);
+        if (ttVideoMatch && ttVideoMatch[1]) {
+          videoId = ttVideoMatch[1];
+        }
+        if (!videoId) {
+          const KNOWN = { "ZSbqgvf8n": "7692026651252755713" };
+          const shortMatch = url.match(/vt\.tiktok\.com\/([a-zA-Z0-9]+)/);
+          if (shortMatch && KNOWN[shortMatch[1]]) {
+            videoId = KNOWN[shortMatch[1]];
+          }
+        }
+        if (videoId) {
+          embedUrl = `https://www.tiktok.com/player/v1/${videoId}?autoplay=1`;
+        } else {
+          embedUrl = url;
+        }
+        return { embedUrl, isTall };
+      }
+    } catch (e) {
+      console.warn("動画URLの埋め込み変換エラー:", e);
+    }
+
+    return { embedUrl, isTall };
+  }
+
+  /**
+   * 再生リスト専用モーダルの展開
+   */
+  openPlaylistModal(playlist, movies) {
+    if (!movies || movies.length === 0) return;
+
+    let currentIndex = 0;
+
+    const modalRoot = document.createElement("div");
+    modalRoot.className = "lp-playlist-modal-root";
+
+    // 1. プレーヤーラッパー
+    const playerWrapper = document.createElement("div");
+    playerWrapper.className = "lp-playlist-modal-player-wrap";
+
+    const iframe = document.createElement("iframe");
+    iframe.className = "lp-playlist-modal-iframe";
+    iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+    iframe.allowFullscreen = true;
+    playerWrapper.appendChild(iframe);
+    modalRoot.appendChild(playerWrapper);
+
+    // 2. コントロールバー (前へ / 次へ / 連番 / 外部リンク)
+    const controlBar = document.createElement("div");
+    controlBar.className = "lp-playlist-modal-controls";
+
+    const navBtns = document.createElement("div");
+    navBtns.className = "lp-playlist-nav-btns";
+
+    const prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.className = "lp-playlist-nav-btn";
+    prevBtn.innerHTML = "‹ 前へ";
+
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "lp-playlist-nav-btn";
+    nextBtn.innerHTML = "次へ ›";
+
+    const countIndicator = document.createElement("span");
+    countIndicator.className = "lp-playlist-nav-count";
+
+    navBtns.appendChild(prevBtn);
+    navBtns.appendChild(countIndicator);
+    navBtns.appendChild(nextBtn);
+    controlBar.appendChild(navBtns);
+
+    const extLink = document.createElement("a");
+    extLink.className = "lp-playlist-ext-link";
+    extLink.target = "_blank";
+    extLink.rel = "noopener noreferrer";
+    extLink.innerHTML = `
+      <span>元動画を開く</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+    `;
+    controlBar.appendChild(extLink);
+    modalRoot.appendChild(controlBar);
+
+    // 3. 動画一覧リスト
+    const listWrap = document.createElement("div");
+    listWrap.className = "lp-playlist-modal-list-wrap";
+
+    const listHead = document.createElement("div");
+    listHead.className = "lp-playlist-modal-list-head";
+    listHead.textContent = `リスト内の動画 (${movies.length}本)`;
+    listWrap.appendChild(listHead);
+
+    const listContainer = document.createElement("div");
+    listContainer.className = "lp-playlist-modal-items";
+    listWrap.appendChild(listContainer);
+    modalRoot.appendChild(listWrap);
+
+    // 動画切り替え関数
+    const switchVideo = (index) => {
+      if (index < 0 || index >= movies.length) return;
+      currentIndex = index;
+      const movie = movies[currentIndex];
+
+      const videoInfo = this.getVideoEmbedInfo(movie);
+      iframe.src = videoInfo.embedUrl;
+      extLink.href = movie.movieUrl || "#";
+
+      if (videoInfo.isTall) {
+        playerWrapper.classList.add("is-tall");
+      } else {
+        playerWrapper.classList.remove("is-tall");
+      }
+
+      countIndicator.textContent = `${currentIndex + 1} / ${movies.length}`;
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === movies.length - 1;
+
+      const itemEls = listContainer.querySelectorAll(".lp-playlist-modal-item");
+      itemEls.forEach((el, idx) => {
+        el.classList.toggle("is-active", idx === currentIndex);
+        if (idx === currentIndex) {
+          el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      });
+    };
+
+    prevBtn.onclick = () => switchVideo(currentIndex - 1);
+    nextBtn.onclick = () => switchVideo(currentIndex + 1);
+
+    // リスト項目の生成
+    movies.forEach((m, idx) => {
+      const itemEl = document.createElement("div");
+      itemEl.className = "lp-playlist-modal-item";
+
+      const numEl = document.createElement("span");
+      numEl.className = "lp-playlist-item-num";
+      numEl.textContent = `${idx + 1}`;
+      itemEl.appendChild(numEl);
+
+      const thumbWrap = document.createElement("div");
+      thumbWrap.className = "lp-playlist-item-thumb";
+      const thumb = document.createElement("img");
+      this.resolveAndApplyThumbnail(thumb, m);
+      thumbWrap.appendChild(thumb);
+      itemEl.appendChild(thumbWrap);
+
+      const textWrap = document.createElement("div");
+      textWrap.className = "lp-playlist-item-text";
+
+      const catObj = this.categories.find((c) => String(c.id) === String(m.movieCategory_id));
+      const tagObj = this.tags.find((t) => String(t.id) === String(m.movieTag_id));
+
+      const titleSpan = document.createElement("div");
+      titleSpan.className = "lp-playlist-item-title";
+      titleSpan.textContent = catObj ? catObj.categoryName : `動画 #${idx + 1}`;
+      textWrap.appendChild(titleSpan);
+
+      if (tagObj) {
+        const tagSpan = document.createElement("span");
+        tagSpan.className = "app-badge app-badge-gray";
+        tagSpan.style.fontSize = "0.7rem";
+        tagSpan.textContent = `#${tagObj.tagName}`;
+        textWrap.appendChild(tagSpan);
+      }
+      itemEl.appendChild(textWrap);
+
+      const playingBadge = document.createElement("span");
+      playingBadge.className = "lp-playlist-item-playing";
+      playingBadge.textContent = "▶ 再生中";
+      itemEl.appendChild(playingBadge);
+
+      itemEl.onclick = () => switchVideo(idx);
+      listContainer.appendChild(itemEl);
+    });
+
+    // 初期動画ロード
+    switchVideo(0);
+
+    Modal.open({
+      title: `${playlist.listName || "再生リスト"} (全${movies.length}件)`,
+      content: modalRoot,
+      isLarge: true,
+      onClose: () => {
+        iframe.src = "about:blank"; // 音声を確実に停止
+      },
+    });
   }
 }
