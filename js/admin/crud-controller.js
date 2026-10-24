@@ -16649,7 +16649,7 @@ export class CrudController {
     registerUsage("assets/config", themeConfig.background, "テーマ設定の背景画像");
     registerUsage("assets/config", themeConfig.logo, "テーマ設定のロゴ画像");
 
-    // 4. GitHub APIから各格納パスのファイル一覧を取得 (並列リクエスト)
+    // 4. GitHub APIから各格納パスのファイル一覧を取得 (Workerプロキシ & 直接GitHub API併用)
     const allPathsList = [];
     ASSET_CATEGORIES.forEach((cat) => {
       cat.paths.forEach((p) => allPathsList.push(p.path));
@@ -16665,6 +16665,16 @@ export class CrudController {
     const ghResultsMap = new Map();
     await Promise.allSettled(
       allPathsList.map(async (folderPath) => {
+        // (A) まず Worker プロキシ経由で取得 (PATがバックエンドにあればロール権限に関わらず確実に取得可能)
+        try {
+          const workerRes = await api.request(`/api/github/contents?path=${encodeURIComponent(folderPath)}`, { method: "GET" }, true);
+          if (workerRes && workerRes.success && Array.isArray(workerRes.files)) {
+            ghResultsMap.set(folderPath, workerRes.files);
+            return;
+          }
+        } catch (e) {}
+
+        // (B) Workerプロキシが未反映等の場合、クライアントから直接GitHub APIを試行
         try {
           const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderPath}`;
           const res = await fetch(ghUrl, { headers: ghHeaders });
@@ -16696,51 +16706,42 @@ export class CrudController {
       const pathsData = cat.paths.map((pCfg) => {
         const fileMap = new Map();
 
-        // (1) デフォルト登録ファイル
-        pCfg.defaultFiles.forEach((fn) => {
-          fileMap.set(fn, {
-            name: fn,
-            path: `${pCfg.path}/${fn}`,
-            size: null,
-            sha: null,
-            isDefault: true,
-          });
-        });
-
-        // (2) GitHubから取得されたファイル
-        const ghFiles = ghResultsMap.get(pCfg.path) || [];
-        ghFiles.forEach((item) => {
-          if (item.type === "file") {
-            fileMap.set(item.name, {
-              name: item.name,
-              path: item.path,
-              size: item.size,
-              sha: item.sha,
-              downloadUrl: item.download_url,
-              isDefault: pCfg.defaultFiles.includes(item.name),
-            });
-          }
-        });
-
-        // (3) DBから参照されている同フォルダのファイル
-        for (const [key, reasons] of usedAssetMap.entries()) {
-          if (key.startsWith(pCfg.path.toLowerCase() + "/")) {
-            const fn = key.split("/").pop();
-            if (!fileMap.has(fn)) {
-              fileMap.set(fn, {
-                name: fn,
-                path: `${pCfg.path}/${fn}`,
-                size: null,
-                sha: null,
-                isDefault: pCfg.defaultFiles.includes(fn),
+        // GitHub APIで実在ファイル一覧が取得できている場合は、GitHub上の実在ファイルのみを正として採用
+        if (ghResultsMap.has(pCfg.path)) {
+          const ghFiles = ghResultsMap.get(pCfg.path) || [];
+          ghFiles.forEach((item) => {
+            if (item.type === "file") {
+              fileMap.set(item.name, {
+                name: item.name,
+                path: item.path,
+                size: item.size,
+                sha: item.sha,
+                downloadUrl: item.download_url,
+                isDefault: pCfg.defaultFiles.includes(item.name),
               });
             }
-          }
+          });
+        } else {
+          // GitHub API未取得時のフォールバック: Git管理対象のデフォルト実在ファイルのみ登録
+          pCfg.defaultFiles.forEach((fn) => {
+            fileMap.set(fn, {
+              name: fn,
+              path: `${pCfg.path}/${fn}`,
+              size: null,
+              sha: null,
+              isDefault: true,
+            });
+          });
         }
 
         const files = Array.from(fileMap.values()).map((f) => {
           const isSvg = f.name.toLowerCase().endsWith(".svg");
-          const reasonsSet = usedAssetMap.get(f.path.toLowerCase()) || usedAssetMap.get(f.name.toLowerCase()) || new Set();
+          // 大文字小文字の差異（ELISA.png vs elisa.png）を吸収して使用中判定
+          const reasonsSet = new Set([
+            ...(usedAssetMap.get(f.path.toLowerCase()) || []),
+            ...(usedAssetMap.get(f.name.toLowerCase()) || []),
+            ...(usedAssetMap.get(`${pCfg.path.toLowerCase()}/${f.name.toLowerCase()}`) || [])
+          ]);
           const reasons = Array.from(reasonsSet);
           const isUsed = reasons.length > 0;
 
@@ -16933,6 +16934,7 @@ export class CrudController {
             card.dataset.svg = file.isSvg ? "true" : "false";
 
             const fileUrl = api.resolveAssetUrl(file.path);
+            const rawUrl = `/api/github/raw?path=${encodeURIComponent(file.path)}`;
 
             // プレビュー枠
             const previewBox = document.createElement("div");
@@ -16955,18 +16957,22 @@ export class CrudController {
                 class="admin-asset-preview-img"
                 loading="lazy"
                 referrerpolicy="no-referrer"
-                onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<span style=\\'font-size:0.75rem; color:#ef4444;\\'>読込不可</span>');"
+                onerror="if (!this.dataset.triedRaw) { this.dataset.triedRaw='1'; this.src='${rawUrl}'; } else { this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<span style=\\'font-size:0.75rem; color:#ef4444;\\'>読込不可</span>'); }"
               />
               ${badgeHtml}
             `;
 
-            previewBox.onclick = () => {
-              this.openImageDetailModal(fileUrl, `${file.name}`, {
+            const showDetailModal = () => {
+              const curImg = card.querySelector(".admin-asset-preview-img");
+              const targetSrc = (curImg && curImg.src && curImg.style.display !== "none") ? curImg.src : fileUrl;
+              this.openImageDetailModal(targetSrc, `${file.name}`, {
                 costumeName: p.label,
                 columnLabel: p.path,
                 path: file.path,
               });
             };
+
+            previewBox.onclick = showDetailModal;
             card.appendChild(previewBox);
 
             // コンテンツ枠
@@ -17007,13 +17013,7 @@ export class CrudController {
             previewBtn.type = "button";
             previewBtn.className = "admin-asset-btn-preview";
             previewBtn.innerHTML = `<span>🔍</span> 拡大`;
-            previewBtn.onclick = () => {
-              this.openImageDetailModal(fileUrl, `${file.name}`, {
-                costumeName: p.label,
-                columnLabel: p.path,
-                path: file.path,
-              });
-            };
+            previewBtn.onclick = showDetailModal;
             footer.appendChild(previewBtn);
 
             const deleteBtn = document.createElement("button");
@@ -17193,42 +17193,63 @@ export class CrudController {
 
       try {
         let fileSha = file.sha;
-        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`;
 
-        if (!fileSha) {
-          const checkRes = await fetch(ghUrl, {
+        // 1. まず Worker プロキシ経由で削除を試行 (サーバー側PATで確実に削除)
+        let deletedViaWorker = false;
+        try {
+          if (!fileSha) {
+            const checkWorker = await api.request(`/api/github/contents?path=${encodeURIComponent(file.path)}`, { method: "GET" }, true);
+            if (checkWorker && checkWorker.files && checkWorker.files[0]?.sha) {
+              fileSha = checkWorker.files[0].sha;
+            }
+          }
+          if (fileSha) {
+            const delWorker = await api.request(`/api/github/contents?path=${encodeURIComponent(file.path)}&sha=${encodeURIComponent(fileSha)}`, { method: "DELETE" }, true);
+            if (delWorker && delWorker.success) {
+              deletedViaWorker = true;
+            }
+          }
+        } catch (wErr) {}
+
+        if (!deletedViaWorker) {
+          // 2. クライアントから直接 GitHub API を試行
+          const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`;
+
+          if (!fileSha) {
+            const checkRes = await fetch(ghUrl, {
+              headers: {
+                Authorization: `token ${pat}`,
+                Accept: "application/vnd.github.v3+json",
+              },
+            });
+            if (checkRes.ok) {
+              const checkData = await checkRes.json();
+              fileSha = checkData.sha;
+            }
+          }
+
+          if (!fileSha) {
+            throw new Error("ファイルのSHAを取得できませんでした。リポジトリ上に既に存在しない可能性があります。");
+          }
+
+          const delRes = await fetch(ghUrl, {
+            method: "DELETE",
             headers: {
               Authorization: `token ${pat}`,
               Accept: "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+              message: `Delete asset ${file.name} via admin asset manager`,
+              sha: fileSha,
+              branch: "main",
+            }),
           });
-          if (checkRes.ok) {
-            const checkData = await checkRes.json();
-            fileSha = checkData.sha;
+
+          if (!delRes.ok) {
+            const errData = await delRes.json().catch(() => ({}));
+            throw new Error(errData.message || `GitHub API エラー (${delRes.status})`);
           }
-        }
-
-        if (!fileSha) {
-          throw new Error("ファイルのSHAを取得できませんでした。リポジトリ上に既に存在しない可能性があります。");
-        }
-
-        const delRes = await fetch(ghUrl, {
-          method: "DELETE",
-          headers: {
-            Authorization: `token ${pat}`,
-            Accept: "application/vnd.github.v3+json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: `Delete asset ${file.name} via admin asset manager`,
-            sha: fileSha,
-            branch: "main",
-          }),
-        });
-
-        if (!delRes.ok) {
-          const errData = await delRes.json().catch(() => ({}));
-          throw new Error(errData.message || `GitHub API エラー (${delRes.status})`);
         }
 
         Modal.close();

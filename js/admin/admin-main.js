@@ -5,7 +5,7 @@
 
 import { AuthManager } from "./auth-manager.js";
 import { MenuManager } from "./menu-manager.js";
-import { CrudController } from "./crud-controller.js?v=20261024_asset_manage";
+import { CrudController } from "./crud-controller.js?v=20261024_asset_github_sync";
 import { MaintenanceManager } from "./maintenance-manager.js";
 
 document.addEventListener("DOMContentLoaded", () => {

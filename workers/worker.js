@@ -170,7 +170,124 @@ export default {
     }
 
     // ============================================================
-    // 0-2. 全テーブル一括取得 (/api/all)
+    // 0-2. GitHub アセット管理プロキシ (/api/github/contents & /api/github/raw)
+    // ============================================================
+    if (pathParts[0] === "api" && pathParts[1] === "github") {
+      const sub = pathParts[2]; // "contents" or "raw"
+      const targetPath = url.searchParams.get("path");
+      if (!targetPath) {
+        return jsonResponse({ error: "path is required" }, 400);
+      }
+
+      // githubPAT 取得 (D1から直接取得)
+      let patRecord = null;
+      try {
+        patRecord = await env.DB.prepare("SELECT * FROM githubPAT WHERE id = 1").first();
+      } catch (e) {}
+
+      const pat = patRecord?.github_pat;
+      const owner = patRecord?.github_repo_owner || "elisafoster";
+      const repo = patRecord?.github_repo_name || "elisafoster";
+
+      if (sub === "contents") {
+        if (method === "GET") {
+          try {
+            const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}`;
+            const ghResp = await fetch(ghUrl, {
+              headers: {
+                "User-Agent": "ElisaOfficialApp/1.0",
+                "Accept": "application/vnd.github.v3+json",
+                ...(pat ? { "Authorization": `token ${pat}` } : {})
+              }
+            });
+
+            if (ghResp.ok) {
+              const data = await ghResp.json();
+              return jsonResponse({ success: true, files: Array.isArray(data) ? data : [data], owner, repo });
+            } else {
+              const errData = await ghResp.json().catch(() => ({}));
+              return jsonResponse({ success: false, error: errData.message || `GitHub error (${ghResp.status})`, files: [] }, ghResp.status);
+            }
+          } catch (err) {
+            return jsonResponse({ success: false, error: err.message, files: [] }, 500);
+          }
+        } else if (method === "DELETE") {
+          const sha = url.searchParams.get("sha");
+          if (!sha) {
+            return jsonResponse({ error: "sha is required for delete" }, 400);
+          }
+          if (!pat) {
+            return jsonResponse({ error: "GitHub PAT is not configured" }, 400);
+          }
+
+          try {
+            const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}`;
+            const ghResp = await fetch(ghUrl, {
+              method: "DELETE",
+              headers: {
+                "User-Agent": "ElisaOfficialApp/1.0",
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json",
+                "Authorization": `token ${pat}`
+              },
+              body: JSON.stringify({
+                message: `Delete asset ${targetPath.split("/").pop()} via admin`,
+                sha,
+                branch: "main"
+              })
+            });
+
+            if (ghResp.ok) {
+              return jsonResponse({ success: true });
+            } else {
+              const errData = await ghResp.json().catch(() => ({}));
+              return jsonResponse({ success: false, error: errData.message || `Delete failed (${ghResp.status})` }, ghResp.status);
+            }
+          } catch (err) {
+            return jsonResponse({ success: false, error: err.message }, 500);
+          }
+        }
+      } else if (sub === "raw") {
+        try {
+          const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}`;
+          const ghResp = await fetch(ghUrl, {
+            headers: {
+              "User-Agent": "ElisaOfficialApp/1.0",
+              "Accept": "application/vnd.github.raw",
+              ...(pat ? { "Authorization": `token ${pat}` } : {})
+            }
+          });
+
+          if (ghResp.ok) {
+            const ext = targetPath.split(".").pop().toLowerCase();
+            const mimeTypes = {
+              png: "image/png",
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              svg: "image/svg+xml",
+              webp: "image/webp",
+              gif: "image/gif"
+            };
+            const contentType = mimeTypes[ext] || "application/octet-stream";
+
+            return new Response(ghResp.body, {
+              headers: {
+                "Content-Type": contentType,
+                "Cache-Control": "public, max-age=300",
+                ...corsHeaders
+              }
+            });
+          } else {
+            return new Response("Not found", { status: 404, headers: corsHeaders });
+          }
+        } catch (err) {
+          return new Response(err.message, { status: 500, headers: corsHeaders });
+        }
+      }
+    }
+
+    // ============================================================
+    // 0-3. 全テーブル一括取得 (/api/all)
     // ============================================================
     if (pathParts[0] === "api" && pathParts[1] === "all") {
       const allData = {};
