@@ -15620,18 +15620,27 @@ export class CrudController {
       if (s.sectionBackground) this.sectionImageCache.sectionBackground.add(String(s.sectionBackground).split("/").pop());
     });
 
-    this.sectionDraftList = sortedSections.map((sec, idx) => ({
-      ...sec,
-      priority: idx + 1,
-      isFeatured: sec.isFeatured === 1 || sec.isFeatured === true || sec.isFeatured === "1",
-      sectionType: sec.sectionType || "banner",
-      headerName: sec.headerName || "",
-      sectionName: sec.sectionName === "-" ? "" : (sec.sectionName || ""),
-      comment: sec.comment === "-" ? "" : (sec.comment || ""),
-      topLine: sec.topLine ? String(sec.topLine).split("/").pop() : "",
-      outLine: sec.outLine ? String(sec.outLine).split("/").pop() : "",
-      sectionBackground: sec.sectionBackground ? String(sec.sectionBackground).split("/").pop() : "",
-    }));
+    this.sectionDraftList = sortedSections.map((sec, idx) => {
+      const isStatic =
+        sec.id === 1 ||
+        sec.id === 2 ||
+        sec.id === "1" ||
+        sec.id === "2" ||
+        String(sec.item || "").includes("\u30d7\u30ed\u30d5\u30a3\u30fc\u30eb") ||
+        String(sec.item || "").includes("\u30a4\u30d9\u30f3\u30c8");
+      return {
+        ...sec,
+        priority: idx + 1,
+        isFeatured: sec.isFeatured === 1 || sec.isFeatured === true || sec.isFeatured === "1",
+        sectionType: sec.sectionType || "banner",
+        headerName: sec.headerName || "",
+        sectionName: isStatic ? "" : (sec.sectionName === "-" ? "" : (sec.sectionName || "")),
+        comment: isStatic ? "" : (sec.comment === "-" ? "" : (sec.comment || "")),
+        topLine: sec.topLine ? String(sec.topLine).split("/").pop() : "",
+        outLine: sec.outLine ? String(sec.outLine).split("/").pop() : "",
+        sectionBackground: sec.sectionBackground ? String(sec.sectionBackground).split("/").pop() : "",
+      };
+    });
 
     // 初回初期化または未初期化時の元データ保存
     if (!this.sectionState.isInitialized) {
@@ -16211,13 +16220,20 @@ export class CrudController {
 
       try {
         const savePromises = this.sectionDraftList.map((sec, idx) => {
+          const isStatic =
+            sec.id === 1 ||
+            sec.id === 2 ||
+            sec.id === "1" ||
+            sec.id === "2" ||
+            String(sec.item || "").includes("\u30d7\u30ed\u30d5\u30a3\u30fc\u30eb") ||
+            String(sec.item || "").includes("\u30a4\u30d9\u30f3\u30c8");
           const payload = {
             ...sec,
             priority: idx + 1,
             isFeatured: sec.isFeatured ? 1 : 0,
             sectionType: sec.sectionType || "banner",
-            sectionName: sec.sectionName || "-",
-            comment: sec.comment || "",
+            sectionName: isStatic ? "" : (sec.sectionName === "-" ? "" : (sec.sectionName || "")),
+            comment: isStatic ? "" : (sec.comment === "-" ? "" : (sec.comment || "")),
             topLine: sec.topLine || "",
             outLine: sec.outLine || "",
             sectionBackground: sec.sectionBackground || "",

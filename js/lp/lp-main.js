@@ -304,8 +304,18 @@ class LpApp {
       const contentLayer = document.createElement("div");
       contentLayer.className = "app-container lp-section-content";
 
-      // セクション見出し (id 1, 2 はタイトル不要設定可能)
-      if (sec.sectionName) {
+      // セクション見出し (プロフィール(id:1)およびイベントバナー(id:2)は表示しない。また、セクション名が未設定や "-" の場合も非表示)
+      const isProfileOrBanner =
+        sec.id === 1 ||
+        sec.id === "1" ||
+        sec.id === 2 ||
+        sec.id === "2" ||
+        sec.item === "プロフィール" ||
+        sec.item === "イベントバナー";
+      const cleanSectionName = (sec.sectionName || "").trim();
+      const hasValidTitle = cleanSectionName !== "" && cleanSectionName !== "-";
+
+      if (!isProfileOrBanner && hasValidTitle) {
         const headerEl = document.createElement("div");
         headerEl.className = "lp-section-header";
 
@@ -326,14 +336,15 @@ class LpApp {
         // セクション名 (タイトル)
         const titleEl = document.createElement("h2");
         titleEl.className = "lp-section-title";
-        titleEl.textContent = sec.sectionName;
+        titleEl.textContent = cleanSectionName;
         innerContent.appendChild(titleEl);
 
         // セクション説明
-        if (sec.comment) {
+        const cleanComment = (sec.comment || "").trim();
+        if (cleanComment && cleanComment !== "-") {
           const descEl = document.createElement("p");
           descEl.className = "lp-section-desc";
-          descEl.textContent = sec.comment;
+          descEl.textContent = cleanComment;
           innerContent.appendChild(descEl);
         }
 
