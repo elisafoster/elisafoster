@@ -15,6 +15,8 @@
 
 /* --------------------------------------------------------------------------
    お知らせカードリスト共通
+   - 高さはお知らせ4つ分 (画像無・1行記事基準: 約450px) に固定
+   - それ以上は縦スクロール対応 (overflow-y: auto)
    -------------------------------------------------------------------------- */
 .lp-notice-list {
   display: flex;
@@ -23,6 +25,32 @@
   max-width: 900px;
   margin: 0 auto;
   width: 100%;
+  height: 450px; /* お知らせ4つ分固定高さ */
+  max-height: 450px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 8px 6px 4px;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+/* スクロールバーのカスタマイズ */
+.lp-notice-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lp-notice-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 9999px;
+}
+
+.lp-notice-list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+.lp-notice-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
 }
 
 /* --------------------------------------------------------------------------
@@ -122,6 +150,11 @@
   .lp-notice-window {
     padding: 18px 16px 24px;
     border-radius: var(--radius-md, 16px);
+  }
+  .lp-notice-list {
+    height: 400px;
+    max-height: 400px;
+    gap: 12px;
   }
 }
 

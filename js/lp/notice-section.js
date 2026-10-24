@@ -54,7 +54,7 @@ export class NoticeSection {
     // 1. draft (下書き) は非表示
     // 2. scheduled (予約) は scheduled_at の時刻を経過したら表示
     // 3. published (公開) または未設定は常に表示
-    // 4. ソート順は表示日（予約なら scheduled_at、通常なら created_at）の新しい順（降順）
+    // 4. ソート順は昇順（古い順、最新が一番下に表示される）
     this.notices = (Array.isArray(noticeList) ? noticeList : [])
       .filter((n) => {
         if (!n) return false;
@@ -73,7 +73,7 @@ export class NoticeSection {
       .sort((a, b) => {
         const timeA = parseNoticeDate(this.getNoticeDisplayDate(a))?.getTime() || 0;
         const timeB = parseNoticeDate(this.getNoticeDisplayDate(b))?.getTime() || 0;
-        return timeB - timeA;
+        return timeA - timeB; // 昇順: 最新が一番下に表示
       });
   }
 
@@ -159,6 +159,41 @@ export class NoticeSection {
       windowCard.appendChild(list);
 
       this.container.appendChild(windowCard);
+    }
+
+    // スクロール初期位置を一番下（最新記事）に設定
+    const scrollToBottom = () => {
+      if (list) {
+        list.scrollTop = list.scrollHeight;
+      }
+    };
+
+    // DOM描画直後のスクロール
+    requestAnimationFrame(() => {
+      scrollToBottom();
+      setTimeout(scrollToBottom, 60);
+      setTimeout(scrollToBottom, 250);
+    });
+
+    // 内部の画像読み込み完了時にも一番下を維持
+    const images = list.querySelectorAll("img");
+    images.forEach((img) => {
+      if (img.complete) {
+        scrollToBottom();
+      } else {
+        img.addEventListener("load", scrollToBottom, { once: true });
+      }
+    });
+
+    // リストのサイズ確定時 (ResizeObserver) に自動追従
+    if (typeof ResizeObserver !== "undefined") {
+      let initCount = 0;
+      const ro = new ResizeObserver(() => {
+        scrollToBottom();
+        initCount++;
+        if (initCount > 10) ro.disconnect();
+      });
+      ro.observe(list);
     }
   }
 }
