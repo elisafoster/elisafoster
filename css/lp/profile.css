@@ -22,8 +22,9 @@
 
 @media (max-width: 900px) {
   .lp-profile-grid {
-    grid-template-columns: 1fr;
-    gap: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
     min-height: auto;
   }
 }
@@ -42,10 +43,44 @@
   max-width: 600px;
 }
 
+/* 上部グループ (名前・ニックネーム・キャッチフレーズ) */
+.lp-profile-header-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+/* 下部グループ (自己紹介・スペック＆クレジット・SNS・動画) */
+.lp-profile-body-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
 @media (max-width: 900px) {
   .lp-profile-left-col {
-    order: 2;
-    max-width: 100%;
+    display: contents; /* 縦長画面時は直下に header-group と body-group を展開して順序を制御 */
+  }
+
+  /* ① 名前・ニックネーム・キャッチフレーズ: 立ち絵の上に表示 */
+  .lp-profile-header-group {
+    order: 1;
+    position: relative;
+    z-index: 10;
+    gap: 12px;
+    width: 100%;
+  }
+
+  /* ③ 自己紹介・スペック・クレジット・SNS・動画: 立ち絵の下に表示 */
+  .lp-profile-body-group {
+    order: 3;
+    position: relative;
+    z-index: 10;
+    gap: 16px;
+    width: 100%;
   }
 }
 
@@ -586,7 +621,7 @@
 
 @media (max-width: 900px) {
   .lp-profile-visual-container {
-    order: 1;
+    order: 2; /* 縦長画面時は名前ブロック(order: 1)の下、自己紹介(order: 3)の上に配置 */
     min-height: 520px;
     align-items: center;
     justify-content: center;

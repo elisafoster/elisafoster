@@ -77,6 +77,10 @@ export class ProfileSection {
     const leftCol = document.createElement("div");
     leftCol.className = "lp-profile-left-col";
 
+    // 上部グループ (スマホ等の縦長画面時に立ち絵の上に配置: 名前・ニックネーム・キャッチフレーズ)
+    const headerGroup = document.createElement("div");
+    headerGroup.className = "lp-profile-header-group";
+
     // ① 名前ブロック (ふりがな・ローマ字バッジ & メイン名)
     const nameBlock = document.createElement("div");
     nameBlock.className = "lp-profile-name-block";
@@ -103,14 +107,14 @@ export class ProfileSection {
     mainName.className = "lp-profile-main-title";
     mainName.textContent = this.profile.name || "ELISA";
     nameBlock.appendChild(mainName);
-    leftCol.appendChild(nameBlock);
+    headerGroup.appendChild(nameBlock);
 
     // ② NICKNAME バッジ
     if (this.profile.nickname) {
       const nickBadge = document.createElement("div");
       nickBadge.className = "lp-profile-nick-badge";
       nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${escapeHtml(this.profile.nickname)}</span>`;
-      leftCol.appendChild(nickBadge);
+      headerGroup.appendChild(nickBadge);
     }
 
     // ③ キャッチフレーズ (引用表示)
@@ -122,8 +126,14 @@ export class ProfileSection {
         <span class="lp-profile-quote-text">${escapeHtml(this.profile.comment)}</span>
         <span class="lp-profile-quote-mark end">”</span>
       `;
-      leftCol.appendChild(phraseQuote);
+      headerGroup.appendChild(phraseQuote);
     }
+
+    leftCol.appendChild(headerGroup);
+
+    // 下部グループ (スマホ等の縦長画面時に立ち絵の下に配置: 自己紹介・スペック＆クレジット・SNS・動画)
+    const bodyGroup = document.createElement("div");
+    bodyGroup.className = "lp-profile-body-group";
 
     // ④ 自己紹介 (引用表示)
     if (this.profile.message) {
@@ -134,7 +144,7 @@ export class ProfileSection {
           <p class="lp-profile-message-quote-text">${escapeHtml(this.profile.message)}</p>
         </div>
       `;
-      leftCol.appendChild(msgQuote);
+      bodyGroup.appendChild(msgQuote);
     }
 
     // ⑤ & ⑥ 横並びの2カラムカード (SPECS & CREDITS)
@@ -207,7 +217,7 @@ export class ProfileSection {
     creditsCard.appendChild(creditsList);
     twoColCards.appendChild(creditsCard);
 
-    leftCol.appendChild(twoColCards);
+    bodyGroup.appendChild(twoColCards);
 
     // ⑦ OFFICIAL CHANNELS & PLATFORMS
     const snsBlock = document.createElement("div");
@@ -257,7 +267,7 @@ export class ProfileSection {
     }
 
     snsBlock.appendChild(snsBtns);
-    leftCol.appendChild(snsBlock);
+    bodyGroup.appendChild(snsBlock);
 
     // ⑧ INTRO MOVIES (自己紹介動画: 複数ある場合はスライダーで切り替え表示)
     if (Array.isArray(this.profile.moves)) {
@@ -391,10 +401,11 @@ export class ProfileSection {
         }
 
         movesBlock.appendChild(sliderContainer);
-        leftCol.appendChild(movesBlock);
+        bodyGroup.appendChild(movesBlock);
       }
     }
 
+    leftCol.appendChild(bodyGroup);
     grid.appendChild(leftCol);
 
     // =========================================================================
