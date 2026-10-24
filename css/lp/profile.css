@@ -720,9 +720,9 @@
 
 @media (max-width: 900px) {
   .lp-profile-deformed-img {
-    left: calc(50% - 195px);
+    left: calc(50% - 240px);
     right: auto;
-    bottom: 15px;
+    bottom: -5px;
     height: 330px;
     max-width: 330px;
   }
@@ -730,9 +730,9 @@
 
 @media (max-width: 600px) {
   .lp-profile-deformed-img {
-    left: max(6px, calc(50% - 150px));
+    left: max(4px, calc(50% - 180px));
     right: auto;
-    bottom: 10px;
+    bottom: -8px;
     height: 260px;
     max-width: 260px;
   }
@@ -767,7 +767,28 @@
     align-items: flex-start;
     gap: 10px;
     margin: 0;
-    padding: 0;
+    padding: 4px 6px;
+    max-height: 250px; /* 3個表示 + 4個目の上部約38%がチラ見え */
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(14, 165, 233, 0.5) transparent;
+  }
+
+  .lp-costume-tabs-standalone::-webkit-scrollbar {
+    width: 4px;
+  }
+  .lp-costume-tabs-standalone::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .lp-costume-tabs-standalone::-webkit-scrollbar-thumb {
+    background: rgba(14, 165, 233, 0.4);
+    border-radius: 4px;
+  }
+  .lp-costume-tabs-standalone::-webkit-scrollbar-thumb:hover {
+    background: rgba(14, 165, 233, 0.8);
   }
 }
 
@@ -832,6 +853,13 @@
 }
 
 @media (max-width: 600px) {
+  .lp-costume-tabs-standalone {
+    left: 4px;
+    padding: 3px 5px;
+    gap: 8px;
+    max-height: 224px; /* 3個表示 + 4個目の上部約38%がチラ見え */
+  }
+
   .lp-costume-thumb-btn {
     width: 58px;
     height: 58px;
