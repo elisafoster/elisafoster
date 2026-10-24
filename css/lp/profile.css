@@ -783,27 +783,32 @@
     padding: 0;
   }
 
-  /* 上下矢印スクロールボタン (画像2の構造) */
+  /* 上下矢印スクロールボタン (画像2の構造: 大きく横に広げたデザイン・黒シャドウなし) */
   .lp-costume-arrow-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 18px;
+    width: 64px;
+    height: 20px;
     background: transparent;
     border: none;
     color: #0ea5e9;
-    font-size: 14px;
-    line-height: 1;
     cursor: pointer;
     padding: 0;
     transition: all var(--transition-fast);
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    filter: none !important;
   }
 
-  .lp-costume-arrow-btn:hover:not(:disabled) {
+  .lp-costume-arrow-btn svg {
+    display: block;
+    width: 34px;
+    height: 13px;
+    transition: transform var(--transition-fast), color var(--transition-fast);
+  }
+
+  .lp-costume-arrow-btn:hover:not(:disabled) svg {
     color: #38bdf8;
-    transform: scale(1.25);
+    transform: scale(1.15);
   }
 
   .lp-costume-arrow-btn:disabled {
@@ -832,22 +837,14 @@
     overflow-x: hidden;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(14, 165, 233, 0.5) transparent;
+    scrollbar-width: none; /* スクロールバー完全非表示 (Firefox) */
+    -ms-overflow-style: none; /* IE / Edge */
   }
 
   .lp-costume-tabs-standalone::-webkit-scrollbar {
-    width: 4px;
-  }
-  .lp-costume-tabs-standalone::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .lp-costume-tabs-standalone::-webkit-scrollbar-thumb {
-    background: rgba(14, 165, 233, 0.4);
-    border-radius: 4px;
-  }
-  .lp-costume-tabs-standalone::-webkit-scrollbar-thumb:hover {
-    background: rgba(14, 165, 233, 0.8);
+    display: none; /* スクロールバー完全非表示 (Chrome, Safari, WebKit) */
+    width: 0;
+    height: 0;
   }
 }
 
@@ -901,7 +898,7 @@
     padding: 3px;
     border-radius: 14px;
     border: 2px solid rgba(255, 255, 255, 0.65);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    box-shadow: none !important; /* 薄透明の黒シャドウ完全除去 */
   }
   .lp-costume-thumb-btn img {
     border-radius: 10px;
@@ -911,7 +908,7 @@
   }
   .lp-costume-thumb-btn.is-active {
     border: 3px solid #f59e0b;
-    box-shadow: 0 0 14px rgba(245, 158, 11, 0.8), 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.9) !important; /* 黒シャドウなしの光彩のみ */
     transform: scale(1.05);
   }
 }
@@ -919,6 +916,16 @@
 @media (max-width: 600px) {
   .lp-costume-slider-wrapper {
     left: 4px;
+  }
+
+  .lp-costume-arrow-btn {
+    width: 58px;
+    height: 18px;
+  }
+
+  .lp-costume-arrow-btn svg {
+    width: 30px;
+    height: 12px;
   }
 
   .lp-costume-tabs-standalone {
@@ -933,6 +940,7 @@
     height: 58px !important;
     aspect-ratio: 1 / 1 !important;
     border-radius: 12px;
+    box-shadow: none !important;
   }
   .lp-costume-thumb-btn img {
     border-radius: 8px;
