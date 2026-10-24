@@ -7,7 +7,7 @@
  */
 
 import { api } from "../common/api-client.js";
-import { ProfileSection } from "./profile-section.js?v=20261024_quote_thumb_deform";
+import { ProfileSection } from "./profile-section.js?v=20261024_deformed_pos_match";
 import { EventSection } from "./event-section.js";
 import { NoticeSection } from "./notice-section.js";
 import { ScheduleSection } from "./schedule-section.js";

@@ -638,38 +638,49 @@
   display: block;
 }
 
-/* デフォルメイラスト（立ち絵の約1/3サイズ・サムネイルの上あたりに配置）
-   z-index: 6 (立ち絵(2)やoutLine(3)の手前)
+/* デフォルメイラスト（立ち絵の手前・太もも/スカート正面・サムネイルの左斜め上に配置）
+   z-index: 8 (立ち絵やoutLineの手前、白座布団なし・透過単体表示)
    -------------------------------------------------------------------------- */
 .lp-profile-deformed-img {
   position: absolute;
-  bottom: 175px; /* サムネイル(約144px)の上あたりに配置 */
-  right: 40px;
+  bottom: 125px; /* サムネイル上端の高さに足元を配置 */
+  left: calc(50% - 150px); /* 立ち絵の中心より左手前（添付画像の立ち絵太もも正面） */
+  right: auto;
   width: auto;
-  height: 270px; /* 立ち絵(約820px)の約1/3サイズ */
-  max-width: 270px;
+  height: 310px; /* 立ち絵の約38%サイズ */
+  max-width: 310px;
   object-fit: contain;
-  z-index: 6; /* 立ち絵 (2) や outLine (3) より前面 */
+  z-index: 8; /* 立ち絵 (2) や outLine (3) より前面 */
   background: none;
   border: none;
   border-radius: 0;
   padding: 0;
-  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
   pointer-events: auto;
   transition: transform var(--transition-fast);
 }
 
 .lp-profile-deformed-img:hover {
-  transform: scale(1.06) rotate(2deg);
+  transform: translateY(-6px) scale(1.04);
 }
 
 @media (max-width: 900px) {
   .lp-profile-deformed-img {
-    width: auto;
-    height: 150px;
-    max-width: 150px;
-    bottom: 130px;
-    right: 20px;
+    left: calc(50% - 90px);
+    right: auto;
+    bottom: 25px;
+    height: 180px;
+    max-width: 180px;
+  }
+}
+
+@media (max-width: 600px) {
+  .lp-profile-deformed-img {
+    left: calc(50% - 75px);
+    right: auto;
+    bottom: 15px;
+    height: 140px;
+    max-width: 140px;
   }
 }
 

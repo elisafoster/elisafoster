@@ -420,8 +420,8 @@ export class ProfileSection {
       standingImg.alt = currentVisual.costumeName || this.profile.name || "立ち絵";
       standingWrapper.appendChild(standingImg);
 
-      // 透過デフォルメキャラクター（白座布団なし・足元手前寄り添い配置 z-index: 6）
-      const defUrl = currentVisual.defoemed || currentVisual.deformed;
+      // 透過デフォルメキャラクター（白座布団なし・足元手前寄り添い配置 z-index: 8）
+      const defUrl = currentVisual.deformed || currentVisual.defoemed;
       if (defUrl) {
         const defImg = document.createElement("img");
         defImg.className = "lp-profile-deformed-img";
