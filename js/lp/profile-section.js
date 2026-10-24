@@ -439,8 +439,45 @@ export class ProfileSection {
 
       // ⑨ サムネイルのみ表示 (外側カード表示なし・拡大サイズ・背景thumbnail_background.jpg)
       if (this.visuals.length > 0) {
+        const costumeTabsWrapper = document.createElement("div");
+        costumeTabsWrapper.className = `lp-costume-slider-wrapper${this.visuals.length <= 3 ? " no-scroll" : ""}`;
+
+        // 上へスクロール矢印ボタン（4つ以上の場合に縦長画面で有効）
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.className = "lp-costume-arrow-btn prev";
+        upBtn.setAttribute("aria-label", "前の衣装サムネイル");
+        upBtn.innerHTML = "▲";
+
         const costumeTabs = document.createElement("div");
         costumeTabs.className = "lp-costume-tabs-standalone";
+
+        // 下へスクロール矢印ボタン（4つ以上の場合に縦長画面で有効）
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.className = "lp-costume-arrow-btn next";
+        downBtn.setAttribute("aria-label", "次の衣装サムネイル");
+        downBtn.innerHTML = "▼";
+
+        upBtn.onclick = (e) => {
+          e.stopPropagation();
+          const step = window.innerWidth <= 600 ? 66 : 74;
+          costumeTabs.scrollBy({ top: -step, behavior: "smooth" });
+        };
+        downBtn.onclick = (e) => {
+          e.stopPropagation();
+          const step = window.innerWidth <= 600 ? 66 : 74;
+          costumeTabs.scrollBy({ top: step, behavior: "smooth" });
+        };
+
+        const updateArrows = () => {
+          if (this.visuals.length <= 3) return;
+          const { scrollTop, scrollHeight, clientHeight } = costumeTabs;
+          upBtn.disabled = scrollTop <= 2;
+          downBtn.disabled = scrollTop + clientHeight >= scrollHeight - 2;
+        };
+        costumeTabs.addEventListener("scroll", updateArrows, { passive: true });
+        setTimeout(updateArrows, 60);
 
         this.visuals.forEach((v, idx) => {
           const btn = document.createElement("button");
@@ -462,7 +499,10 @@ export class ProfileSection {
           costumeTabs.appendChild(btn);
         });
 
-        visualCol.appendChild(costumeTabs);
+        costumeTabsWrapper.appendChild(upBtn);
+        costumeTabsWrapper.appendChild(costumeTabs);
+        costumeTabsWrapper.appendChild(downBtn);
+        visualCol.appendChild(costumeTabsWrapper);
       }
     }
 

@@ -720,9 +720,9 @@
 
 @media (max-width: 900px) {
   .lp-profile-deformed-img {
-    left: calc(50% - 240px);
+    left: calc(50% - 270px);
     right: auto;
-    bottom: -5px;
+    bottom: -25px;
     height: 330px;
     max-width: 330px;
   }
@@ -730,9 +730,9 @@
 
 @media (max-width: 600px) {
   .lp-profile-deformed-img {
-    left: max(4px, calc(50% - 180px));
+    left: -20px; /* キャラクター本体を画面左下へ寄せる */
     right: auto;
-    bottom: -8px;
+    bottom: -25px;
     height: 260px;
     max-width: 260px;
   }
@@ -742,6 +742,21 @@
    ⑨ サムネイルのみ表示 (今の2倍サイズ: 144px × 144px)
    重要: outLine (3) < サムネイル (10)
    -------------------------------------------------------------------------- */
+.lp-costume-slider-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-top: auto;
+  margin-bottom: -10px; /* outLine との自然な重なり */
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.lp-costume-arrow-btn {
+  display: none;
+}
+
 .lp-costume-tabs-standalone {
   position: relative;
   z-index: 10; /* 厳守: outLine (3) より前面！ */
@@ -750,25 +765,69 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  margin-top: auto;
-  margin-bottom: -10px; /* outLine との自然な重なり */
   pointer-events: auto;
   padding: 8px 0;
 }
 
 @media (max-width: 900px) {
-  .lp-costume-tabs-standalone {
+  .lp-costume-slider-wrapper {
     position: absolute;
     top: 0;
     left: 8px; /* キャッチフレーズのすぐ下、左端に縦並び配置 */
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 上下矢印スクロールボタン (画像2の構造) */
+  .lp-costume-arrow-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 18px;
+    background: transparent;
+    border: none;
+    color: #0ea5e9;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: all var(--transition-fast);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  }
+
+  .lp-costume-arrow-btn:hover:not(:disabled) {
+    color: #38bdf8;
+    transform: scale(1.25);
+  }
+
+  .lp-costume-arrow-btn:disabled {
+    opacity: 0.15;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .lp-costume-slider-wrapper.no-scroll .lp-costume-arrow-btn {
+    display: none !important;
+  }
+
+  .lp-costume-tabs-standalone {
+    position: relative;
+    top: auto;
+    left: auto;
+    display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
     margin: 0;
     padding: 4px 6px;
-    max-height: 250px; /* 3個表示 + 4個目の上部約38%がチラ見え */
+    max-height: 244px; /* 3個表示 + 4個目の上部約38%がチラ見え */
     overflow-y: auto;
     overflow-x: hidden;
     flex-wrap: nowrap;
@@ -835,8 +894,10 @@
 
 @media (max-width: 900px) {
   .lp-costume-thumb-btn {
-    width: 64px;  /* 縦長画面時は小型化 */
-    height: 64px;
+    flex: 0 0 64px !important;  /* flex-shrink: 0 で絶対に縦に潰れない！ */
+    width: 64px !important;
+    height: 64px !important;
+    aspect-ratio: 1 / 1 !important;
     padding: 3px;
     border-radius: 14px;
     border: 2px solid rgba(255, 255, 255, 0.65);
@@ -844,6 +905,9 @@
   }
   .lp-costume-thumb-btn img {
     border-radius: 10px;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
   .lp-costume-thumb-btn.is-active {
     border: 3px solid #f59e0b;
@@ -853,16 +917,21 @@
 }
 
 @media (max-width: 600px) {
-  .lp-costume-tabs-standalone {
+  .lp-costume-slider-wrapper {
     left: 4px;
+  }
+
+  .lp-costume-tabs-standalone {
     padding: 3px 5px;
     gap: 8px;
-    max-height: 224px; /* 3個表示 + 4個目の上部約38%がチラ見え */
+    max-height: 218px; /* 3個表示 + 4個目の上部約38%がチラ見え */
   }
 
   .lp-costume-thumb-btn {
-    width: 58px;
-    height: 58px;
+    flex: 0 0 58px !important;
+    width: 58px !important;
+    height: 58px !important;
+    aspect-ratio: 1 / 1 !important;
     border-radius: 12px;
   }
   .lp-costume-thumb-btn img {
