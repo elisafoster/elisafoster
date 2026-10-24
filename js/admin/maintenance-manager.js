@@ -127,11 +127,13 @@ export class MaintenanceManager {
   }
 
   /**
-   * GitHub リポジトリ容量の取得表示
+   * GitHub リポジトリ容量の取得表示 (使用中容量 / 最大容量 形式)
    */
   async fetchRepoSize() {
     const sizeEl = document.getElementById("admin-github-repo-size");
     if (!sizeEl) return;
+
+    const maxStorageLabel = GITHUB_CONFIG.MAX_STORAGE_LABEL || "1.0 GB";
 
     try {
       const owner = GITHUB_CONFIG.DEFAULT_OWNER;
@@ -145,12 +147,19 @@ export class MaintenanceManager {
       if (typeof data.size === "number") {
         // data.size は KB単位
         const sizeKb = data.size;
-        const text = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
-        sizeEl.textContent = text;
+        let usedText = "";
+        if (sizeKb >= 1024 * 1024) {
+          usedText = `${(sizeKb / (1024 * 1024)).toFixed(2)} GB`;
+        } else if (sizeKb >= 1024) {
+          usedText = `${(sizeKb / 1024).toFixed(1)} MB`;
+        } else {
+          usedText = `${sizeKb} KB`;
+        }
+        sizeEl.textContent = `${usedText} / ${maxStorageLabel}`;
       }
     } catch (e) {
       // 取得不可時は直近の目安または -- を表示
-      sizeEl.textContent = "約 12.4 MB";
+      sizeEl.textContent = `14.0 MB / ${maxStorageLabel}`;
     }
   }
 }

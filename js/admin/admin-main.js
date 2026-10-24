@@ -6,7 +6,7 @@
 import { AuthManager } from "./auth-manager.js";
 import { MenuManager } from "./menu-manager.js?v=20261024_menu_enhancement";
 import { CrudController } from "./crud-controller.js?v=20261024_asset_github_sync";
-import { MaintenanceManager } from "./maintenance-manager.js";
+import { MaintenanceManager } from "./maintenance-manager.js?v=20261024_github_storage_format";
 
 document.addEventListener("DOMContentLoaded", () => {
   const contentArea = document.getElementById("admin-content-area");

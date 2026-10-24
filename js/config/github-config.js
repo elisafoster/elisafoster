@@ -12,6 +12,10 @@ export const GITHUB_CONFIG = {
   // GitHub REST API
   API_BASE_URL: "https://api.github.com",
 
+  // リポジトリ推奨上限 (GitHub Pages / Recommended limit: 1.0 GB)
+  MAX_STORAGE_KB: 1024 * 1024,
+  MAX_STORAGE_LABEL: "1.0 GB",
+
   // ローカルストレージキー
   STORAGE_KEYS: {
     TOKEN: "elisafoster_github_token",
