@@ -11,6 +11,9 @@
 /* サイドバー (PC) / ドロワー (SP) */
 .admin-sidebar {
   width: 280px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
   background: #1e293b;
   color: #f8fafc;
   display: flex;
@@ -19,6 +22,7 @@
   transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 100;
+  box-sizing: border-box;
 }
 
 /* PC時: is-collapsed クラスでサイドバーを格納・閉じる（メイン領域が自動で全幅に拡大） */
@@ -115,11 +119,31 @@
 
 .admin-sidebar-nav {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* サイドバー内部スクロールバーのスタイリング */
+.admin-sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* ナビゲーショングループ（アコーディオン対応） */
@@ -212,6 +236,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .admin-maintenance-title {
@@ -282,7 +307,6 @@
   gap: 10px;
   background: #0f172a;
   flex-shrink: 0;
-  margin-top: auto;
 }
 
 .admin-status-item {
