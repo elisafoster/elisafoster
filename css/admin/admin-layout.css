@@ -16,8 +16,16 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: transform var(--transition-normal);
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 100;
+}
+
+/* PC時: is-collapsed クラスでサイドバーを格納・閉じる（メイン領域が自動で全幅に拡大） */
+@media (min-width: 1025px) {
+  .admin-sidebar.is-collapsed {
+    margin-left: -280px;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -35,12 +43,42 @@
   }
 }
 
+/* モバイル用背景オーバーレイ */
+.admin-sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .admin-sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
+  }
+
+  .admin-sidebar-overlay.is-active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .admin-sidebar-header {
-  padding: 20px 24px;
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 16px 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .admin-sidebar-brand {
@@ -51,19 +89,28 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  line-height: 1;
 }
 
 .admin-sidebar-close {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #94a3b8;
-  font-size: 1.5rem;
-  padding: 4px;
+  font-size: 1.4rem;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--transition-fast);
 }
 
-@media (max-width: 1024px) {
-  .admin-sidebar-close {
-    display: block;
-  }
+.admin-sidebar-close:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .admin-sidebar-nav {
@@ -75,14 +122,48 @@
   gap: 20px;
 }
 
+/* ナビゲーショングループ（アコーディオン対応） */
 .admin-nav-group-title {
   font-size: 0.75rem;
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 0 12px;
-  margin-bottom: 8px;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm, 6px);
+  transition: all var(--transition-fast);
+}
+
+.admin-nav-group-title:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.admin-nav-group-caret {
+  font-size: 0.68rem;
+  color: #64748b;
+  transition: transform 0.2s ease, color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-nav-group-title:hover .admin-nav-group-caret {
+  color: #38bdf8;
+}
+
+.admin-nav-group.is-collapsed .admin-nav-group-caret {
+  transform: rotate(-90deg);
+}
+
+.admin-nav-group.is-collapsed .admin-nav-list {
+  display: none;
 }
 
 .admin-nav-list {
@@ -161,10 +242,12 @@
   background: #475569;
 }
 
-/* サイドバーログアウトボタン */
+/* サイドバーログアウトボタン (一番下に配置) */
 .admin-sidebar-logout-wrap {
-  padding: 12px 16px;
+  padding: 12px 16px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0f172a;
+  flex-shrink: 0;
 }
 
 .admin-sidebar-logout-btn {
@@ -192,12 +275,14 @@
 
 /* ステータス表示エリア */
 .admin-sidebar-status {
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   background: #0f172a;
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .admin-status-item {
@@ -273,20 +358,26 @@
 }
 
 .admin-hamburger-btn {
-  display: none;
-  font-size: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
   color: #f8fafc;
-  padding: 6px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
   line-height: 1;
+  transition: all var(--transition-fast);
 }
 
-@media (max-width: 1024px) {
-  .admin-hamburger-btn {
-    display: block;
-  }
+.admin-hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #38bdf8;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .admin-topbar-title {

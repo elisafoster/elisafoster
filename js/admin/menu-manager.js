@@ -83,18 +83,68 @@ export class MenuManager {
     const hamburgerBtn = document.getElementById("admin-hamburger-btn");
     const sidebar = document.getElementById("admin-sidebar");
     const closeBtn = document.getElementById("admin-sidebar-close-btn");
+    const overlay = document.getElementById("admin-sidebar-overlay");
 
-    if (hamburgerBtn && sidebar) {
-      hamburgerBtn.onclick = () => {
-        sidebar.classList.add("is-open");
-      };
-    }
+    const toggleSidebar = () => {
+      if (!sidebar) return;
+      if (window.innerWidth > 1024) {
+        // PC (一定画面幅以上): デフォルト開、ハンバーガー等で開閉トグル
+        sidebar.classList.toggle("is-collapsed");
+      } else {
+        // SP (一定画面幅未満): ドロワー開閉 (is-open)
+        sidebar.classList.toggle("is-open");
+        if (overlay) {
+          overlay.classList.toggle("is-active", sidebar.classList.contains("is-open"));
+        }
+      }
+    };
 
-    if (closeBtn && sidebar) {
-      closeBtn.onclick = () => {
+    const closeSidebar = () => {
+      if (!sidebar) return;
+      if (window.innerWidth > 1024) {
+        sidebar.classList.add("is-collapsed");
+      } else {
         sidebar.classList.remove("is-open");
+        if (overlay) overlay.classList.remove("is-active");
+      }
+    };
+
+    if (hamburgerBtn) {
+      hamburgerBtn.onclick = () => {
+        toggleSidebar();
       };
     }
+
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        closeSidebar();
+      };
+    }
+
+    if (overlay) {
+      overlay.onclick = () => {
+        closeSidebar();
+      };
+    }
+
+    // ナビゲーショングループの開閉アコーディオン (デフォルトは開いた状態)
+    const groupTitles = document.querySelectorAll(".admin-nav-group-title");
+    groupTitles.forEach((titleEl) => {
+      titleEl.onclick = (e) => {
+        e.stopPropagation();
+        const group = titleEl.closest(".admin-nav-group");
+        if (group) {
+          group.classList.toggle("is-collapsed");
+        }
+      };
+      // キーボード操作対応 (Enter / Space)
+      titleEl.onkeydown = (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          titleEl.click();
+        }
+      };
+    });
 
     // 各タブ切り替えボタン
     const navButtons = document.querySelectorAll(".admin-nav-item-btn[data-tab]");
@@ -102,7 +152,11 @@ export class MenuManager {
       btn.onclick = () => {
         const tabKey = btn.getAttribute("data-tab");
         this.switchTab(tabKey);
-        if (sidebar) sidebar.classList.remove("is-open");
+        // SP時のみタブ選択時にサイドバーを閉じる (PC時は開いたまま)
+        if (window.innerWidth <= 1024 && sidebar) {
+          sidebar.classList.remove("is-open");
+          if (overlay) overlay.classList.remove("is-active");
+        }
       };
     });
   }

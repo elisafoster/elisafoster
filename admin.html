@@ -17,7 +17,7 @@
 
   <!-- 管理画面固有 CSS -->
   <link rel="stylesheet" href="css/admin/admin-auth.css">
-  <link rel="stylesheet" href="css/admin/admin-layout.css">
+  <link rel="stylesheet" href="css/admin/admin-layout.css?v=20261024_menu_enhancement">
   <link rel="stylesheet" href="css/admin/admin-crud.css?v=20261024_asset_github_sync">
   <link rel="stylesheet" href="css/admin/richtext-editor.css?v=20261023_guideline_block_split">
 
@@ -82,7 +82,10 @@
       <div class="admin-sidebar-nav">
         <!-- 各セクション管理 -->
         <div class="admin-nav-group">
-          <div class="admin-nav-group-title">セクションコンテンツ管理</div>
+          <div class="admin-nav-group-title" role="button" tabindex="0">
+            <span>セクションコンテンツ管理</span>
+            <span class="admin-nav-group-caret">▲</span>
+          </div>
           <div class="admin-nav-list">
             <button class="admin-nav-item-btn is-active" data-tab="profile">
               <span class="admin-nav-item-icon">👤</span> <span>プロフィール</span>
@@ -119,7 +122,10 @@
 
         <!-- サイト設定管理 -->
         <div class="admin-nav-group">
-          <div class="admin-nav-group-title">サイト設定・運用管理</div>
+          <div class="admin-nav-group-title" role="button" tabindex="0">
+            <span>サイト設定・運用管理</span>
+            <span class="admin-nav-group-caret">▲</span>
+          </div>
           <div class="admin-nav-list">
             <button class="admin-nav-item-btn" data-tab="themeConfig">
               <span class="admin-nav-item-icon">🎨</span> <span>テーマ設定</span>
@@ -141,7 +147,10 @@
 
         <!-- ガイドライン管理 -->
         <div class="admin-nav-group">
-          <div class="admin-nav-group-title">規約・法務管理</div>
+          <div class="admin-nav-group-title" role="button" tabindex="0">
+            <span>規約・法務管理</span>
+            <span class="admin-nav-group-caret">▲</span>
+          </div>
           <div class="admin-nav-list">
             <button class="admin-nav-item-btn" data-tab="guideline">
               <span class="admin-nav-item-icon">📝</span> <span>ガイドライン</span>
@@ -159,18 +168,6 @@
         </div>
       </div>
 
-      <!-- サイドバー ログアウト -->
-      <div class="admin-sidebar-logout-wrap">
-        <button id="admin-sidebar-logout-btn" class="admin-sidebar-logout-btn">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="admin-logout-icon">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-          <span>ログアウト</span>
-        </button>
-      </div>
-
       <!-- ステータス表示 (Cloudflare Deployment & GitHub リポジトリ容量) -->
       <div class="admin-sidebar-status">
         <div class="admin-status-item">
@@ -186,7 +183,22 @@
           <span id="admin-github-repo-size" class="admin-status-val">読み込み中...</span>
         </div>
       </div>
+
+      <!-- サイドバー ログアウト (一番下に配置) -->
+      <div class="admin-sidebar-logout-wrap">
+        <button id="admin-sidebar-logout-btn" class="admin-sidebar-logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="admin-logout-icon">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>ログアウト</span>
+        </button>
+      </div>
     </aside>
+
+    <!-- モバイル用サイドバーオーバーレイ -->
+    <div id="admin-sidebar-overlay" class="admin-sidebar-overlay"></div>
 
     <!-- メインエリア -->
     <div class="admin-main-wrap">
@@ -219,7 +231,7 @@
   </div>
 
   <!-- スクリプト -->
-  <script type="module" src="js/admin/admin-main.js?v=20261024_asset_github_sync"></script>
+  <script type="module" src="js/admin/admin-main.js?v=20261024_menu_enhancement"></script>
 </body>
 </html>
 
