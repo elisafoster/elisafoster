@@ -25,10 +25,56 @@ export class NoticeSection {
       this.hasSectionBackground = false;
     }
 
-    // status が "published" かつ作成日降順でソート
+    // 日時文字列の安全パースヘルパー (例: "2026-10-12 12:00" -> Date)
+    const parseNoticeDate = (dateStr) => {
+      if (!dateStr || typeof dateStr !== "string") return null;
+      const s = dateStr.trim().replace(/-/g, "/").replace("T", " ");
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    // 表示基準日（予約投稿なら scheduled_at、それ以外は created_at）を取得
+    this.getNoticeDisplayDate = (n) => {
+      if ((n.status || "").toLowerCase() === "scheduled" && n.scheduled_at) {
+        return n.scheduled_at;
+      }
+      return n.created_at || n.scheduled_at || "";
+    };
+
+    // 日付ラベル文字列 (YYYY.MM.DD 形式) の生成
+    this.formatNoticeDateLabel = (dateStr) => {
+      if (!dateStr) return "";
+      const s = String(dateStr).trim().slice(0, 10);
+      return s.replace(/[-\/]/g, ".");
+    };
+
+    const now = new Date();
+
+    // フィルタリング & ソート:
+    // 1. draft (下書き) は非表示
+    // 2. scheduled (予約) は scheduled_at の時刻を経過したら表示
+    // 3. published (公開) または未設定は常に表示
+    // 4. ソート順は表示日（予約なら scheduled_at、通常なら created_at）の新しい順（降順）
     this.notices = (Array.isArray(noticeList) ? noticeList : [])
-      .filter((n) => !n.status || n.status === "published")
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      .filter((n) => {
+        if (!n) return false;
+        const status = (n.status || "published").toLowerCase();
+        if (status === "draft") return false;
+
+        if (status === "scheduled") {
+          if (!n.scheduled_at) return false;
+          const targetTime = parseNoticeDate(n.scheduled_at);
+          if (!targetTime) return false;
+          return targetTime.getTime() <= now.getTime();
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = parseNoticeDate(this.getNoticeDisplayDate(a))?.getTime() || 0;
+        const timeB = parseNoticeDate(this.getNoticeDisplayDate(b))?.getTime() || 0;
+        return timeB - timeA;
+      });
   }
 
   render() {
@@ -51,13 +97,13 @@ export class NoticeSection {
       const item = document.createElement("article");
       item.className = "lp-notice-item";
 
-      // 日付
+      // 日付: 予約投稿は scheduled_at の日にち、それ以外は created_at の日にち
       const meta = document.createElement("div");
       meta.className = "lp-notice-meta";
 
       const dateSpan = document.createElement("span");
       dateSpan.className = "lp-notice-date";
-      const dt = notice.created_at ? notice.created_at.slice(0, 10).replace(/-/g, ".") : "";
+      const dt = this.formatNoticeDateLabel(this.getNoticeDisplayDate(notice));
       dateSpan.textContent = dt;
       meta.appendChild(dateSpan);
       item.appendChild(meta);
