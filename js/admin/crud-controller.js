@@ -15337,8 +15337,11 @@ export class CrudController {
       return;
     }
 
-    // priority昇順でソート
-    rawSections.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+    // プロフィール(id:1 または itemにプロフィールを含む)は最上部(index 0)で固定、その他をpriority昇順でソート
+    const profileItem = rawSections.find(s => s.id === 1 || String(s.item || "").includes("プロフィール"));
+    const otherSections = rawSections.filter(s => s !== profileItem);
+    otherSections.sort((a, b) => (Number(a.priority) || 0) - (Number(b.priority) || 0));
+    const sortedSections = profileItem ? [profileItem, ...otherSections] : otherSections;
 
     // 画像ライブラリキャッシュ初期化
     if (!this.sectionImageCache) {
@@ -15359,10 +15362,11 @@ export class CrudController {
     });
 
     // ドラフトデータ初期化
-    this.sectionDraftList = rawSections.map((sec, idx) => ({
+    this.sectionDraftList = sortedSections.map((sec, idx) => ({
       ...sec,
       priority: idx + 1,
       isFeatured: sec.isFeatured === 1 || sec.isFeatured === true || sec.isFeatured === "1",
+      sectionType: sec.sectionType || "banner",
       headerName: sec.headerName || "",
       sectionName: sec.sectionName === "-" ? "" : (sec.sectionName || ""),
       comment: sec.comment === "-" ? "" : (sec.comment || ""),
@@ -15416,6 +15420,12 @@ export class CrudController {
       cards.forEach((card) => {
         const idx = parseInt(card.dataset.index, 10);
         if (this.sectionDraftList[idx]) {
+          const sec = this.sectionDraftList[idx];
+          // プロフィールのセクションタイプ(切替ラジオボタン)
+          const checkedRadio = card.querySelector(`input[name="sec-type-${sec.id}"]:checked, input[name="sec-type-${sec.id}-inner"]:checked`);
+          if (checkedRadio) {
+            this.sectionDraftList[idx].sectionType = checkedRadio.value;
+          }
           const h = card.querySelector(".sec-input-header");
           if (h) this.sectionDraftList[idx].headerName = h.value;
           const t = card.querySelector(".sec-input-title");
@@ -15434,8 +15444,13 @@ export class CrudController {
       });
     };
 
-    // priority再採番
+    // priority再採番 (プロフィールは常に最上部・priority: 1)
     const updatePriorities = () => {
+      const profIdx = this.sectionDraftList.findIndex(s => s.id === 1 || String(s.item || "").includes("プロフィール"));
+      if (profIdx > 0) {
+        const [prof] = this.sectionDraftList.splice(profIdx, 1);
+        this.sectionDraftList.unshift(prof);
+      }
       this.sectionDraftList.forEach((s, i) => {
         s.priority = i + 1;
       });
@@ -15454,6 +15469,7 @@ export class CrudController {
         if (
           orig.priority !== draft.priority ||
           Boolean(orig.isFeatured) !== Boolean(draft.isFeatured) ||
+          (orig.sectionType || "banner") !== (draft.sectionType || "banner") ||
           (orig.headerName || "") !== (draft.headerName || "") ||
           (orig.sectionName || "") !== (draft.sectionName || "") ||
           (orig.comment || "") !== (draft.comment || "") ||
@@ -15548,16 +15564,19 @@ export class CrudController {
       this.sectionDraftList.forEach((sec, idx) => {
         const isFirst = idx === 0;
         const isLast = idx === this.sectionDraftList.length - 1;
+        // プロフィール判定 (id:1 または itemにプロフィールを含む)
+        const isProfile =
+          sec.id === 1 ||
+          String(sec.item || "").includes("プロフィール");
         // プロフィール(id:1)およびイベントバナー(id:2)は固定表示判定
         const isStaticSection =
-          sec.id === 1 ||
+          isProfile ||
           sec.id === 2 ||
-          String(sec.item || "").includes("プロフィール") ||
           String(sec.item || "").includes("イベント");
         const isClosed = !openedStateMap.has(sec.id);
 
         const card = document.createElement("div");
-        card.className = `admin-section-card${isClosed ? " is-closed" : ""}`;
+        card.className = `admin-section-card${isClosed ? " is-closed" : ""}${isProfile ? " is-profile-fixed" : ""}`;
         card.dataset.id = String(sec.id);
         card.dataset.index = String(idx);
 
@@ -15575,17 +15594,36 @@ export class CrudController {
         card.innerHTML = `
           <div class="admin-section-card-header">
             <div class="admin-section-card-header-left">
-              <span class="admin-section-drag-handle" title="ドラッグして並び替え" draggable="true">☰</span>
+              ${isProfile ? `
+                <span class="admin-section-drag-handle is-fixed" title="プロフィールは最上部に固定されています (移動不可)">🔒</span>
+              ` : `
+                <span class="admin-section-drag-handle" title="ドラッグして並び替え" draggable="true">☰</span>
+              `}
               <div class="admin-section-order-badge">${idx + 1}</div>
               <div class="admin-section-title-wrap">
                 <div class="admin-section-title">${escapeHtml(sec.item || "セクション " + sec.id)}</div>
               </div>
             </div>
             <div class="admin-section-card-header-right">
-              <div class="admin-section-order-actions">
-                <button type="button" class="admin-section-order-btn btn-up" title="上へ移動" ${isFirst ? "disabled" : ""}>▲</button>
-                <button type="button" class="admin-section-order-btn btn-down" title="下へ移動" ${isLast ? "disabled" : ""}>▼</button>
-              </div>
+              ${isProfile ? `
+                <!-- プロフィール専用: 切替ラジオボタン (バナー形式 / 立ち絵形式) -->
+                <div class="admin-section-type-radio-group" title="プロフィールの表示形式を選択">
+                  <span class="admin-section-type-legend">表示形式:</span>
+                  <label class="admin-section-radio-btn-label">
+                    <input type="radio" name="sec-type-${sec.id}" value="banner" class="sec-type-radio" ${(sec.sectionType || "banner") === "banner" ? "checked" : ""} />
+                    <span>バナー形式</span>
+                  </label>
+                  <label class="admin-section-radio-btn-label">
+                    <input type="radio" name="sec-type-${sec.id}" value="standing" class="sec-type-radio" ${(sec.sectionType || "banner") === "standing" ? "checked" : ""} />
+                    <span>立ち絵形式</span>
+                  </label>
+                </div>
+              ` : `
+                <div class="admin-section-order-actions">
+                  <button type="button" class="admin-section-order-btn btn-up" title="上へ移動" ${idx <= 1 ? "disabled" : ""}>▲</button>
+                  <button type="button" class="admin-section-order-btn btn-down" title="下へ移動" ${isLast ? "disabled" : ""}>▼</button>
+                </div>
+              `}
               <label class="admin-section-toggle-label">
                 <span class="admin-section-toggle-text">表示</span>
                 <input type="checkbox" class="admin-switch-input sec-toggle-switch" ${sec.isFeatured ? "checked" : ""} />
@@ -15650,8 +15688,27 @@ export class CrudController {
 
               <!-- 右カラム: 見出し設定 ＋ 組み合わせプレビュー (カードモックなし) -->
               <div class="admin-section-right-col">
-                ${isStaticSection ? `
-                  <!-- プロフィール(id:1) または イベントバナー(id:2) 専用表示 -->
+                ${isProfile ? `
+                  <!-- プロフィール(id:1) 専用表示: セクションタイプ切り替え ＋ 注意書き -->
+                  <div class="admin-section-form-group">
+                    <label class="admin-section-form-label">プロフィールの表示形式 (sectionType)</label>
+                    <div class="admin-section-type-radio-group" style="padding: 8px 12px; margin-bottom: 8px;">
+                      <label class="admin-section-radio-btn-label">
+                        <input type="radio" name="sec-type-${sec.id}-inner" value="banner" class="sec-type-radio-inner" ${(sec.sectionType || "banner") === "banner" ? "checked" : ""} />
+                        <span>バナー形式 (banner)</span>
+                      </label>
+                      <label class="admin-section-radio-btn-label">
+                        <input type="radio" name="sec-type-${sec.id}-inner" value="standing" class="sec-type-radio-inner" ${(sec.sectionType || "banner") === "standing" ? "checked" : ""} />
+                        <span>立ち絵形式 (standing)</span>
+                      </label>
+                    </div>
+                    <div class="admin-section-static-notice">
+                      <span class="admin-section-static-pill">${escapeHtml(sec.item)}</span>
+                      <span class="admin-section-static-text">※サイト側にセクション名・説明の表示枠はありません（固定表示）</span>
+                    </div>
+                  </div>
+                ` : isStaticSection ? `
+                  <!-- イベントバナー(id:2) 専用表示 -->
                   <div class="admin-section-form-group">
                     <label class="admin-section-form-label">ページ内セクション名・説明</label>
                     <div class="admin-section-static-notice">
@@ -15699,13 +15756,13 @@ export class CrudController {
         // 初期プレビュー適用
         updateCombinedPreview(card, sec);
 
-        // 1. 上下移動ボタン
+        // 1. 上下移動ボタン (プロフィールは最上部固定のため移動不可)
         const btnUp = card.querySelector(".btn-up");
         const btnDown = card.querySelector(".btn-down");
 
         btnUp?.addEventListener("click", () => {
           syncCurrentInputs();
-          if (idx > 0) {
+          if (idx > 1) { // 0および1は上へ移動できない (プロフィール位置を保持)
             const temp = this.sectionDraftList[idx];
             this.sectionDraftList[idx] = this.sectionDraftList[idx - 1];
             this.sectionDraftList[idx - 1] = temp;
@@ -15718,7 +15775,7 @@ export class CrudController {
 
         btnDown?.addEventListener("click", () => {
           syncCurrentInputs();
-          if (idx < this.sectionDraftList.length - 1) {
+          if (idx > 0 && idx < this.sectionDraftList.length - 1) { // プロフィール(0)は下へ移動できない
             const temp = this.sectionDraftList[idx];
             this.sectionDraftList[idx] = this.sectionDraftList[idx + 1];
             this.sectionDraftList[idx + 1] = temp;
@@ -15728,6 +15785,25 @@ export class CrudController {
             updateCommitBtnState();
           }
         });
+
+        // プロフィール専用: セクション形式ラジオボタン変更イベント (ヘッダーとアコーディオン内の連動)
+        if (isProfile) {
+          const typeRadios = card.querySelectorAll(".sec-type-radio, .sec-type-radio-inner");
+          typeRadios.forEach((r) => {
+            r.addEventListener("change", (e) => {
+              if (e.target.checked) {
+                const newVal = e.target.value;
+                sec.sectionType = newVal;
+                // ヘッダー側とアコーディオン内のラジオを同期
+                const allRadios = card.querySelectorAll(".sec-type-radio, .sec-type-radio-inner");
+                allRadios.forEach((radio) => {
+                  radio.checked = radio.value === newVal;
+                });
+                updateCommitBtnState();
+              }
+            });
+          });
+        }
 
         // 2. 表示トグルスイッチ
         const toggleSwitch = card.querySelector(".sec-toggle-switch");
@@ -15788,19 +15864,24 @@ export class CrudController {
           updateCommitBtnState();
         });
 
-        // 6. ドラッグ＆ドロップ並び替え
+        // 6. ドラッグ＆ドロップ並び替え (プロフィールは最上部固定でドラッグ不可)
         const dragHandle = card.querySelector(".admin-section-drag-handle");
-        dragHandle?.addEventListener("dragstart", (e) => {
-          draggedIndex = idx;
-          card.classList.add("is-dragging");
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", String(idx));
-        });
+        if (dragHandle && !isProfile) {
+          dragHandle.addEventListener("dragstart", (e) => {
+            draggedIndex = idx;
+            card.classList.add("is-dragging");
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", String(idx));
+          });
+        }
 
         card.addEventListener("dragover", (e) => {
+          if (draggedIndex === null || draggedIndex === 0 || isProfile) {
+            return; // プロフィールへのドロップ、またはプロフィールのドラッグは無効
+          }
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
-          if (draggedIndex !== null && draggedIndex !== idx) {
+          if (draggedIndex !== idx) {
             card.classList.add("is-dragover");
           }
         });
@@ -15810,16 +15891,18 @@ export class CrudController {
         });
 
         card.addEventListener("drop", (e) => {
-          e.preventDefault();
           card.classList.remove("is-dragover");
-          if (draggedIndex !== null && draggedIndex !== idx) {
+          if (draggedIndex === null || draggedIndex === 0 || isProfile) return;
+          e.preventDefault();
+          if (draggedIndex !== idx) {
             syncCurrentInputs();
+            let targetIdx = idx <= 0 ? 1 : idx; // プロフィールの前には挿入させない
             const [movedItem] = this.sectionDraftList.splice(draggedIndex, 1);
-            this.sectionDraftList.splice(idx, 0, movedItem);
+            this.sectionDraftList.splice(targetIdx, 0, movedItem);
             draggedIndex = null;
             updatePriorities();
             renderCards();
-            flashCard(idx);
+            flashCard(targetIdx);
             updateCommitBtnState();
           }
         });
@@ -15874,6 +15957,7 @@ export class CrudController {
             ...sec,
             priority: idx + 1,
             isFeatured: sec.isFeatured ? 1 : 0,
+            sectionType: sec.sectionType || "banner",
             sectionName: sec.sectionName || "-",
             comment: sec.comment || "",
             topLine: sec.topLine || "",

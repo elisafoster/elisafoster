@@ -2759,6 +2759,12 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   cursor: grabbing;
 }
 
+.admin-section-drag-handle.is-fixed {
+  cursor: default !important;
+  opacity: 0.45;
+  font-size: 14px;
+}
+
 .admin-section-order-badge {
   width: 26px;
   height: 26px;
@@ -2835,6 +2841,53 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 .admin-section-order-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+/* プロフィール セクションタイプ切り替えラジオグループ */
+.admin-section-type-radio-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-section-type-legend {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+.admin-section-radio-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  color: #cbd5e1;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.admin-section-radio-btn-label:hover {
+  color: #ffffff;
+}
+
+.admin-section-radio-btn-label input[type="radio"] {
+  accent-color: #38bdf8;
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.admin-section-radio-btn-label:has(input[type="radio"]:checked) {
+  color: #38bdf8;
+  font-weight: 700;
 }
 
 .admin-section-toggle-label {

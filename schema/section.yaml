@@ -144,7 +144,7 @@ section:
       default: "banner"
       conditions:
       ui:
-        widget: "select"
+        widget: "radio"
         options:
           - value: "banner"
             label: "バナー形式"
