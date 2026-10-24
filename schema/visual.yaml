@@ -74,7 +74,7 @@ visual:
         displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
         background: "transparent"
 
-    defoemed:
+    deformed:
       type: image
       label: "デフォルメ画像"
       description: "表示する画像の指定方法を選択してください"
@@ -97,8 +97,8 @@ visual:
       # (inputMode == 'library' のときに有効)
       # ---------------------------------------------
       libraryConfig:
-        mediaLibrary: "assets/visual/defoemed"
-        uploadPath: "assets/visual/defoemed"
+        mediaLibrary: "assets/visual/deformed"
+        uploadPath: "assets/visual/deformed"
         accept:
           - ".png"
 

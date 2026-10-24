@@ -1690,7 +1690,7 @@ export class CrudController {
       defoemed: {
         label: "SD",
         category: "visual/deformed",
-        uploadPath: "assets/visual/defoemed",
+        uploadPath: "assets/visual/deformed",
         fallbackKey: "deformed",
         defaultLibrary: ["ELISA_defoemed.png"],
         accept: ".png",
@@ -10186,10 +10186,102 @@ export class CrudController {
 
     confirmBtn.onclick = async () => {
       if (!currentBlob) return;
-      const finalFileName = `${filenameInput.value.trim()}${originalExt}`;
+      const fileNameRaw = filenameInput.value.trim();
+      if (!fileNameRaw || !/^[a-zA-Z0-9_-]+$/.test(fileNameRaw)) {
+        nameError.style.display = "block";
+        return;
+      }
+
+      if (!isSizeValid) {
+        alert("容量が制限を超えています。縮小またはファイルサイズを調整してください。");
+        return;
+      }
+
+      const finalFileName = `${fileNameRaw}${originalExt}`;
+      const uploadPath = `${cfg.uploadPath}/${finalFileName}`;
+
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "アップロード中...";
       api.showLoading();
+
       try {
-        await api.uploadFile(currentBlob, finalFileName, "movieList");
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.movieListLibraryCache.includes(finalFileName)) {
+            this.movieListLibraryCache.push(finalFileName);
+          }
+          Modal.close();
+          await this.openMovieListModal(currentRecord, {
+            ...savedState,
+            image_mode: "library",
+            listImage: finalFileName,
+          });
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${finalFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "この画像を確定して設定";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${finalFileName} for movieList via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
         Toast.success(`画像「${finalFileName}」をアップロードしました`);
 
         if (!this.movieListLibraryCache.includes(finalFileName)) {
@@ -10205,6 +10297,8 @@ export class CrudController {
       } catch (err) {
         console.error("[Upload MovieList Image Error]:", err);
         Toast.error(`アップロードに失敗しました: ${err.message}`);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "この画像を確定して設定";
       } finally {
         api.hideLoading();
       }
@@ -11070,9 +11164,91 @@ export class CrudController {
 
       uploadBtn.disabled = true;
       uploadBtn.textContent = "アップロード中...";
+      api.showLoading();
 
       try {
-        const uploadResult = await api.uploadAsset(uploadPath, currentBlob);
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result;
+            const b64 = result.split(",")[1];
+            resolve(b64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(currentBlob);
+        const base64Data = await base64Promise;
+
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+
+        if (!pat) {
+          Toast.error("GitHub PATが未設定です。管理画面の『GitHub PAT』設定を確認してください。");
+          if (!this.shopLibraryCache) {
+            this.shopLibraryCache = [];
+          }
+          if (!this.shopLibraryCache.includes(fullFileName)) {
+            this.shopLibraryCache.unshift(fullFileName);
+          }
+          cleanupListeners();
+          Modal.close();
+          const updatedState = {
+            ...savedState,
+            merchandiseImage: fullFileName,
+            image_mode: "library",
+          };
+          this.openShopModal(currentRecord, tags, updatedState);
+          return;
+        }
+
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadPath}`;
+
+        let sha = null;
+        try {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const fileInfo = await checkRes.json();
+            sha = fileInfo.sha;
+          }
+        } catch (e) {}
+
+        if (sha) {
+          alert(`同名のファイル (${fullFileName}) が既にリポジトリに存在します。別のファイル名を指定してください。`);
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "アップロード";
+          return;
+        }
+
+        const putRes = await fetch(ghUrl, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${pat}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json",
+          },
+          body: JSON.stringify({
+            message: `Upload ${fullFileName} for shop via admin`,
+            content: base64Data,
+            branch: "main",
+          }),
+        });
+
+        if (!putRes.ok) {
+          const errData = await putRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${putRes.status})`);
+        }
+
         Toast.success(`「${fullFileName}」をアップロードしました`);
 
         if (!this.shopLibraryCache) {
@@ -11097,6 +11273,8 @@ export class CrudController {
         Toast.error(`アップロードに失敗しました: ${err.message}`);
         uploadBtn.disabled = false;
         uploadBtn.textContent = "アップロード";
+      } finally {
+        api.hideLoading();
       }
     };
 
