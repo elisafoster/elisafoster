@@ -761,8 +761,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 52px;
+  width: 36px;
+  height: 84px;
   background: transparent;
   border: none;
   color: #0ea5e9;
@@ -773,17 +773,20 @@
   filter: none !important;
 }
 
-.lp-costume-arrow-btn svg {
+.lp-arrow-icon-desktop {
   display: block;
-  width: 28px;
-  height: 12px;
-  transform: rotate(-90deg); /* PC時は横スクロール用の ◀ / ▶ */
+  width: 28px; /* 今の3倍のサイズ */
+  height: 64px; /* 今の3倍のサイズ */
   transition: transform var(--transition-fast), color var(--transition-fast);
 }
 
-.lp-costume-arrow-btn:hover:not(:disabled) svg {
+.lp-arrow-icon-mobile {
+  display: none;
+}
+
+.lp-costume-arrow-btn:hover:not(:disabled) .lp-arrow-icon-desktop {
   color: #38bdf8;
-  transform: rotate(-90deg) scale(1.2);
+  transform: scale(1.15);
 }
 
 .lp-costume-arrow-btn:disabled {
@@ -850,14 +853,18 @@
     filter: none !important;
   }
 
-  .lp-costume-arrow-btn svg {
+  .lp-arrow-icon-desktop {
+    display: none;
+  }
+
+  .lp-arrow-icon-mobile {
     display: block;
     width: 34px;
     height: 13px;
     transition: transform var(--transition-fast), color var(--transition-fast);
   }
 
-  .lp-costume-arrow-btn:hover:not(:disabled) svg {
+  .lp-costume-arrow-btn:hover:not(:disabled) .lp-arrow-icon-mobile {
     color: #38bdf8;
     transform: scale(1.15);
   }
@@ -912,7 +919,7 @@
   background-position: center;
   background-repeat: no-repeat;
   border: 3px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: none !important; /* サムネイル裏の黒いマスク・シャドウを完全削除 */
   cursor: pointer;
   overflow: hidden;
   position: relative;
@@ -932,13 +939,13 @@
 
 .lp-costume-thumb-btn:hover {
   transform: translateY(-4px) scale(1.04);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.75) !important; /* 黒シャドウなしの光彩のみ */
   border-color: #38bdf8;
 }
 
 .lp-costume-thumb-btn.is-active {
   border: 4px solid #f59e0b; /* アクティブ時の黄色アクセント枠 (参考画像⑨番) */
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.85), 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.95) !important; /* 黒シャドウなしのゴールド光彩のみ */
   transform: scale(1.04);
 }
 

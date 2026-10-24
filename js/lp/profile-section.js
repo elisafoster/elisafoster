@@ -442,13 +442,16 @@ export class ProfileSection {
         const costumeTabsWrapper = document.createElement("div");
         costumeTabsWrapper.className = `lp-costume-slider-wrapper${this.visuals.length <= 3 ? " no-scroll" : ""}`;
 
-        // 上へスクロール矢印ボタン（4つ以上の場合に縦長画面で有効・横に広い三角形）
+        // 上/左へスクロール矢印ボタン（PC時は◀、スマホ時は▲）
         const upBtn = document.createElement("button");
         upBtn.type = "button";
         upBtn.className = "lp-costume-arrow-btn prev";
         upBtn.setAttribute("aria-label", "前の衣装サムネイル");
         upBtn.innerHTML = `
-          <svg viewBox="0 0 36 14" width="34" height="13" fill="currentColor" aria-hidden="true">
+          <svg class="lp-arrow-icon-desktop" viewBox="0 0 24 60" width="28" height="64" fill="currentColor" aria-hidden="true">
+            <path d="M 22 4 L 4 30 L 22 56 Z" />
+          </svg>
+          <svg class="lp-arrow-icon-mobile" viewBox="0 0 36 14" width="34" height="13" fill="currentColor" aria-hidden="true">
             <path d="M 2 12 L 34 12 L 18 2 Z" />
           </svg>
         `;
@@ -456,13 +459,16 @@ export class ProfileSection {
         const costumeTabs = document.createElement("div");
         costumeTabs.className = "lp-costume-tabs-standalone";
 
-        // 下へスクロール矢印ボタン（4つ以上の場合に縦長画面で有効・横に広い三角形）
+        // 下/右へスクロール矢印ボタン（PC時は▶、スマホ時は▼）
         const downBtn = document.createElement("button");
         downBtn.type = "button";
         downBtn.className = "lp-costume-arrow-btn next";
         downBtn.setAttribute("aria-label", "次の衣装サムネイル");
         downBtn.innerHTML = `
-          <svg viewBox="0 0 36 14" width="34" height="13" fill="currentColor" aria-hidden="true">
+          <svg class="lp-arrow-icon-desktop" viewBox="0 0 24 60" width="28" height="64" fill="currentColor" aria-hidden="true">
+            <path d="M 2 4 L 20 30 L 2 56 Z" />
+          </svg>
+          <svg class="lp-arrow-icon-mobile" viewBox="0 0 36 14" width="34" height="13" fill="currentColor" aria-hidden="true">
             <path d="M 2 2 L 34 2 L 18 12 Z" />
           </svg>
         `;
