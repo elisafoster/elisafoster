@@ -606,7 +606,7 @@ export class CrudController {
               { key: "id", label: "id" },
               { key: "costumeName", label: "衣装名" },
               { key: "visual", label: "立ち絵", type: "image", category: "visual/standing" },
-              { key: "defoemed", label: "SD", type: "image", category: "visual/deformed", fallbackKey: "deformed" },
+              { key: "deformed", label: "SD", type: "image", category: "visual/deformed", fallbackKey: "defoemed" },
               { key: "thumbnail", label: "サムネイル", type: "image", category: "visual/thumbnail", fallbackKey: "costumeThumbnail" },
               { key: "visualBackground", label: "衣装背景", type: "image", category: "visual/background" },
               { key: "priority", label: "表示順" },
@@ -1212,7 +1212,7 @@ export class CrudController {
         th.className = "admin-table-col-button-banner";
       } else if (col.type === "color" || col.key === "buttonTextColor") {
         th.className = "admin-table-col-color";
-      } else if (col.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(col.key)) {
+      } else if (col.type === "image" || ["visual", "deformed", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(col.key)) {
         th.className = "admin-table-col-image";
       } else if (col.key === "id") {
         th.className = "admin-table-col-id";
@@ -1300,7 +1300,7 @@ export class CrudController {
               td.className = "admin-table-col-button-banner";
             } else if (colCfg.type === "color" || colCfg.key === "buttonTextColor") {
               td.className = "admin-table-col-color";
-            } else if (colCfg.type === "image" || ["visual", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(colCfg.key)) {
+            } else if (colCfg.type === "image" || ["visual", "deformed", "defoemed", "thumbnail", "visualBackground", "Image", "image"].includes(colCfg.key)) {
               td.className = "admin-table-col-image";
             } else if (colCfg.key === "id") {
               td.className = "admin-table-col-id";
@@ -1726,7 +1726,7 @@ export class CrudController {
       priority: isNew ? nextPriority : (record?.priority ?? 1),
       costumeName: record?.costumeName || "",
       visual: record?.visual || "",
-      defoemed: record?.defoemed || record?.deformed || "",
+      deformed: record?.deformed || record?.defoemed || "",
       thumbnail: record?.thumbnail || record?.costumeThumbnail || "",
       visualBackground: record?.visualBackground || "",
       characterDesign: record?.characterDesign || "",
@@ -1750,11 +1750,11 @@ export class CrudController {
         displayMode: "contain",
         maxLongEdge: 1280,
       },
-      defoemed: {
+      deformed: {
         label: "SD",
         category: "visual/deformed",
         uploadPath: "assets/visual/deformed",
-        fallbackKey: "deformed",
+        fallbackKey: "defoemed",
         defaultLibrary: ["ELISA_defoemed.png", "sample_deformed.png"],
         accept: ".png",
         maxSizeBytes: 3145728,
@@ -2100,12 +2100,12 @@ export class CrudController {
       if (isNew) {
         this.visualState.currentRecords.push(payload);
       } else {
-        const idx = this.visualState.currentRecords.findIndex(
+        delete payload.defoemed; delete payload.costumeThumbnail; const idx = this.visualState.currentRecords.findIndex(
           (r) => Number(r.id) === Number(currentData.id)
         );
         if (idx !== -1) {
           this.visualState.currentRecords[idx] = {
-            ...this.visualState.currentRecords[idx],
+            ...this.visualState.currentRecords[idx], ...(() => { delete this.visualState.currentRecords[idx].defoemed; delete this.visualState.currentRecords[idx].costumeThumbnail; return {}; })(),
             ...payload,
           };
         } else {
@@ -2146,7 +2146,7 @@ export class CrudController {
     for (const [k, v] of fd.entries()) {
       data[k] = v;
     }
-    ["visual", "defoemed", "thumbnail", "visualBackground"].forEach((field) => {
+    ["visual", "deformed", "thumbnail", "visualBackground"].forEach((field) => {
       const mode = form.querySelector(`[name="${field}_mode"]:checked`)?.value || "library";
       data[`${field}_mode`] = mode;
       if (mode === "library") {
@@ -12340,7 +12340,7 @@ export class CrudController {
     if (record) {
       keys = Object.keys(record).filter(k => k !== "created_at" && k !== "updated_at");
     } else if (tableName === "visual") {
-      keys = ["costumeName", "visual", "defoemed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"];
+      keys = ["costumeName", "visual", "deformed", "thumbnail", "visualBackground", "characterDesign", "illustrator", "live2d", "3dModeling", "priority"];
     } else if (tableName === "notice") {
       keys = ["status", "scheduled_at", "message", "Image"];
     } else if (tableName === "gallery") {
@@ -12745,16 +12745,16 @@ export class CrudController {
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
-      for (const rec of this.visualState.currentRecords) {
+      for (const rec of this.visualState.currentRecords) { const cleanRec = { ...rec }; if (cleanRec.defoemed && !cleanRec.deformed) cleanRec.deformed = cleanRec.defoemed; delete cleanRec.defoemed; delete cleanRec.costumeThumbnail;
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("visual", rec, null);
+          await api.saveTable("visual", cleanRec, null);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
           if (hasDiff) {
-            await api.saveTable("visual", rec, rec.id);
+            const cleanOrig = { ...orig }; if (cleanOrig.defoemed && !cleanOrig.deformed) cleanOrig.deformed = cleanOrig.defoemed; delete cleanOrig.defoemed; delete cleanOrig.costumeThumbnail; await api.saveTable("visual", cleanRec, cleanRec.id);
           }
         }
       }

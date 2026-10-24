@@ -215,6 +215,13 @@ class ApiClient {
       if (Array.isArray(payload.platforms)) payload.platforms = JSON.stringify(payload.platforms);
       if (Array.isArray(payload.moves)) payload.moves = JSON.stringify(payload.moves);
     }
+    if (tableName === "visual") {
+      if (payload.defoemed && !payload.deformed) {
+        payload.deformed = payload.defoemed;
+      }
+      delete payload.defoemed;
+      delete payload.costumeThumbnail;
+    }
 
     const res = await this.request(endpoint, {
       method,

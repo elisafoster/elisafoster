@@ -563,18 +563,28 @@ export default {
 
       // 通常テーブルの更新 (PUT)
       if (method === "PUT" && recordId) {
+        if (tableName === "visual") {
+          if (body.defoemed && !body.deformed) body.deformed = body.defoemed;
+          delete body.defoemed;
+          delete body.costumeThumbnail;
+        }
         const keys = Object.keys(body).filter(k => k !== "id" && k !== "created_at" && k !== "updated_at");
         const setClause = keys.map(k => `\`${k}\` = ?`).join(", ") + ", updated_at = datetime('now')";
         const values = [...keys.map(k => body[k]), recordId];
 
         await env.DB.prepare(
-          `UPDATE ${tableName} SET${setClause} WHERE id = ?`
+          `UPDATE ${tableName} SET ${setClause} WHERE id = ?`
         ).bind(...values).run();
 
         return jsonResponse({ success: true, id: recordId });
       }
 
       // 通常テーブルの新規挿入 (POST)
+      if (tableName === "visual") {
+        if (body.defoemed && !body.deformed) body.deformed = body.defoemed;
+        delete body.defoemed;
+        delete body.costumeThumbnail;
+      }
       const keys = Object.keys(body).filter(k => k !== "created_at" && k !== "updated_at");
       const columns = keys.map(k => `\`${k}\``).join(", ");
       const placeholders = keys.map(() => "?").join(", ");
