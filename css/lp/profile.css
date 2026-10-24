@@ -643,44 +643,44 @@
    -------------------------------------------------------------------------- */
 .lp-profile-deformed-img {
   position: absolute;
-  bottom: 125px; /* サムネイル上端の高さに足元を配置 */
-  left: calc(50% - 150px); /* 立ち絵の中心より左手前（添付画像の立ち絵太もも正面） */
+  bottom: 210px; /* サムネイルの左斜め上・立ち絵の太もも前へ引き上げ */
+  left: calc(50% - 270px); /* 立ち絵中心より左寄り（CREATIVE CREDITSカードの右側空間） */
   right: auto;
   width: auto;
-  height: 310px; /* 立ち絵の約38%サイズ */
-  max-width: 310px;
+  height: 465px; /* 従来の1.5倍サイズ */
+  max-width: 465px;
   object-fit: contain;
   z-index: 8; /* 立ち絵 (2) や outLine (3) より前面 */
   background: none;
   border: none;
   border-radius: 0;
   padding: 0;
-  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.35));
   pointer-events: auto;
   transition: transform var(--transition-fast);
 }
 
 .lp-profile-deformed-img:hover {
-  transform: translateY(-6px) scale(1.04);
+  transform: translateY(-8px) scale(1.04);
 }
 
 @media (max-width: 900px) {
   .lp-profile-deformed-img {
-    left: calc(50% - 90px);
+    left: calc(50% - 150px);
     right: auto;
-    bottom: 25px;
-    height: 180px;
-    max-width: 180px;
+    bottom: 60px;
+    height: 260px;
+    max-width: 260px;
   }
 }
 
 @media (max-width: 600px) {
   .lp-profile-deformed-img {
-    left: calc(50% - 75px);
+    left: calc(50% - 120px);
     right: auto;
-    bottom: 15px;
-    height: 140px;
-    max-width: 140px;
+    bottom: 40px;
+    height: 200px;
+    max-width: 200px;
   }
 }
 
