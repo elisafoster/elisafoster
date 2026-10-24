@@ -5,7 +5,7 @@
 
 import { AuthManager } from "./auth-manager.js";
 import { MenuManager } from "./menu-manager.js";
-import { CrudController } from "./crud-controller.js?v=20261024_fix_tiktok_thumb";
+import { CrudController } from "./crud-controller.js?v=20261024_asset_manage";
 import { MaintenanceManager } from "./maintenance-manager.js";
 
 document.addEventListener("DOMContentLoaded", () => {

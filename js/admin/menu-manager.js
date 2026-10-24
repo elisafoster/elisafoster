@@ -7,12 +7,12 @@ export const ROLE_PERMISSIONS = {
   owner: [
     "profile", "visual", "event", "notice", "schedule",
     "gallery", "movie", "movieList", "shop", "linkList",
-    "themeConfig", "section", "whitelist", "githubPAT", "guideline"
+    "themeConfig", "section", "assetManage", "whitelist", "githubPAT", "guideline"
   ],
   admin: [
     "profile", "visual", "event", "notice", "schedule",
     "gallery", "movie", "movieList", "shop", "linkList",
-    "themeConfig", "section", "whitelist", "guideline"
+    "themeConfig", "section", "assetManage", "whitelist", "guideline"
   ],
   editor: [
     "event", "notice", "schedule", "gallery", "movie", "movieList", "shop", "linkList"

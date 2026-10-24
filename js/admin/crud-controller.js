@@ -734,6 +734,9 @@ export class CrudController {
             }
           );
           break;
+        case "assetManage":
+          await this.renderAssetManageTab();
+          break;
         case "githubPAT":
           await this.renderGithubPatTab();
           break;
@@ -16370,6 +16373,880 @@ export class CrudController {
     card.appendChild(form);
     this.container.innerHTML = "";
     this.container.appendChild(card);
+  }
+
+  /**
+   * 6. アセット管理タブ (assetManage)
+   * カテゴリ・格納パス毎の画像表示、開閉（アコーディオン）、削除（使用中・SVG除外）
+   */
+  async renderAssetManageTab() {
+    this.container.innerHTML = `
+      <div class="admin-card" style="padding: 36px 24px; text-align: center; color: #94a3b8;">
+        <div style="font-size: 2.2rem; margin-bottom: 12px; animation: adminThumbSpin 1.2s linear infinite; display: inline-block;">⏳</div>
+        <div style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">アセット情報および使用状況を読み込み中...</div>
+        <div style="font-size: 0.82rem; color: #64748b;">各格納パスのファイルとデータベースの使用状況を照合しています</div>
+      </div>
+    `;
+
+    // 1. カテゴリおよび格納パス定義 (全15パス)
+    const ASSET_CATEGORIES = [
+      {
+        id: "visual",
+        name: "立ち絵",
+        icon: "🧍",
+        paths: [
+          {
+            path: "assets/visual/standing",
+            label: "立ち絵 (通常・メイン)",
+            description: "立ち絵セクションで表示されるメイン立ち絵画像",
+            defaultFiles: ["ELISA.png", "sample.png"],
+          },
+          {
+            path: "assets/visual/deformed",
+            label: "デフォルメ (SDキャラ)",
+            description: "ミニキャラ・SD立ち絵画像",
+            defaultFiles: ["ELISA_defoemed.png"],
+          },
+          {
+            path: "assets/visual/thumbnail",
+            label: "サムネイル",
+            description: "衣装選択ボタンや一覧用のサムネイル画像",
+            defaultFiles: ["ELISA_thumbnail.png", "sample_thumbnail.png"],
+          },
+          {
+            path: "assets/visual/background",
+            label: "背景",
+            description: "衣装個別の背景画像",
+            defaultFiles: ["sample_visualBackground.jpg"],
+          },
+        ],
+      },
+      {
+        id: "movie",
+        name: "動画",
+        icon: "🎬",
+        paths: [
+          {
+            path: "assets/movie",
+            label: "動画サムネイル",
+            description: "動画一覧のカスタムサムネイル画像",
+            defaultFiles: ["sample.png"],
+          },
+          {
+            path: "assets/movieList",
+            label: "再生リスト画像",
+            description: "再生リストのカバー画像",
+            defaultFiles: ["sampleList.png"],
+          },
+        ],
+      },
+      {
+        id: "section",
+        name: "セクション装飾",
+        icon: "🎨",
+        paths: [
+          {
+            path: "assets/section/topLine",
+            label: "トップライン (装飾線)",
+            description: "セクション上部の装飾ライン画像",
+            defaultFiles: ["sample_topLine.png", "sample_topLine2.png"],
+          },
+          {
+            path: "assets/section/outLine",
+            label: "アウトライン (装飾枠)",
+            description: "セクション境界や装飾枠画像",
+            defaultFiles: ["sample_outLine.png", "sample_outLine2.png"],
+          },
+          {
+            path: "assets/section/sectionBackground",
+            label: "セクション背景",
+            description: "各セクションの背景テクスチャ・画像",
+            defaultFiles: [
+              "sample_sectionBackground.png",
+              "sample_sectionBackground2.jpg",
+              "sample_sectionBackground3.jpg",
+            ],
+          },
+        ],
+      },
+      {
+        id: "other",
+        name: "その他",
+        icon: "📦",
+        paths: [
+          {
+            path: "assets/event",
+            label: "イベントバナー",
+            description: "イベント・告知バナー画像",
+            defaultFiles: ["samplebanner.jpg"],
+          },
+          {
+            path: "assets/link",
+            label: "リンクバナー・アイコン",
+            description: "外部リンクボタングラフィック・SVGアイコン",
+            defaultFiles: [
+              "booth.svg",
+              "defaultbutton_typeA.svg",
+              "defaultbutton_typeB.svg",
+            ],
+          },
+          {
+            path: "assets/gallery",
+            label: "ギャラリー画像",
+            description: "イラスト・写真ギャラリー画像",
+            defaultFiles: ["samplegallery.png"],
+          },
+          {
+            path: "assets/notice",
+            label: "お知らせ画像",
+            description: "お知らせに添付された画像",
+            defaultFiles: ["noticesample.png"],
+          },
+          {
+            path: "assets/schedule",
+            label: "スケジュール画像",
+            description: "スケジュール表や配信告知画像",
+            defaultFiles: ["schedulesample.png"],
+          },
+          {
+            path: "assets/shop",
+            label: "ショップ商品画像",
+            description: "グッズ・商品サムネイル画像",
+            defaultFiles: ["sampleShop.png"],
+          },
+        ],
+      },
+    ];
+
+    // 2. GitHub PAT の取得
+    let patInfo = null;
+    try {
+      patInfo = await api.getTable("githubPAT", 1, true);
+    } catch (e) {}
+
+    const pat = patInfo?.github_pat;
+    const owner = patInfo?.github_repo_owner || "elisafoster";
+    const repo = patInfo?.github_repo_name || "elisafoster";
+
+    // 3. 各テーブルデータの取得と使用中アセットの集計
+    let allData = {};
+    try {
+      allData = await api.request("/api/all", { method: "GET" }, true);
+    } catch (e) {
+      // フォールバック: テーブル個別取得
+      const tables = ["visual", "event", "notice", "schedule", "gallery", "movie", "movieList", "shop", "linkList", "section", "themeConfig"];
+      await Promise.allSettled(tables.map(async (t) => {
+        try {
+          allData[t] = await api.getTable(t);
+        } catch (err) {}
+      }));
+    }
+
+    // 使用中マップ: Key = 正規化パス (小文字) または ファイル名 (小文字), Value = Set<理由文字列>
+    const usedAssetMap = new Map();
+    const registerUsage = (folderPath, rawVal, reason) => {
+      if (!rawVal || typeof rawVal !== "string") return;
+      const str = rawVal.trim();
+      if (!str || str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:")) return;
+      
+      const clean = str.replace(/^\/+/, "");
+      const fileName = clean.split("/").pop();
+      let fullPath = clean;
+      if (!clean.startsWith("assets/")) {
+        fullPath = `${folderPath}/${fileName}`;
+      }
+
+      const keys = [
+        fullPath.toLowerCase(),
+        fileName.toLowerCase(),
+        clean.toLowerCase(),
+      ];
+
+      keys.forEach((k) => {
+        if (!usedAssetMap.has(k)) {
+          usedAssetMap.set(k, new Set());
+        }
+        usedAssetMap.get(k).add(reason);
+      });
+    };
+
+    // (A) visual
+    const visuals = Array.isArray(allData.visual) ? allData.visual : [];
+    visuals.forEach((r) => {
+      const name = r.costumeName ? `「${r.costumeName}」` : `ID:${r.id}`;
+      registerUsage("assets/visual/standing", r.visual || r.image, `立ち絵/衣装 ${name} の立ち絵`);
+      registerUsage("assets/visual/deformed", r.deformed || r.defoemed, `立ち絵/衣装 ${name} のSDキャラ`);
+      registerUsage("assets/visual/thumbnail", r.thumbnail || r.costumeThumbnail, `立ち絵/衣装 ${name} のサムネイル`);
+      registerUsage("assets/visual/background", r.visualBackground, `立ち絵/衣装 ${name} の背景`);
+    });
+
+    // (B) movie
+    const movies = Array.isArray(allData.movie) ? allData.movie : [];
+    movies.forEach((r) => {
+      registerUsage("assets/movie", r.movieImage || r.image, `動画 ID:${r.id} のサムネイル`);
+    });
+
+    // (C) movieList
+    const movieLists = Array.isArray(allData.movieList) ? allData.movieList : [];
+    movieLists.forEach((r) => {
+      const name = r.listName ? `「${r.listName}」` : `ID:${r.id}`;
+      registerUsage("assets/movieList", r.listImage, `再生リスト ${name} の画像`);
+    });
+
+    // (D) section
+    const sections = Array.isArray(allData.section) ? allData.section : [];
+    sections.forEach((r) => {
+      const name = r.headerName || r.item ? `「${r.headerName || r.item}」` : `ID:${r.id}`;
+      registerUsage("assets/section/topLine", r.topLine, `セクション ${name} のトップライン`);
+      registerUsage("assets/section/outLine", r.outLine, `セクション ${name} のアウトライン`);
+      registerUsage("assets/section/sectionBackground", r.sectionBackground, `セクション ${name} のセクション背景`);
+    });
+
+    // (E) event
+    const events = Array.isArray(allData.event) ? allData.event : [];
+    events.forEach((r) => {
+      const name = r.title ? `「${r.title}」` : `ID:${r.id}`;
+      registerUsage("assets/event", r.banner, `イベント ${name} のバナー`);
+    });
+
+    // (F) linkList
+    const links = Array.isArray(allData.linkList) ? allData.linkList : [];
+    links.forEach((r) => {
+      const name = r.title ? `「${r.title}」` : `ID:${r.id}`;
+      registerUsage("assets/link", r.buttonImage, `リンク ${name} のボタン画像`);
+    });
+
+    // (G) gallery
+    const galleries = Array.isArray(allData.gallery) ? allData.gallery : [];
+    galleries.forEach((r) => {
+      const name = r.title ? `「${r.title}」` : `ID:${r.id}`;
+      registerUsage("assets/gallery", r.image, `ギャラリー ${name} の画像`);
+    });
+
+    // (H) notice
+    const notices = Array.isArray(allData.notice) ? allData.notice : [];
+    notices.forEach((r) => {
+      const name = r.title ? `「${r.title}」` : `ID:${r.id}`;
+      registerUsage("assets/notice", r.Image || r.image, `お知らせ ${name} の画像`);
+    });
+
+    // (I) schedule
+    const schedules = Array.isArray(allData.schedule) ? allData.schedule : [];
+    schedules.forEach((r) => {
+      const name = r.title ? `「${r.title}」` : `ID:${r.id}`;
+      registerUsage("assets/schedule", r.Image || r.image, `スケジュール ${name} の画像`);
+    });
+
+    // (J) shop
+    const shops = Array.isArray(allData.shop) ? allData.shop : [];
+    shops.forEach((r) => {
+      const name = r.name ? `「${r.name}」` : `ID:${r.id}`;
+      registerUsage("assets/shop", r.merchandiseImage, `ショップ ${name} の商品画像`);
+    });
+
+    // (K) themeConfig
+    const themeConfig = allData.themeConfig || {};
+    registerUsage("assets/config", themeConfig.background, "テーマ設定の背景画像");
+    registerUsage("assets/config", themeConfig.logo, "テーマ設定のロゴ画像");
+
+    // 4. GitHub APIから各格納パスのファイル一覧を取得 (並列リクエスト)
+    const allPathsList = [];
+    ASSET_CATEGORIES.forEach((cat) => {
+      cat.paths.forEach((p) => allPathsList.push(p.path));
+    });
+
+    const ghHeaders = {
+      Accept: "application/vnd.github.v3+json",
+    };
+    if (pat) {
+      ghHeaders.Authorization = `token ${pat}`;
+    }
+
+    const ghResultsMap = new Map();
+    await Promise.allSettled(
+      allPathsList.map(async (folderPath) => {
+        try {
+          const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderPath}`;
+          const res = await fetch(ghUrl, { headers: ghHeaders });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              ghResultsMap.set(folderPath, data);
+            }
+          }
+        } catch (e) {}
+      })
+    );
+
+    // 5. アセット情報オブジェクトの構築
+    const formatFileSize = (bytes) => {
+      if (!bytes || typeof bytes !== "number") return "-";
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+    };
+
+    let totalAssetsCount = 0;
+    let totalUsedCount = 0;
+    let totalUnusedCount = 0;
+    let totalSvgCount = 0;
+
+    const categoriesData = ASSET_CATEGORIES.map((cat) => {
+      let catTotalCount = 0;
+      const pathsData = cat.paths.map((pCfg) => {
+        const fileMap = new Map();
+
+        // (1) デフォルト登録ファイル
+        pCfg.defaultFiles.forEach((fn) => {
+          fileMap.set(fn, {
+            name: fn,
+            path: `${pCfg.path}/${fn}`,
+            size: null,
+            sha: null,
+            isDefault: true,
+          });
+        });
+
+        // (2) GitHubから取得されたファイル
+        const ghFiles = ghResultsMap.get(pCfg.path) || [];
+        ghFiles.forEach((item) => {
+          if (item.type === "file") {
+            fileMap.set(item.name, {
+              name: item.name,
+              path: item.path,
+              size: item.size,
+              sha: item.sha,
+              downloadUrl: item.download_url,
+              isDefault: pCfg.defaultFiles.includes(item.name),
+            });
+          }
+        });
+
+        // (3) DBから参照されている同フォルダのファイル
+        for (const [key, reasons] of usedAssetMap.entries()) {
+          if (key.startsWith(pCfg.path.toLowerCase() + "/")) {
+            const fn = key.split("/").pop();
+            if (!fileMap.has(fn)) {
+              fileMap.set(fn, {
+                name: fn,
+                path: `${pCfg.path}/${fn}`,
+                size: null,
+                sha: null,
+                isDefault: pCfg.defaultFiles.includes(fn),
+              });
+            }
+          }
+        }
+
+        const files = Array.from(fileMap.values()).map((f) => {
+          const isSvg = f.name.toLowerCase().endsWith(".svg");
+          const reasonsSet = usedAssetMap.get(f.path.toLowerCase()) || usedAssetMap.get(f.name.toLowerCase()) || new Set();
+          const reasons = Array.from(reasonsSet);
+          const isUsed = reasons.length > 0;
+
+          if (isSvg) totalSvgCount++;
+          if (isUsed) totalUsedCount++;
+          if (!isUsed && !isSvg) totalUnusedCount++;
+          totalAssetsCount++;
+          catTotalCount++;
+
+          return {
+            ...f,
+            isSvg,
+            isUsed,
+            usedReasons: reasons,
+          };
+        });
+
+        // 並び替え: ファイル名順
+        files.sort((a, b) => a.name.localeCompare(b.name));
+
+        return {
+          ...pCfg,
+          files,
+        };
+      });
+
+      return {
+        ...cat,
+        totalCount: catTotalCount,
+        paths: pathsData,
+      };
+    });
+
+    // 6. UIの描画
+    const container = document.createElement("div");
+    container.className = "admin-asset-container";
+
+    // (A) ヘッダーカード
+    const headerCard = document.createElement("div");
+    headerCard.className = "admin-card";
+    headerCard.innerHTML = `
+      <div class="admin-card-header" style="flex-wrap: wrap; gap: 14px;">
+        <div class="admin-card-title-group">
+          <h2 class="admin-card-title" style="display: flex; align-items: center; gap: 8px;">
+            <span>📁</span> アセット管理
+          </h2>
+          <p class="admin-card-desc">
+            サイトで使用される画像アセットの確認・プレビューおよびリポジトリからの安全な削除管理が行えます。
+          </p>
+        </div>
+        <div class="admin-card-actions" style="gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="app-btn app-btn-secondary" id="asset-btn-expand-all" style="font-size: 0.82rem; padding: 7px 13px;">
+            ▼ すべて開く
+          </button>
+          <button type="button" class="app-btn app-btn-secondary" id="asset-btn-collapse-all" style="font-size: 0.82rem; padding: 7px 13px;">
+            ▲ すべて閉じる
+          </button>
+          <button type="button" class="app-btn app-btn-primary" id="asset-btn-refresh" style="font-size: 0.82rem; padding: 7px 14px;">
+            🔄 最新情報を再取得
+          </button>
+        </div>
+      </div>
+      ${
+        !pat
+          ? `
+        <div style="margin: 0 24px 20px 24px; padding: 12px 16px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; color: #fbbf24; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.1rem;">💡</span>
+            <span>GitHub PAT が未設定です。リポジトリからの画像削除や最新ファイルの同期を行うには、「GitHub PAT 設定」からPATを入力してください。</span>
+          </div>
+          <button type="button" class="app-btn app-btn-secondary" id="asset-goto-pat-btn" style="font-size: 0.78rem; padding: 4px 10px;">
+            GitHub PAT 設定へ
+          </button>
+        </div>
+      `
+          : ""
+      }
+    `;
+    container.appendChild(headerCard);
+
+    // (B) 検索・フィルター・集計バー
+    const topBar = document.createElement("div");
+    topBar.className = "admin-asset-top-bar";
+    topBar.innerHTML = `
+      <div class="admin-asset-filters">
+        <input
+          type="text"
+          class="admin-asset-search-input"
+          id="asset-search-input"
+          placeholder="🔍 ファイル名・パスで絞り込み..."
+        />
+        <div class="admin-asset-filter-btn-group">
+          <button type="button" class="admin-asset-filter-btn is-active" data-filter="all">すべて (${totalAssetsCount})</button>
+          <button type="button" class="admin-asset-filter-btn" data-filter="used">使用中のみ (${totalUsedCount})</button>
+          <button type="button" class="admin-asset-filter-btn" data-filter="unused">未使用のみ (${totalUnusedCount})</button>
+          <button type="button" class="admin-asset-filter-btn" data-filter="svg">SVGのみ (${totalSvgCount})</button>
+        </div>
+      </div>
+      <div class="admin-asset-stats-row">
+        <span class="admin-asset-stat-badge is-total">全アセット: ${totalAssetsCount}件</span>
+        <span class="admin-asset-stat-badge is-used">🔒 使用中: ${totalUsedCount}件</span>
+        <span class="admin-asset-stat-badge is-unused">✨ 未使用(削除可): ${totalUnusedCount}件</span>
+        <span class="admin-asset-stat-badge is-svg">🛡️ デフォルト(SVG): ${totalSvgCount}件</span>
+      </div>
+    `;
+    container.appendChild(topBar);
+
+    // (C) カテゴリ一覧および格納パスアコーディオンの生成
+    categoriesData.forEach((cat) => {
+      const catCard = document.createElement("div");
+      catCard.className = "admin-asset-category-card";
+      catCard.dataset.catId = cat.id;
+
+      // カテゴリヘッダー
+      const catHeader = document.createElement("div");
+      catHeader.className = "admin-asset-category-header";
+      catHeader.innerHTML = `
+        <div class="admin-asset-category-title-group">
+          <span class="admin-asset-category-icon">${cat.icon}</span>
+          <h3 class="admin-asset-category-title">${escapeHtml(cat.name)}</h3>
+          <span class="admin-count-badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+            ${cat.paths.length}パス / ${cat.totalCount}件
+          </span>
+        </div>
+        <div class="admin-asset-category-meta">
+          <span style="font-size: 0.8rem; color: #94a3b8;">クリックで開閉</span>
+          <span class="admin-asset-toggle-icon">▲</span>
+        </div>
+      `;
+      catCard.appendChild(catHeader);
+
+      // カテゴリ開閉イベント
+      catHeader.onclick = () => {
+        catCard.classList.toggle("is-collapsed");
+      };
+
+      // カテゴリ本文 (格納パスのリスト)
+      const catBody = document.createElement("div");
+      catBody.className = "admin-asset-category-body";
+
+      cat.paths.forEach((p) => {
+        const pathSection = document.createElement("div");
+        pathSection.className = "admin-asset-path-section";
+        pathSection.dataset.path = p.path;
+
+        // パスヘッダー
+        const pathHeader = document.createElement("div");
+        pathHeader.className = "admin-asset-path-header";
+        pathHeader.innerHTML = `
+          <div class="admin-asset-path-title-group">
+            <span style="font-size: 1.1rem;">📁</span>
+            <code class="admin-asset-path-code">${escapeHtml(p.path)}</code>
+            <span class="admin-asset-path-desc">${escapeHtml(p.label)}</span>
+            <span class="admin-count-badge" style="background: rgba(255, 255, 255, 0.08); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.12);">
+              ${p.files.length}件
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.78rem; color: #64748b;">開閉</span>
+            <span class="admin-asset-toggle-icon">▲</span>
+          </div>
+        `;
+        pathSection.appendChild(pathHeader);
+
+        // パス開閉イベント
+        pathHeader.onclick = () => {
+          pathSection.classList.toggle("is-collapsed");
+        };
+
+        // パス本文 (アセットグリッド)
+        const pathBody = document.createElement("div");
+        pathBody.className = "admin-asset-path-body";
+
+        if (p.files.length === 0) {
+          pathBody.innerHTML = `
+            <div class="admin-asset-empty">
+              このフォルダに登録・アップロードされている画像はありません
+            </div>
+          `;
+        } else {
+          const grid = document.createElement("div");
+          grid.className = "admin-asset-grid";
+
+          p.files.forEach((file) => {
+            const card = document.createElement("div");
+            card.className = "admin-asset-card";
+            card.dataset.name = file.name.toLowerCase();
+            card.dataset.path = file.path.toLowerCase();
+            card.dataset.used = file.isUsed ? "true" : "false";
+            card.dataset.svg = file.isSvg ? "true" : "false";
+
+            const fileUrl = api.resolveAssetUrl(file.path);
+
+            // プレビュー枠
+            const previewBox = document.createElement("div");
+            previewBox.className = "admin-asset-preview-box";
+            previewBox.title = `${file.name} (クリックで拡大)`;
+
+            let badgeHtml = "";
+            if (file.isSvg) {
+              badgeHtml = `<span class="admin-asset-card-badge is-svg">SVG(デフォルト)</span>`;
+            } else if (file.isUsed) {
+              badgeHtml = `<span class="admin-asset-card-badge is-used">使用中</span>`;
+            } else {
+              badgeHtml = `<span class="admin-asset-card-badge is-unused">未使用</span>`;
+            }
+
+            previewBox.innerHTML = `
+              <img
+                src="${fileUrl}"
+                alt="${escapeHtml(file.name)}"
+                class="admin-asset-preview-img"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+                onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<span style=\\'font-size:0.75rem; color:#ef4444;\\'>読込不可</span>');"
+              />
+              ${badgeHtml}
+            `;
+
+            previewBox.onclick = () => {
+              this.openImageDetailModal(fileUrl, `${file.name}`, {
+                costumeName: p.label,
+                columnLabel: p.path,
+                path: file.path,
+              });
+            };
+            card.appendChild(previewBox);
+
+            // コンテンツ枠
+            const content = document.createElement("div");
+            content.className = "admin-asset-card-content";
+
+            let usageInfoHtml = "";
+            if (file.isSvg) {
+              usageInfoHtml = `<div class="admin-asset-usage-info is-svg">🔒 デフォルトSVG画像（削除不可）</div>`;
+            } else if (file.isUsed) {
+              const reasonText = file.usedReasons.join(" / ");
+              usageInfoHtml = `
+                <div class="admin-asset-usage-info is-used" title="${escapeHtml(reasonText)}">
+                  📌 ${escapeHtml(file.usedReasons[0])}${file.usedReasons.length > 1 ? ` 他${file.usedReasons.length - 1}件` : ""}
+                </div>
+              `;
+            } else {
+              usageInfoHtml = `<div class="admin-asset-usage-info is-unused">✨ 未使用（リポジトリから削除可能）</div>`;
+            }
+
+            content.innerHTML = `
+              <div class="admin-asset-filename" title="${escapeHtml(file.name)}">
+                ${escapeHtml(file.name)}
+              </div>
+              <div class="admin-asset-meta-row">
+                <span>容量: ${formatFileSize(file.size)}</span>
+                <span>${file.name.split(".").pop().toUpperCase()}</span>
+              </div>
+              ${usageInfoHtml}
+            `;
+            card.appendChild(content);
+
+            // フッター (プレビューボタン & 削除ボタン)
+            const footer = document.createElement("div");
+            footer.className = "admin-asset-card-footer";
+
+            const previewBtn = document.createElement("button");
+            previewBtn.type = "button";
+            previewBtn.className = "admin-asset-btn-preview";
+            previewBtn.innerHTML = `<span>🔍</span> 拡大`;
+            previewBtn.onclick = () => {
+              this.openImageDetailModal(fileUrl, `${file.name}`, {
+                costumeName: p.label,
+                columnLabel: p.path,
+                path: file.path,
+              });
+            };
+            footer.appendChild(previewBtn);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "admin-asset-btn-delete";
+
+            if (file.isSvg) {
+              deleteBtn.disabled = true;
+              deleteBtn.title = "デフォルト画像（SVG）のため削除できません";
+              deleteBtn.innerHTML = `<span>🛡️</span> 削除`;
+            } else if (file.isUsed) {
+              deleteBtn.disabled = true;
+              deleteBtn.title = `データベースで使用中のため削除できません\n${file.usedReasons.join("\n")}`;
+              deleteBtn.innerHTML = `<span>🔒</span> 削除`;
+            } else {
+              deleteBtn.title = "リポジトリからこの画像を削除します";
+              deleteBtn.innerHTML = `<span>🗑️</span> 削除`;
+              deleteBtn.onclick = () => {
+                this.openAssetDeleteConfirmModal({
+                  file,
+                  owner,
+                  repo,
+                  pat,
+                  onSuccess: async () => {
+                    await this.renderAssetManageTab();
+                  },
+                });
+              };
+            }
+            footer.appendChild(deleteBtn);
+
+            card.appendChild(footer);
+            grid.appendChild(card);
+          });
+
+          pathBody.appendChild(grid);
+        }
+
+        pathSection.appendChild(pathBody);
+        catBody.appendChild(pathSection);
+      });
+
+      catCard.appendChild(catBody);
+      container.appendChild(catCard);
+    });
+
+    // 7. イベントリスナーの設定
+    // (A) すべて開く / すべて閉じる
+    const expandAllBtn = headerCard.querySelector("#asset-btn-expand-all");
+    const collapseAllBtn = headerCard.querySelector("#asset-btn-collapse-all");
+    const refreshBtn = headerCard.querySelector("#asset-btn-refresh");
+    const gotoPatBtn = headerCard.querySelector("#asset-goto-pat-btn");
+
+    if (expandAllBtn) {
+      expandAllBtn.onclick = () => {
+        container.querySelectorAll(".admin-asset-category-card").forEach((el) => el.classList.remove("is-collapsed"));
+        container.querySelectorAll(".admin-asset-path-section").forEach((el) => el.classList.remove("is-collapsed"));
+      };
+    }
+
+    if (collapseAllBtn) {
+      collapseAllBtn.onclick = () => {
+        container.querySelectorAll(".admin-asset-category-card").forEach((el) => el.classList.add("is-collapsed"));
+        container.querySelectorAll(".admin-asset-path-section").forEach((el) => el.classList.add("is-collapsed"));
+      };
+    }
+
+    if (refreshBtn) {
+      refreshBtn.onclick = async () => {
+        await this.renderAssetManageTab();
+        Toast.success("アセット情報を最新に更新しました");
+      };
+    }
+
+    if (gotoPatBtn) {
+      gotoPatBtn.onclick = () => {
+        const patNavBtn = document.querySelector('.admin-nav-item-btn[data-tab="githubPAT"]');
+        if (patNavBtn) patNavBtn.click();
+      };
+    }
+
+    // (B) 検索フィルター & ステータスフィルター
+    const searchInput = topBar.querySelector("#asset-search-input");
+    const filterBtns = topBar.querySelectorAll(".admin-asset-filter-btn");
+    let currentFilter = "all";
+
+    const applyFilters = () => {
+      const q = searchInput.value.trim().toLowerCase();
+      const allCards = container.querySelectorAll(".admin-asset-card");
+
+      allCards.forEach((card) => {
+        const name = card.dataset.name || "";
+        const path = card.dataset.path || "";
+        const isUsed = card.dataset.used === "true";
+        const isSvg = card.dataset.svg === "true";
+
+        // 検索クエリマッチ
+        const matchesQuery = !q || name.includes(q) || path.includes(q);
+
+        // ステータスマッチ
+        let matchesStatus = true;
+        if (currentFilter === "used") {
+          matchesStatus = isUsed;
+        } else if (currentFilter === "unused") {
+          matchesStatus = !isUsed && !isSvg;
+        } else if (currentFilter === "svg") {
+          matchesStatus = isSvg;
+        }
+
+        if (matchesQuery && matchesStatus) {
+          card.style.display = "";
+        } else {
+          card.style.display = "none";
+        }
+      });
+    };
+
+    if (searchInput) {
+      searchInput.oninput = applyFilters;
+    }
+
+    filterBtns.forEach((btn) => {
+      btn.onclick = () => {
+        filterBtns.forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        currentFilter = btn.dataset.filter;
+        applyFilters();
+      };
+    });
+
+    this.container.innerHTML = "";
+    this.container.appendChild(container);
+  }
+
+  /**
+   * アセット画像削除確認モーダル
+   */
+  openAssetDeleteConfirmModal({ file, owner, repo, pat, onSuccess }) {
+    if (!pat) {
+      Toast.error("GitHub PATが設定されていません。管理画面の「GitHub PAT 設定」からPATを登録してください。");
+      return;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display: flex; flex-direction: column; gap: 14px; padding: 6px 0;";
+    const fileUrl = api.resolveAssetUrl(file.path);
+
+    wrap.innerHTML = `
+      <div style="display: flex; justify-content: center; background: #0f172a; padding: 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+        <img src="${fileUrl}" alt="${escapeHtml(file.name)}" style="max-height: 180px; max-width: 100%; object-fit: contain;" />
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; color: #cbd5e1;">
+        <div>ファイル名: <strong style="color: #38bdf8; font-family: monospace;">${escapeHtml(file.name)}</strong></div>
+        <div>格納パス: <code style="color: #94a3b8; font-size: 0.84rem;">${escapeHtml(file.path)}</code></div>
+        <div>リポジトリ: <span style="font-family: monospace; color: #a5f3fc;">${escapeHtml(owner)}/${escapeHtml(repo)}</span></div>
+      </div>
+      <div style="padding: 12px 16px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; color: #fca5a5; font-size: 0.85rem; line-height: 1.55;">
+        ⚠️ <strong>ご注意:</strong><br>
+        この画像をGitHubリポジトリから完全に削除します。<br>
+        この操作は元に戻せません。本当に削除を実行してよろしいですか？
+      </div>
+    `;
+
+    const footer = document.createElement("div");
+    footer.style.cssText = "display: flex; justify-content: flex-end; gap: 10px; width: 100%;";
+    footer.innerHTML = `
+      <button type="button" class="app-btn app-btn-secondary" id="modal-asset-cancel-btn">キャンセル</button>
+      <button type="button" class="app-btn app-btn-danger" id="modal-asset-confirm-btn">削除を実行する</button>
+    `;
+
+    footer.querySelector("#modal-asset-cancel-btn").onclick = () => Modal.close();
+
+    footer.querySelector("#modal-asset-confirm-btn").onclick = async () => {
+      const confirmBtn = footer.querySelector("#modal-asset-confirm-btn");
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "削除中...";
+
+      try {
+        let fileSha = file.sha;
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${file.path}`;
+
+        if (!fileSha) {
+          const checkRes = await fetch(ghUrl, {
+            headers: {
+              Authorization: `token ${pat}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            fileSha = checkData.sha;
+          }
+        }
+
+        if (!fileSha) {
+          throw new Error("ファイルのSHAを取得できませんでした。リポジトリ上に既に存在しない可能性があります。");
+        }
+
+        const delRes = await fetch(ghUrl, {
+          method: "DELETE",
+          headers: {
+            Authorization: `token ${pat}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: `Delete asset ${file.name} via admin asset manager`,
+            sha: fileSha,
+            branch: "main",
+          }),
+        });
+
+        if (!delRes.ok) {
+          const errData = await delRes.json().catch(() => ({}));
+          throw new Error(errData.message || `GitHub API エラー (${delRes.status})`);
+        }
+
+        Modal.close();
+        Toast.success(`「${file.name}」を正常に削除しました`);
+        if (onSuccess) await onSuccess();
+      } catch (err) {
+        console.error("[Delete Asset Error]:", err);
+        Toast.error(`削除に失敗しました: ${err.message}`);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "削除を実行する";
+      }
+    };
+
+    Modal.open({
+      title: "アセット画像の削除確認",
+      content: wrap,
+      footer: footer,
+    });
   }
 }
 
