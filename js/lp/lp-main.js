@@ -12,7 +12,7 @@ import { EventSection } from "./event-section.js";
 import { NoticeSection } from "./notice-section.js?v=20261024_notice_flex_shrink_fix";
 import { ScheduleSection } from "./schedule-section.js";
 import { GallerySection } from "./gallery-section.js";
-import { MovieSection } from "./movie-section.js?v=20261025_playlist_section";
+import { MovieSection } from "./movie-section.js?v=20261025_movie_readability_fix";
 import { ShopSection } from "./shop-section.js";
 import { LinkSection } from "./link-section.js";
 

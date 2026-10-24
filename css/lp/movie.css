@@ -105,6 +105,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.85);
 }
 
 .lp-movie-category-title::before {
@@ -119,11 +120,12 @@
 
 .lp-movie-category-count-badge {
   font-size: 0.75rem;
-  font-weight: 700;
-  background: #f1f5f9;
-  color: var(--color-text-muted, #64748b);
+  font-weight: 800;
+  background: #ffffff;
+  color: var(--color-primary, #3b82f6);
   padding: 2px 8px;
   border-radius: var(--radius-full, 9999px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* 各カテゴリー内のタグバー */
@@ -365,18 +367,38 @@
   transform: scale(1.15);
 }
 
-/* カード下部メタ情報 */
+/* カード下部メタ情報 (カードカラーに影響されない視認性保護フィルター) */
 .lp-movie-info {
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .lp-movie-tags-list {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* 通常動画カード内バッジのカードカラー対策 */
+.lp-movie-card .app-badge-primary {
+  background: #ffffff;
+  color: #1d4ed8;
+  font-weight: 700;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.lp-movie-card .app-badge-gray {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e293b;
+  font-weight: 700;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* --------------------------------------------------------------------------
@@ -745,21 +767,30 @@
   justify-content: space-between;
 }
 
+/* 背景画像上でも文字が同化しないフロストガラス調ピル下地 */
 .lp-movie-playlist-title-wrap {
-  display: flex;
-  align-items: baseline;
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 16px 6px 14px;
+  border-radius: var(--radius-full, 9999px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.95);
 }
 
 .lp-movie-playlist-title {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  color: var(--theme-section-title-color, var(--color-text-main, #0f172a));
+  color: #0f172a;
   letter-spacing: 0.02em;
   margin: 0;
   position: relative;
   display: inline-flex;
   align-items: center;
+  line-height: 1;
 }
 
 .lp-movie-playlist-title::before {
@@ -774,17 +805,20 @@
 
 .lp-movie-playlist-subtitle {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text-muted, #64748b);
+  font-weight: 700;
+  color: #334155;
+  line-height: 1;
 }
 
 .lp-movie-playlist-count-badge {
   font-size: 0.75rem;
-  font-weight: 700;
-  background: #f1f5f9;
-  color: var(--color-text-muted, #64748b);
+  font-weight: 800;
+  background: var(--color-primary, #3b82f6);
+  color: #ffffff;
   padding: 2px 8px;
   border-radius: var(--radius-full, 9999px);
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.35);
+  line-height: 1;
 }
 
 /* 再生リストカード */
@@ -802,8 +836,10 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 38%;
-  background: linear-gradient(to right, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.75) 30%, rgba(15, 23, 42, 0.92) 100%);
+  width: 40%;
+  background: linear-gradient(to right, transparent 0%, rgba(15, 23, 42, 0.65) 25%, rgba(15, 23, 42, 0.9) 100%);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -812,7 +848,7 @@
 }
 
 .lp-playlist-card:hover .lp-playlist-overlay {
-  background: linear-gradient(to right, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 30%, rgba(15, 23, 42, 0.96) 100%);
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.75) 25%, rgba(15, 23, 42, 0.95) 100%);
 }
 
 .lp-playlist-overlay-content {
@@ -827,35 +863,41 @@
 }
 
 .lp-playlist-overlay-icon {
-  width: 28px;
-  height: 28px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  width: 26px;
+  height: 26px;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
 
 .lp-playlist-overlay-text {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
-/* 再生リストカード下部情報 */
+/* 再生リストカード下部情報 (カードカラーに影響されない視認性保護フィルター) */
 .lp-playlist-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .lp-playlist-name {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--theme-card-text-color, #1e293b);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--theme-card-text-color, #0f172a);
   margin: 0;
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 }
 
 .lp-playlist-meta {
@@ -865,19 +907,38 @@
   gap: 8px;
 }
 
+/* どんなカードカラーでも100%くっきり読める白ピルバッジ */
 .lp-playlist-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 3px 10px;
   border-radius: var(--radius-full, 9999px);
-  background: rgba(59, 130, 246, 0.12);
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  letter-spacing: 0.02em;
+}
+
+.lp-playlist-badge-icon {
+  width: 13px;
+  height: 13px;
   color: var(--color-primary, #3b82f6);
 }
 
+/* どんなカードカラーでも沈まない白半透明ピル */
 .lp-playlist-count-label {
-  font-size: 0.75rem;
-  color: var(--color-text-muted, #64748b);
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(255, 255, 255, 0.85);
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
 /* --------------------------------------------------------------------------

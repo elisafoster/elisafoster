@@ -1228,7 +1228,12 @@ export class MovieSection {
     const metaRow = document.createElement("div");
     metaRow.className = "lp-playlist-meta";
     metaRow.innerHTML = `
-      <span class="lp-playlist-badge">再生リスト</span>
+      <span class="lp-playlist-badge">
+        <svg class="lp-playlist-badge-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm12 0l6 4-6 4v-8z"/>
+        </svg>
+        <span>再生リスト</span>
+      </span>
       <span class="lp-playlist-count-label">${movies.length} videos</span>
     `;
     info.appendChild(metaRow);
