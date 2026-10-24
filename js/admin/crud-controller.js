@@ -1635,6 +1635,69 @@ export class CrudController {
   }
 
   /**
+   * 対象フォルダの実在ファイル一覧を GitHub / Worker プロキシから取得して返す
+   * @param {string} folderPath 例: "assets/visual/deformed"
+   * @param {string[]} fallbackDefaults 例: ["ELISA_defoemed.png", "sample_deformed.png"]
+   * @returns {Promise<string[]>}
+   */
+  async fetchFolderLibraryFiles(folderPath, fallbackDefaults = []) {
+    if (!this._folderLibraryCacheMap) {
+      this._folderLibraryCacheMap = new Map();
+    }
+
+    const fileSet = new Set(fallbackDefaults);
+
+    // すでに取得済みのキャッシュがあればまずマージ
+    if (this._folderLibraryCacheMap.has(folderPath)) {
+      this._folderLibraryCacheMap.get(folderPath).forEach((f) => fileSet.add(f));
+    }
+
+    let files = null;
+
+    // (A) Worker プロキシ経由で取得 (/api/github/contents?path=...)
+    try {
+      const workerRes = await api.request(`/api/github/contents?path=${encodeURIComponent(folderPath)}`, { method: "GET" }, true);
+      if (workerRes && workerRes.success && Array.isArray(workerRes.files)) {
+        files = workerRes.files;
+      }
+    } catch (e) {}
+
+    // (B) Workerプロキシ失敗・未設定時はクライアントから直接 GitHub API を試行
+    if (!files) {
+      try {
+        let patRecord = null;
+        try {
+          patRecord = await api.getTable("githubPAT", 1, true);
+        } catch (e) {}
+        const owner = patRecord?.github_repo_owner || "elisafoster";
+        const repo = patRecord?.github_repo_name || "elisafoster";
+        const pat = patRecord?.github_pat;
+        const headers = { Accept: "application/vnd.github.v3+json" };
+        if (pat) headers["Authorization"] = `token ${pat}`;
+        const ghUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderPath}`;
+        const res = await fetch(ghUrl, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) files = data;
+        }
+      } catch (e) {}
+    }
+
+    if (Array.isArray(files)) {
+      files.forEach((item) => {
+        if (item.type === "file" && item.name && !item.name.startsWith(".")) {
+          fileSet.add(item.name);
+        }
+      });
+    }
+
+    const resultList = Array.from(fileSet);
+    this._folderLibraryCacheMap.set(folderPath, resultList);
+    return resultList;
+  }
+
+
+  /**
    * 立ち絵・衣装 (visual) 専用の新規・編集モーダル
    */
   async openVisualModal(record, restoreState = null) {
@@ -1692,7 +1755,7 @@ export class CrudController {
         category: "visual/deformed",
         uploadPath: "assets/visual/deformed",
         fallbackKey: "deformed",
-        defaultLibrary: ["ELISA_defoemed.png"],
+        defaultLibrary: ["ELISA_defoemed.png", "sample_deformed.png"],
         accept: ".png",
         maxSizeBytes: 3145728,
         maxSizeMB: 3,
@@ -1726,18 +1789,20 @@ export class CrudController {
       },
     };
 
-    // ライブラリキャッシュの初期化 / 既存ファイル名の集約
+    // ライブラリキャッシュの初期化 / 実在ファイル＆既存ファイル名の集約
     if (!this.visualLibraryCache) {
       this.visualLibraryCache = {};
     }
 
-    Object.keys(visualFieldsConfig).forEach((field) => {
-      if (!this.visualLibraryCache[field]) {
-        const set = new Set(visualFieldsConfig[field].defaultLibrary);
+    await Promise.all(
+      Object.keys(visualFieldsConfig).map(async (field) => {
+        const cfg = visualFieldsConfig[field];
+        const ghFiles = await this.fetchFolderLibraryFiles(cfg.uploadPath, cfg.defaultLibrary);
+        const set = new Set([...ghFiles, ...(this.visualLibraryCache[field] || [])]);
         allVisuals.forEach((row) => {
           let val = row[field];
-          if (!val && visualFieldsConfig[field].fallbackKey) {
-            val = row[visualFieldsConfig[field].fallbackKey];
+          if (!val && cfg.fallbackKey) {
+            val = row[cfg.fallbackKey];
           }
           if (
             val &&
@@ -1751,10 +1816,9 @@ export class CrudController {
           }
         });
         this.visualLibraryCache[field] = Array.from(set);
-      }
-    });
+      })
+    );
 
-    // Googleドライブ共有URL自動変換ヘルパー
     const convertGoogleDriveUrl = (url) => {
       if (!url || typeof url !== "string") return url;
       const trimmed = url.trim();
@@ -2665,7 +2729,8 @@ export class CrudController {
     if (!this.eventLibraryCache) {
       this.eventLibraryCache = [];
     }
-    const librarySet = new Set(["samplebanner.jpg", ...this.eventLibraryCache]);
+    const ghEventFiles = await this.fetchFolderLibraryFiles("assets/event", ["samplebanner.jpg"]);
+    const librarySet = new Set([...ghEventFiles, ...this.eventLibraryCache]);
     allEvents.forEach((row) => {
       if (row.banner && typeof row.banner === "string" && !row.banner.startsWith("http")) {
         librarySet.add(row.banner.split("/").pop());
@@ -2673,8 +2738,7 @@ export class CrudController {
     });
     this.eventLibraryCache = Array.from(librarySet);
 
-    // 日時変換ヘルパー (YYYY-MM-DD HH:mm:ss <-> YYYY-MM-DDTHH:mm)
-    const formatToInputDatetime = (val) => {
+        const formatToInputDatetime = (val) => {
       if (!val) return "";
       const str = String(val).trim();
       return str.replace(" ", "T").substring(0, 16);
@@ -3514,7 +3578,8 @@ export class CrudController {
     if (!this.noticeLibraryCache) {
       this.noticeLibraryCache = [];
     }
-    const librarySet = new Set(["noticesample.png", ...this.noticeLibraryCache]);
+    const ghNoticeFiles = await this.fetchFolderLibraryFiles("assets/notice", ["noticesample.png"]);
+    const librarySet = new Set([...ghNoticeFiles, ...this.noticeLibraryCache]);
     allNotices.forEach((row) => {
       const img = row.Image || row.image;
       if (img && typeof img === "string" && !img.startsWith("http")) {
@@ -3523,8 +3588,7 @@ export class CrudController {
     });
     this.noticeLibraryCache = Array.from(librarySet);
 
-    // 日時変換ヘルパー (YYYY-MM-DD HH:mm:ss <-> YYYY-MM-DDTHH:mm)
-    const formatToInputDatetime = (val) => {
+        const formatToInputDatetime = (val) => {
       if (!val) return "";
       const str = String(val).trim();
       return str.replace(" ", "T").substring(0, 16);
@@ -4929,7 +4993,8 @@ export class CrudController {
     if (!this.scheduleLibraryCache) {
       this.scheduleLibraryCache = [];
     }
-    const librarySet = new Set(["schedulesample.png", ...this.scheduleLibraryCache]);
+    const ghScheduleFiles = await this.fetchFolderLibraryFiles("assets/schedule", ["schedulesample.png"]);
+    const librarySet = new Set([...ghScheduleFiles, ...this.scheduleLibraryCache]);
     allSchedules.forEach((row) => {
       const img = row.Image || row.image;
       if (img && typeof img === "string" && !img.startsWith("http")) {
@@ -4938,7 +5003,6 @@ export class CrudController {
     });
     this.scheduleLibraryCache = Array.from(librarySet);
 
-    // GoogleドライブURL変換ヘルパー
     const convertGoogleDriveUrl = (url) => {
       if (!url) return url;
       const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -5959,7 +6023,8 @@ export class CrudController {
     if (!this.galleryLibraryCache) {
       this.galleryLibraryCache = [];
     }
-    const librarySet = new Set(["samplegallery.png", ...this.galleryLibraryCache]);
+    const ghGalleryFiles = await this.fetchFolderLibraryFiles("assets/gallery", ["samplegallery.png"]);
+    const librarySet = new Set([...ghGalleryFiles, ...this.galleryLibraryCache]);
     allGalleries.forEach((row) => {
       const img = row.image;
       if (img && typeof img === "string" && !img.startsWith("http")) {
@@ -5968,7 +6033,6 @@ export class CrudController {
     });
     this.galleryLibraryCache = Array.from(librarySet);
 
-    // GoogleドライブURL変換ヘルパー
     const convertGoogleDriveUrl = (url) => {
       if (!url) return url;
       const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -7456,7 +7520,8 @@ export class CrudController {
     if (!this.movieLibraryCache) {
       this.movieLibraryCache = [];
     }
-    const librarySet = new Set(["moviesample.png", ...this.movieLibraryCache]);
+    const ghMovieFiles = await this.fetchFolderLibraryFiles("assets/movie", ["sample.png", "moviesample.png"]);
+    const librarySet = new Set([...ghMovieFiles, ...this.movieLibraryCache]);
     allMovies.forEach((row) => {
       const img = row.movieImage || row.image;
       if (img && typeof img === "string" && !img.startsWith("http")) {
@@ -7465,7 +7530,6 @@ export class CrudController {
     });
     this.movieLibraryCache = Array.from(librarySet);
 
-    // GoogleドライブURL変換ヘルパー
     const convertGoogleDriveUrl = (url) => {
       if (!url) return url;
       const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -9605,9 +9669,10 @@ export class CrudController {
     };
 
     if (!this.movieListLibraryCache) {
-      this.movieListLibraryCache = ["sampleList.png"];
+      this.movieListLibraryCache = [];
     }
-    const librarySet = new Set(["sampleList.png", ...this.movieListLibraryCache]);
+    const ghMovieListFiles = await this.fetchFolderLibraryFiles("assets/movieList", ["sampleList.png"]);
+    const librarySet = new Set([...ghMovieListFiles, ...this.movieListLibraryCache]);
     allMovieLists.forEach((row) => {
       const img = row.listImage;
       if (img && typeof img === "string" && !img.startsWith("http")) {
@@ -10358,7 +10423,8 @@ export class CrudController {
     if (!this.shopLibraryCache) {
       this.shopLibraryCache = [];
     }
-    const librarySet = new Set(["samplegoods.png", ...this.shopLibraryCache]);
+    const ghShopFiles = await this.fetchFolderLibraryFiles("assets/shop", ["sampleShop.png", "samplegoods.png"]);
+    const librarySet = new Set([...ghShopFiles, ...this.shopLibraryCache]);
     allShops.forEach((row) => {
       const img = row.merchandiseImage || row.image;
       if (img && typeof img === "string" && !img.startsWith("http")) {
@@ -10367,7 +10433,6 @@ export class CrudController {
     });
     this.shopLibraryCache = Array.from(librarySet);
 
-    // GoogleドライブURL変換ヘルパー
     const convertGoogleDriveUrl = (url) => {
       if (!url) return url;
       const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -11335,7 +11400,12 @@ export class CrudController {
     if (!this.linkListLibraryCache) {
       this.linkListLibraryCache = [];
     }
-    const librarySet = new Set(["defaultbutton_typeA.svg", "defaultbutton_typeB.svg", "booth.svg", ...this.linkListLibraryCache]);
+    const ghLinkFiles = await this.fetchFolderLibraryFiles("assets/link", [
+      "booth.svg",
+      "defaultbutton_typeA.svg",
+      "defaultbutton_typeB.svg"
+    ]);
+    const librarySet = new Set([...ghLinkFiles, ...this.linkListLibraryCache]);
     allLinks.forEach((row) => {
       if (row.buttonImage && typeof row.buttonImage === "string" && !row.buttonImage.startsWith("http")) {
         librarySet.add(row.buttonImage.split("/").pop());
@@ -11343,7 +11413,6 @@ export class CrudController {
     });
     this.linkListLibraryCache = Array.from(librarySet);
 
-    // GoogleドライブURL変換ヘルパー
     const convertGoogleDriveUrl = (url) => {
       if (!url) return url;
       const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -15533,13 +15602,24 @@ export class CrudController {
         ]),
       };
     }
+    const [topLineGh, outLineGh, bgGh] = await Promise.all([
+      this.fetchFolderLibraryFiles("assets/section/topLine", ["sample_topLine.png", "sample_topLine2.png"]),
+      this.fetchFolderLibraryFiles("assets/section/outLine", ["sample_outLine.png", "sample_outLine2.png"]),
+      this.fetchFolderLibraryFiles("assets/section/sectionBackground", [
+        "sample_sectionBackground.png",
+        "sample_sectionBackground2.jpg",
+        "sample_sectionBackground3.jpg",
+      ]),
+    ]);
+    topLineGh.forEach((f) => this.sectionImageCache.topLine.add(f));
+    outLineGh.forEach((f) => this.sectionImageCache.outLine.add(f));
+    bgGh.forEach((f) => this.sectionImageCache.sectionBackground.add(f));
     rawSections.forEach((s) => {
       if (s.topLine) this.sectionImageCache.topLine.add(String(s.topLine).split("/").pop());
       if (s.outLine) this.sectionImageCache.outLine.add(String(s.outLine).split("/").pop());
       if (s.sectionBackground) this.sectionImageCache.sectionBackground.add(String(s.sectionBackground).split("/").pop());
     });
 
-    // ドラフトデータ初期化
     this.sectionDraftList = sortedSections.map((sec, idx) => ({
       ...sec,
       priority: idx + 1,
@@ -16949,6 +17029,13 @@ export class CrudController {
         } catch (e) {}
       })
     );
+
+    // キャッシュにも同期保存
+    if (!this._folderLibraryCacheMap) this._folderLibraryCacheMap = new Map();
+    ghResultsMap.forEach((files, folderPath) => {
+      const fileNames = files.filter((f) => f.type === "file" && f.name).map((f) => f.name);
+      this._folderLibraryCacheMap.set(folderPath, fileNames);
+    });
 
     // 5. アセット情報オブジェクトの構築
     const formatFileSize = (bytes) => {
