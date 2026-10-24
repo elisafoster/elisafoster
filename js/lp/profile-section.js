@@ -467,24 +467,54 @@ export class ProfileSection {
           </svg>
         `;
 
+        const isHorizontal = () => typeof window !== "undefined" && window.innerWidth > 900;
+
         upBtn.onclick = (e) => {
           e.stopPropagation();
-          const step = window.innerWidth <= 600 ? 66 : 74;
-          costumeTabs.scrollBy({ top: -step, behavior: "smooth" });
+          if (isHorizontal()) {
+            costumeTabs.scrollBy({ left: -160, behavior: "smooth" });
+          } else {
+            const step = window.innerWidth <= 600 ? 66 : 74;
+            costumeTabs.scrollBy({ top: -step, behavior: "smooth" });
+          }
         };
         downBtn.onclick = (e) => {
           e.stopPropagation();
-          const step = window.innerWidth <= 600 ? 66 : 74;
-          costumeTabs.scrollBy({ top: step, behavior: "smooth" });
+          if (isHorizontal()) {
+            costumeTabs.scrollBy({ left: 160, behavior: "smooth" });
+          } else {
+            const step = window.innerWidth <= 600 ? 66 : 74;
+            costumeTabs.scrollBy({ top: step, behavior: "smooth" });
+          }
         };
 
         const updateArrows = () => {
           if (this.visuals.length <= 3) return;
-          const { scrollTop, scrollHeight, clientHeight } = costumeTabs;
-          upBtn.disabled = scrollTop <= 2;
-          downBtn.disabled = scrollTop + clientHeight >= scrollHeight - 2;
+          if (isHorizontal()) {
+            const { scrollLeft, scrollWidth, clientWidth } = costumeTabs;
+            upBtn.disabled = scrollLeft <= 2;
+            downBtn.disabled = scrollLeft + clientWidth >= scrollWidth - 2;
+          } else {
+            const { scrollTop, scrollHeight, clientHeight } = costumeTabs;
+            upBtn.disabled = scrollTop <= 2;
+            downBtn.disabled = scrollTop + clientHeight >= scrollHeight - 2;
+          }
         };
         costumeTabs.addEventListener("scroll", updateArrows, { passive: true });
+        window.addEventListener("resize", updateArrows, { passive: true });
+
+        // PC時のマウスホイールによる横スクロール対応
+        costumeTabs.addEventListener(
+          "wheel",
+          (e) => {
+            if (isHorizontal() && e.deltaY !== 0) {
+              e.preventDefault();
+              costumeTabs.scrollLeft += e.deltaY;
+            }
+          },
+          { passive: false }
+        );
+
         setTimeout(updateArrows, 60);
 
         this.visuals.forEach((v, idx) => {

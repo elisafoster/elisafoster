@@ -741,20 +741,59 @@
 /* --------------------------------------------------------------------------
    ⑨ サムネイルのみ表示 (今の2倍サイズ: 144px × 144px)
    重要: outLine (3) < サムネイル (10)
+   PC時: 4つ以上で横スクロール（折り返し禁止・4つ目チラ見え & 左右矢印 & ホイールスクロール）
    -------------------------------------------------------------------------- */
 .lp-costume-slider-wrapper {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row; /* PC時は横並び */
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   margin-top: auto;
   margin-bottom: -10px; /* outLine との自然な重なり */
   position: relative;
   z-index: 10;
   pointer-events: auto;
+  max-width: 100%;
 }
 
 .lp-costume-arrow-btn {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 52px;
+  background: transparent;
+  border: none;
+  color: #0ea5e9;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  filter: none !important;
+}
+
+.lp-costume-arrow-btn svg {
+  display: block;
+  width: 28px;
+  height: 12px;
+  transform: rotate(-90deg); /* PC時は横スクロール用の ◀ / ▶ */
+  transition: transform var(--transition-fast), color var(--transition-fast);
+}
+
+.lp-costume-arrow-btn:hover:not(:disabled) svg {
+  color: #38bdf8;
+  transform: rotate(-90deg) scale(1.2);
+}
+
+.lp-costume-arrow-btn:disabled {
+  opacity: 0.15;
+  cursor: default;
+  pointer-events: none;
+}
+
+.lp-costume-slider-wrapper.no-scroll .lp-costume-arrow-btn {
+  display: none !important;
 }
 
 .lp-costume-tabs-standalone {
@@ -762,11 +801,23 @@
   z-index: 10; /* 厳守: outLine (3) より前面！ */
   display: flex;
   gap: 16px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap !important; /* PC時も絶対に2行に折り返さない！ */
+  justify-content: flex-start;
   align-items: center;
   pointer-events: auto;
-  padding: 8px 0;
+  padding: 10px 4px; /* アクティブ時の光彩枠が見切れないよう余白確保 */
+  max-width: 520px; /* 3個完全表示 + 4個目の左端約40pxがチラ見え */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* スクロールバー完全非表示 (Firefox) */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
+.lp-costume-tabs-standalone::-webkit-scrollbar {
+  display: none; /* スクロールバー完全非表示 (Chrome, Safari, WebKit) */
+  width: 0;
+  height: 0;
 }
 
 @media (max-width: 900px) {
@@ -849,8 +900,10 @@
 }
 
 .lp-costume-thumb-btn {
+  flex: 0 0 144px; /* 横スクロール時も縮まない */
   width: 144px;  /* 今の76pxの約2倍のサイズ */
   height: 144px; /* 今の76pxの約2倍のサイズ */
+  aspect-ratio: 1 / 1;
   padding: 6px;
   border-radius: 20px;
   background-color: #2b395d;
