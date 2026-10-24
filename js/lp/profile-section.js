@@ -113,20 +113,28 @@ export class ProfileSection {
       leftCol.appendChild(nickBadge);
     }
 
-    // ③ キャッチフレーズカード (themeConfigカードカラー適用)
+    // ③ キャッチフレーズ (引用表示)
     if (this.profile.comment) {
-      const phraseCard = document.createElement("div");
-      phraseCard.className = "lp-profile-theme-card lp-profile-catchphrase-card";
-      phraseCard.textContent = this.profile.comment;
-      leftCol.appendChild(phraseCard);
+      const phraseQuote = document.createElement("blockquote");
+      phraseQuote.className = "lp-profile-quote-block lp-profile-catchphrase-quote";
+      phraseQuote.innerHTML = `
+        <span class="lp-profile-quote-mark start">“</span>
+        <span class="lp-profile-quote-text">${escapeHtml(this.profile.comment)}</span>
+        <span class="lp-profile-quote-mark end">”</span>
+      `;
+      leftCol.appendChild(phraseQuote);
     }
 
-    // ④ 自己紹介カード (themeConfigカードカラー適用)
+    // ④ 自己紹介 (引用表示)
     if (this.profile.message) {
-      const msgCard = document.createElement("div");
-      msgCard.className = "lp-profile-theme-card lp-profile-message-card";
-      msgCard.textContent = this.profile.message;
-      leftCol.appendChild(msgCard);
+      const msgQuote = document.createElement("blockquote");
+      msgQuote.className = "lp-profile-quote-block lp-profile-message-quote";
+      msgQuote.innerHTML = `
+        <div class="lp-profile-message-quote-inner">
+          <p class="lp-profile-message-quote-text">${escapeHtml(this.profile.message)}</p>
+        </div>
+      `;
+      leftCol.appendChild(msgQuote);
     }
 
     // ⑤ & ⑥ 横並びの2カラムカード (SPECS & CREDITS)
@@ -257,42 +265,140 @@ export class ProfileSection {
     snsBlock.appendChild(snsBtns);
     leftCol.appendChild(snsBlock);
 
-    // ⑧ INTRO MOVIES (自己紹介動画)
-    if (Array.isArray(this.profile.moves) && this.profile.moves.length > 0) {
-      const movesBlock = document.createElement("div");
-      movesBlock.className = "lp-profile-moves-block";
-      movesBlock.innerHTML = `<div class="lp-moves-badge-title">✦ INTRO MOVIES ✦</div>`;
+    // ⑧ INTRO MOVIES (自己紹介動画: 複数ある場合はスライダーで切り替え表示)
+    if (Array.isArray(this.profile.moves)) {
+      const validMoves = this.profile.moves.filter((url) => Boolean(url && String(url).trim()));
+      if (validMoves.length > 0) {
+        const movesBlock = document.createElement("div");
+        movesBlock.className = "lp-profile-moves-block";
+        movesBlock.innerHTML = `<div class="lp-moves-badge-title">✦ INTRO MOVIES ✦</div>`;
 
-      const movesList = document.createElement("div");
-      movesList.className = "lp-profile-moves-grid";
+        const sliderContainer = document.createElement("div");
+        sliderContainer.className = "lp-profile-moves-slider-container";
 
-      this.profile.moves.forEach((videoUrl, idx) => {
-        if (!videoUrl) return;
-        const card = document.createElement("div");
-        card.className = "lp-profile-movie-item";
+        const sliderViewport = document.createElement("div");
+        sliderViewport.className = "lp-profile-moves-slider-viewport";
 
-        const ytInfo = getYouTubeInfo(videoUrl);
-        const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
+        const sliderTrack = document.createElement("div");
+        sliderTrack.className = "lp-profile-moves-slider-track";
 
-        card.innerHTML = `
-          <div class="lp-profile-movie-thumb-wrapper">
-            <img class="lp-profile-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
-            <div class="lp-profile-movie-play-btn">
-              <div class="lp-profile-movie-play-icon">▶</div>
+        validMoves.forEach((videoUrl, idx) => {
+          const card = document.createElement("div");
+          card.className = "lp-profile-movie-item";
+
+          const ytInfo = getYouTubeInfo(videoUrl);
+          const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
+
+          card.innerHTML = `
+            <div class="lp-profile-movie-thumb-wrapper">
+              <img class="lp-profile-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
+              <div class="lp-profile-movie-play-btn">
+                <div class="lp-profile-movie-play-icon">▶</div>
+              </div>
             </div>
-          </div>
-          <div class="lp-profile-movie-footer">活動者・配信者</div>
-        `;
+            <div class="lp-profile-movie-footer">活動者・配信者</div>
+          `;
 
-        card.onclick = () => {
-          Modal.openVideo(videoUrl, `自己紹介ムービー`);
-        };
+          card.onclick = () => {
+            Modal.openVideo(videoUrl, `自己紹介ムービー`);
+          };
 
-        movesList.appendChild(card);
-      });
+          sliderTrack.appendChild(card);
+        });
 
-      movesBlock.appendChild(movesList);
-      leftCol.appendChild(movesBlock);
+        sliderViewport.appendChild(sliderTrack);
+        sliderContainer.appendChild(sliderViewport);
+
+        // 複数動画がある場合のみスライダーコントロール (左右矢印・ドット・スワイプ) を追加
+        if (validMoves.length > 1) {
+          let currentIndex = 0;
+          const totalSlides = validMoves.length;
+
+          const updateSlide = (newIndex) => {
+            currentIndex = (newIndex + totalSlides) % totalSlides;
+            sliderTrack.style.transform = `translateX(-${currentIndex * 100}%)`;
+
+            // ドットの更新
+            const dots = sliderContainer.querySelectorAll(".lp-moves-slider-dot");
+            dots.forEach((dot, dIdx) => {
+              dot.classList.toggle("is-active", dIdx === currentIndex);
+            });
+          };
+
+          // 左右矢印ボタン
+          const prevBtn = document.createElement("button");
+          prevBtn.type = "button";
+          prevBtn.className = "lp-moves-slider-arrow prev";
+          prevBtn.setAttribute("aria-label", "前の動画");
+          prevBtn.innerHTML = "‹";
+          prevBtn.onclick = (e) => {
+            e.stopPropagation();
+            updateSlide(currentIndex - 1);
+          };
+
+          const nextBtn = document.createElement("button");
+          nextBtn.type = "button";
+          nextBtn.className = "lp-moves-slider-arrow next";
+          nextBtn.setAttribute("aria-label", "次の動画");
+          nextBtn.innerHTML = "›";
+          nextBtn.onclick = (e) => {
+            e.stopPropagation();
+            updateSlide(currentIndex + 1);
+          };
+
+          sliderContainer.appendChild(prevBtn);
+          sliderContainer.appendChild(nextBtn);
+
+          // ドットインジケーター
+          const dotsWrap = document.createElement("div");
+          dotsWrap.className = "lp-moves-slider-dots";
+
+          for (let i = 0; i < totalSlides; i++) {
+            const dot = document.createElement("button");
+            dot.type = "button";
+            dot.className = `lp-moves-slider-dot${i === 0 ? " is-active" : ""}`;
+            dot.setAttribute("aria-label", `動画 ${i + 1}`);
+            dot.onclick = (e) => {
+              e.stopPropagation();
+              updateSlide(i);
+            };
+            dotsWrap.appendChild(dot);
+          }
+          sliderContainer.appendChild(dotsWrap);
+
+          // タッチスワイプ対応
+          let startX = 0;
+          let currentX = 0;
+          let isSwiping = false;
+
+          sliderViewport.addEventListener("touchstart", (e) => {
+            startX = e.touches[0].clientX;
+            currentX = startX;
+            isSwiping = true;
+          }, { passive: true });
+
+          sliderViewport.addEventListener("touchmove", (e) => {
+            if (!isSwiping) return;
+            currentX = e.touches[0].clientX;
+          }, { passive: true });
+
+          sliderViewport.addEventListener("touchend", () => {
+            if (!isSwiping) return;
+            isSwiping = false;
+            const diffX = startX - currentX;
+            if (Math.abs(diffX) > 40) {
+              if (diffX > 0) {
+                updateSlide(currentIndex + 1);
+              } else {
+                updateSlide(currentIndex - 1);
+              }
+            }
+          });
+        }
+
+        movesBlock.appendChild(sliderContainer);
+        leftCol.appendChild(movesBlock);
+      }
     }
 
     grid.appendChild(leftCol);
