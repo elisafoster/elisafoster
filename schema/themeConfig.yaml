@@ -87,3 +87,32 @@ themeConfig:
         aspectRatio: "1:1"     # 1:1固定
         displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
         background: "transparent"
+
+
+    appIcon:
+      type: image
+      label: "アプリアイコン"
+      description: "アプリのアイコン"
+      required: true
+      default: "assets/appIcon/app_icon.png"
+
+      # アップロード専用設定
+      uploadPath: "assets/appIcon"
+      fileName: "app_icon"
+      overwrite: true
+      accept:
+        - ".png"
+
+      # 必要に応じて容量制限を追加
+      validation:
+        maxSizeBytes: 1048576 # 1MB
+
+      clientProcess:
+        maxLongEdge: 512     # 長辺512pxにリサイズ（縦横どちらも破綻なし）
+        compressQuality: 0.85
+
+      fitProcess:
+        enabled: true
+        aspectRatio: "1:1"     # 1:1固定
+        displayMode: "contain"  # 枠内に全体を収める（見切れ防止）
+        background: "transparent"

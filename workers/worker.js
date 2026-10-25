@@ -560,7 +560,21 @@ export default {
         `;
 
         const values = keys.map(k => body[k]);
-        await env.DB.prepare(sql).bind(...values).run();
+        try {
+          await env.DB.prepare(sql).bind(...values).run();
+        } catch (dbErr) {
+          // themeConfig テーブルに appIcon カラムがまだ存在しない場合の自動マイグレーション
+          if (tableName === "themeConfig" && String(dbErr?.message || "").includes("has no column named appIcon")) {
+            try {
+              await env.DB.prepare("ALTER TABLE themeConfig ADD COLUMN appIcon TEXT").run();
+              await env.DB.prepare(sql).bind(...values).run();
+            } catch (alterErr) {
+              throw dbErr;
+            }
+          } else {
+            throw dbErr;
+          }
+        }
         return jsonResponse({ success: true, id: 1 });
       }
 

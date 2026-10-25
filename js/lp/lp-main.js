@@ -93,6 +93,27 @@ class LpApp {
       const bgUrl = api.resolveAssetUrl(tc.background, "config");
       pageBgLayer.style.backgroundImage = `url("${bgUrl}")`;
     }
+
+    // アプリアイコン (ファビコン & ヘッダーサイト名左側アイコン)
+    const appIconPath = tc.appIcon || "assets/appIcon/app_icon.png";
+    const appIconUrl = api.resolveAssetUrl(appIconPath, "appIcon");
+
+    // 1. ファビコン動的更新
+    let favicon = document.querySelector('link[rel="icon"]');
+    if (!favicon) {
+      favicon = document.createElement("link");
+      favicon.rel = "icon";
+      favicon.type = "image/png";
+      document.head.appendChild(favicon);
+    }
+    favicon.href = appIconUrl;
+
+    // 2. ヘッダーサイト名左側のアプリアイコン
+    const brandLogo = document.querySelector(".lp-header-brand-logo");
+    if (brandLogo) {
+      brandLogo.src = appIconUrl;
+      brandLogo.style.display = "";
+    }
   }
 
   /**

@@ -14355,6 +14355,7 @@ export class CrudController {
       section_title_color: tc.section_title_color || "#1E293B",
       background: tc.background || "assets/config/background.jpg",
       logo: tc.logo || "assets/config/logo.png",
+      appIcon: tc.appIcon || "assets/appIcon/app_icon.png",
     };
 
     // 初期化およびドラフト復元
@@ -14617,6 +14618,17 @@ export class CrudController {
             <input type="file" id="tc-logo-file" accept="image/*" style="display: none;">
             <span class="admin-theme-asset-filename" id="tc-logo-filename">${state.logo.split("/").pop()}</span>
           </div>
+
+          <!-- アプリアイコン画像 -->
+          <div class="admin-theme-asset-card">
+            <label class="admin-theme-field-label">アプリアイコン画像 (appIcon)</label>
+            <div class="admin-theme-asset-preview-box is-logo-box">
+              <img class="admin-theme-asset-preview-img is-logo" id="tc-appicon-thumb" src="${api.resolveAssetUrl(state.appIcon, "appIcon")}" alt="アプリアイコンプレビュー" onerror="this.style.opacity='0.2';">
+            </div>
+            <button type="button" class="admin-theme-asset-change-btn" id="tc-appicon-btn">📁 画像を変更</button>
+            <input type="file" id="tc-appicon-file" accept="image/*" style="display: none;">
+            <span class="admin-theme-asset-filename" id="tc-appicon-filename">${state.appIcon.split("/").pop()}</span>
+          </div>
         </div>
       </div>
     `;
@@ -14727,6 +14739,11 @@ export class CrudController {
       if (logoThumb) {
         logoThumb.src = api.resolveAssetUrl(state.logo, "config");
         logoThumb.style.opacity = "1";
+      }
+      const appIconThumb = layoutGrid.querySelector("#tc-appicon-thumb");
+      if (appIconThumb) {
+        appIconThumb.src = api.resolveAssetUrl(state.appIcon, "appIcon");
+        appIconThumb.style.opacity = "1";
       }
 
       // 8. セグメント切り替えUI
@@ -14847,7 +14864,8 @@ export class CrudController {
         orig.card_text_color !== state.card_text_color ||
         orig.section_title_color !== state.section_title_color ||
         orig.background !== state.background ||
-        orig.logo !== state.logo
+        orig.logo !== state.logo ||
+        orig.appIcon !== state.appIcon
       );
     };
 
@@ -14958,6 +14976,20 @@ export class CrudController {
       });
     });
 
+    layoutGrid.querySelector("#tc-appicon-btn")?.addEventListener("click", () => {
+      this.openThemeAssetUploadModal("appIcon", state.appIcon, async (savedPath, blob) => {
+        state.appIcon = savedPath;
+        const filenameEl = layoutGrid.querySelector("#tc-appicon-filename");
+        if (filenameEl) filenameEl.textContent = savedPath.split("/").pop();
+        const thumbEl = layoutGrid.querySelector("#tc-appicon-thumb");
+        if (thumbEl && blob) {
+          thumbEl.src = URL.createObjectURL(blob);
+          thumbEl.style.opacity = "1";
+        }
+        updatePreviewAndUI();
+      });
+    });
+
     layoutGrid.querySelector("#tc-logo-btn")?.addEventListener("click", () => {
       this.openThemeAssetUploadModal("logo", state.logo, async (savedPath, blob) => {
         state.logo = savedPath;
@@ -15001,6 +15033,7 @@ export class CrudController {
           section_title_color: state.section_title_color,
           background: state.background,
           logo: state.logo,
+          appIcon: state.appIcon,
         };
 
         await api.saveTable("themeConfig", payload, 1);
@@ -15030,10 +15063,30 @@ export class CrudController {
    */
   async openThemeAssetUploadModal(field, currentPath, onUpdated) {
     const isLogo = field === "logo";
+    const isAppIcon = field === "appIcon";
+    const isSquare = isLogo || isAppIcon;
 
     // YAML設定値 (schema/themeConfig.yaml)
     // background はアスペクト比指定なし、maxSizeBytes(5MB) の容量チェックのみ
-    const cfg = isLogo
+    const cfg = isAppIcon
+      ? {
+          field: "appIcon",
+          label: "アプリアイコン",
+          description: "アプリのアイコン",
+          uploadPath: "assets/appIcon",
+          fileName: "app_icon",
+          overwrite: true,
+          accept: ".png",
+          maxSizeBytes: 1048576, // 1MB
+          maxSizeMB: 1,
+          aspectRatio: "1:1",
+          displayMode: "contain",
+          background: "transparent",
+          targetW: 512,
+          targetH: 512,
+          ext: ".png",
+        }
+      : isLogo
       ? {
           field: "logo",
           label: "ロゴ画像",
@@ -15101,21 +15154,21 @@ export class CrudController {
         <!-- ヘッダー帯 -->
         <div class="crop-header">
           <div class="crop-header-title">
-            <span>${isLogo ? "✂" : "🖼️"}</span>
-            <span id="crop-header-title-theme">${isLogo ? "トリミング調整 (正方形 1:1 (512×512))" : "画像プレビュー (元比率維持 / 容量チェック)"}</span>
+            <span>${isSquare ? "✂" : "🖼️"}</span>
+            <span id="crop-header-title-theme">${isAppIcon ? "アプリアイコン調整 (正方形 1:1 (512×512))" : isLogo ? "トリミング調整 (正方形 1:1 (512×512))" : "画像プレビュー (元比率維持 / 容量チェック)"}</span>
           </div>
-          <div class="crop-header-hint">${isLogo ? "ドラッグで移動 / スライダーでズーム" : "容量が上限以内であればそのまま上書き保存されます"}</div>
+          <div class="crop-header-hint">${isSquare ? "ドラッグで移動 / スライダーでズーム" : "容量が上限以内であればそのまま上書き保存されます"}</div>
         </div>
 
         <!-- キャンバスプレビュー枠 (点線外枠) -->
         <div class="admin-upload-crop-container">
-          <div class="crop-canvas-box" id="crop-canvas-box-theme" style="aspect-ratio: ${isLogo ? "1 / 1" : "16 / 9"}; max-width: ${isLogo ? "360px" : "520px"}; width: 100%;">
+          <div class="crop-canvas-box" id="crop-canvas-box-theme" style="aspect-ratio: ${isSquare ? "1 / 1" : "16 / 9"}; max-width: ${isSquare ? "360px" : "520px"}; width: 100%;">
             <canvas id="crop-canvas-theme" class="admin-upload-crop-canvas"></canvas>
           </div>
         </div>
 
         <!-- ズームコントロールバー (ロゴの場合のみ操作重視、背景画像の場合も利用可能) -->
-        <div class="crop-controls" style="${isLogo ? "" : "display: none;"}">
+        <div class="crop-controls" style="${isSquare ? "" : "display: none;"}">
           <div class="crop-zoom-label">
             <span>🔍</span> <span>ズーム:</span>
           </div>
@@ -15196,7 +15249,7 @@ export class CrudController {
       const ctx = cropCanvas.getContext("2d");
       ctx.clearRect(0, 0, targetW, targetH);
 
-      if (isLogo) {
+      if (isSquare) {
         // ロゴ透過PNG
       } else {
         // 背景画像: 透過部分がある場合も考慮しつつクリア
@@ -15219,7 +15272,7 @@ export class CrudController {
         if (!selectedImg) return;
 
         // 背景画像でアスペクト比指定なしの場合は選択された元ファイルそのものの容量を優先判定
-        if (!isLogo && selectedFile) {
+        if (!isSquare && selectedFile) {
           currentBlob = selectedFile;
           const sizeKB = (selectedFile.size / 1024).toFixed(1);
           const limitKB = Math.round(cfg.maxSizeBytes / 1024);
@@ -15239,8 +15292,8 @@ export class CrudController {
         }
 
         const ext = extLabel.textContent.toLowerCase();
-        const mimeType = isLogo || ext === ".png" ? "image/png" : "image/jpeg";
-        const quality = isLogo || ext === ".png" ? undefined : (cfg.compressQuality || 0.88);
+        const mimeType = isSquare || ext === ".png" ? "image/png" : "image/jpeg";
+        const quality = isSquare || ext === ".png" ? undefined : (cfg.compressQuality || 0.88);
 
         cropCanvas.toBlob((blob) => {
           if (!blob) return;
@@ -15277,7 +15330,7 @@ export class CrudController {
     let startCenterY = 0;
 
     const onDragStart = (clientX, clientY) => {
-      if (!isLogo || !selectedImg) return;
+      if (!isSquare || !selectedImg) return;
       isDragging = true;
       startX = clientX;
       startY = clientY;
@@ -15328,7 +15381,7 @@ export class CrudController {
 
     // ホイールズーム (ロゴの場合)
     cropCanvas.addEventListener("wheel", (e) => {
-      if (!isLogo || !selectedImg) return;
+      if (!isSquare || !selectedImg) return;
       e.preventDefault();
       const delta = e.deltaY < 0 ? 0.05 : -0.05;
       let newScale = scale + delta;
@@ -15373,10 +15426,10 @@ export class CrudController {
 
       selectedFile = file;
       const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase() || cfg.ext;
-      extLabel.textContent = isLogo ? ".png" : ext;
+      extLabel.textContent = isSquare ? ".png" : ext;
 
       if (overwriteNote) {
-        overwriteNote.innerHTML = `YAMLの定義に従い、<code>${cfg.uploadPath}/${cfg.fileName}${isLogo ? ".png" : ext}</code> を上書き更新します。`;
+        overwriteNote.innerHTML = `YAMLの定義に従い、<code>${cfg.uploadPath}/${cfg.fileName}${isSquare ? ".png" : ext}</code> を上書き更新します。`;
       }
 
       const reader = new FileReader();
@@ -15385,7 +15438,7 @@ export class CrudController {
         img.onload = () => {
           selectedImg = img;
 
-          if (isLogo) {
+          if (isSquare) {
             // ロゴ: 1:1 正方形固定 (512×512)
             targetW = 512;
             targetH = 512;
