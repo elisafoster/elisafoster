@@ -141,7 +141,7 @@ export class ProfileSection {
     const heroInner = document.createElement("div");
     heroInner.className = "lp-profile-banner-hero-inner";
 
-    // 左側テキスト (ELISA + 白座布団付き NICKNAME)
+    // 左側テキスト (ELISA + NICKNAME: 白い背景カードなし)
     const heroText = document.createElement("div");
     heroText.className = "lp-profile-banner-hero-text";
 
@@ -150,15 +150,11 @@ export class ProfileSection {
     heroName.textContent = this.profile.name || "ELISA";
     heroText.appendChild(heroName);
 
-    const nickWrap = document.createElement("div");
-    nickWrap.className = "lp-profile-banner-nick-wrap";
-
     const nickBadge = document.createElement("div");
     nickBadge.className = "lp-profile-nick-badge";
     const nickVal = (this.profile.nickname && String(this.profile.nickname).trim()) || "サンプル";
     nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${escapeHtml(nickVal)}</span>`;
-    nickWrap.appendChild(nickBadge);
-    heroText.appendChild(nickWrap);
+    heroText.appendChild(nickBadge);
 
     heroInner.appendChild(heroText);
 
@@ -192,19 +188,27 @@ export class ProfileSection {
     const leftCol = document.createElement("div");
     leftCol.className = "lp-profile-banner-left-col";
 
-    // キャッチフレーズカード (未設定時もカンプ通りサンプルを表示)
-    const phraseCard = document.createElement("div");
-    phraseCard.className = "lp-profile-banner-phrase-card";
+    // キャッチフレーズ (立ち絵表示形式と同じ: 一番左に縦線のみの引用表示)
     const phraseText = (this.profile.comment && String(this.profile.comment).trim()) || "サンプルキャッチフレーズ";
-    phraseCard.innerHTML = `<p class="lp-profile-banner-phrase-text">${escapeHtml(phraseText)}</p>`;
-    leftCol.appendChild(phraseCard);
+    const phraseQuote = document.createElement("blockquote");
+    phraseQuote.className = "lp-profile-quote-block lp-profile-catchphrase-quote";
+    phraseQuote.innerHTML = `
+      <span class="lp-profile-quote-mark start">“</span>
+      <span class="lp-profile-quote-text">${escapeHtml(phraseText)}</span>
+      <span class="lp-profile-quote-mark end">”</span>
+    `;
+    leftCol.appendChild(phraseQuote);
 
-    // 自己紹介カード (未設定時もカンプ通りサンプルを表示)
-    const introCard = document.createElement("div");
-    introCard.className = "lp-profile-banner-intro-card";
+    // 自己紹介 (立ち絵表示形式と同じ: 一番左に縦線のみの引用表示)
     const introText = (this.profile.message && String(this.profile.message).trim()) || "サンプル 自己紹介";
-    introCard.innerHTML = `<p class="lp-profile-banner-intro-text">${escapeHtml(introText)}</p>`;
-    leftCol.appendChild(introCard);
+    const msgQuote = document.createElement("blockquote");
+    msgQuote.className = "lp-profile-quote-block lp-profile-message-quote";
+    msgQuote.innerHTML = `
+      <div class="lp-profile-message-quote-inner">
+        <p class="lp-profile-message-quote-text">${escapeHtml(introText)}</p>
+      </div>
+    `;
+    leftCol.appendChild(msgQuote);
 
     // スペック＆クレジット (2カラムカード: visual1 の情報を渡す)
     const twoCardsGrid = this.createTwoColCards(visual1);
@@ -212,20 +216,20 @@ export class ProfileSection {
 
     contentGrid.appendChild(leftCol);
 
-    // --- 右カラム (動画、SNS) ---
+    // --- 右カラム (SNSが上、動画が下) ---
     const rightCol = document.createElement("div");
     rightCol.className = "lp-profile-banner-right-col";
 
-    // INTRO MOVIES (カンプ通り確実に表示)
-    const movesBlock = this.createBannerMovesBlock();
-    if (movesBlock) {
-      rightCol.appendChild(movesBlock);
-    }
-
-    // OFFICIAL CHANNELS & PLATFORMS (カンプ通り確実に表示)
+    // 1. OFFICIAL CHANNELS & PLATFORMS (上に配置)
     const snsBlock = this.createBannerSnsBlock();
     if (snsBlock) {
       rightCol.appendChild(snsBlock);
+    }
+
+    // 2. INTRO MOVIES (下に配置)
+    const movesBlock = this.createBannerMovesBlock();
+    if (movesBlock) {
+      rightCol.appendChild(movesBlock);
     }
 
     contentGrid.appendChild(rightCol);
@@ -879,9 +883,6 @@ export class ProfileSection {
     block.className = "lp-profile-banner-sns-section";
     block.innerHTML = `<div class="lp-banner-channels-title">✦ OFFICIAL CHANNELS & PLATFORMS ✦</div>`;
 
-    const card = document.createElement("div");
-    card.className = "lp-profile-banner-sns-card";
-
     const snsBtns = document.createElement("div");
     snsBtns.className = "lp-banner-channels-btn-group";
 
@@ -924,8 +925,7 @@ export class ProfileSection {
       snsBtns.appendChild(ttBtn);
     }
 
-    card.appendChild(snsBtns);
-    block.appendChild(card);
+    block.appendChild(snsBtns);
     return block;
   }
 
