@@ -62,14 +62,133 @@ export class ProfileSection {
     if (!this.container) return;
     this.container.innerHTML = "";
 
-    const grid = document.createElement("div");
-    grid.className = `lp-profile-grid lp-profile-type-${this.sectionType}`;
-
     // 現在選択中のビジュアル
     const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0] || null;
 
     // visual.visualBackground に応じたページ背景の動的切り替え
     this.updatePageBackground(currentVisual);
+
+    if (this.sectionType === "banner") {
+      this.renderBannerLayout(currentVisual);
+    } else {
+      this.renderStandingLayout(currentVisual);
+    }
+  }
+
+  /**
+   * =========================================================================
+   * ① バナー形式 (sectionType === "banner")
+   * =========================================================================
+   */
+  renderBannerLayout(currentVisual) {
+    const mainContainer = document.createElement("div");
+    mainContainer.className = "lp-profile-banner-container";
+
+    // 1. 上部ヒーローバナー
+    const bannerHero = document.createElement("div");
+    bannerHero.className = "lp-profile-banner-hero";
+
+    const heroInner = document.createElement("div");
+    heroInner.className = "lp-profile-banner-hero-inner";
+
+    // 左側テキスト (ELISA + NICKNAME)
+    const heroText = document.createElement("div");
+    heroText.className = "lp-profile-banner-hero-text";
+
+    const heroName = document.createElement("h2");
+    heroName.className = "lp-profile-banner-name";
+    heroName.textContent = this.profile.name || "ELISA";
+    heroText.appendChild(heroName);
+
+    if (this.profile.nickname) {
+      const nickWrap = document.createElement("div");
+      nickWrap.className = "lp-profile-banner-nick-wrap";
+
+      const nickBadge = document.createElement("div");
+      nickBadge.className = "lp-profile-nick-badge";
+      nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${escapeHtml(this.profile.nickname)}</span>`;
+      nickWrap.appendChild(nickBadge);
+      heroText.appendChild(nickWrap);
+    }
+
+    heroInner.appendChild(heroText);
+
+    // 右側キャラクター上半身
+    if (currentVisual) {
+      const visualWrap = document.createElement("div");
+      visualWrap.className = "lp-profile-banner-hero-visual";
+
+      const charImg = document.createElement("img");
+      charImg.className = "lp-profile-banner-char-img";
+      charImg.src = api.resolveAssetUrl(currentVisual.visual, "visual/standing");
+      charImg.alt = currentVisual.costumeName || this.profile.name || "キャラクター";
+      visualWrap.appendChild(charImg);
+      heroInner.appendChild(visualWrap);
+    }
+
+    bannerHero.appendChild(heroInner);
+    mainContainer.appendChild(bannerHero);
+
+    // 2. 下部2カラムコンテンツグリッド
+    const contentGrid = document.createElement("div");
+    contentGrid.className = "lp-profile-banner-content-grid";
+
+    // --- 左カラム ---
+    const leftCol = document.createElement("div");
+    leftCol.className = "lp-profile-banner-left-col";
+
+    // キャッチフレーズ
+    if (this.profile.comment) {
+      const phraseCard = document.createElement("div");
+      phraseCard.className = "lp-profile-banner-phrase-card";
+      phraseCard.innerHTML = `<p class="lp-profile-banner-phrase-text">${escapeHtml(this.profile.comment)}</p>`;
+      leftCol.appendChild(phraseCard);
+    }
+
+    // 自己紹介
+    if (this.profile.message) {
+      const introCard = document.createElement("div");
+      introCard.className = "lp-profile-banner-intro-card";
+      introCard.innerHTML = `<p class="lp-profile-banner-intro-text">${escapeHtml(this.profile.message)}</p>`;
+      leftCol.appendChild(introCard);
+    }
+
+    // スペック＆クレジット (2カラムカード)
+    const twoCardsGrid = this.createTwoColCards(currentVisual);
+    leftCol.appendChild(twoCardsGrid);
+
+    contentGrid.appendChild(leftCol);
+
+    // --- 右カラム ---
+    const rightCol = document.createElement("div");
+    rightCol.className = "lp-profile-banner-right-col";
+
+    // INTRO MOVIES
+    const movesBlock = this.createBannerMovesBlock();
+    if (movesBlock) {
+      rightCol.appendChild(movesBlock);
+    }
+
+    // OFFICIAL CHANNELS & PLATFORMS
+    const snsBlock = this.createBannerSnsBlock();
+    if (snsBlock) {
+      rightCol.appendChild(snsBlock);
+    }
+
+    contentGrid.appendChild(rightCol);
+    mainContainer.appendChild(contentGrid);
+
+    this.container.appendChild(mainContainer);
+  }
+
+  /**
+   * =========================================================================
+   * ② 立ち絵形式 (sectionType === "standing")
+   * =========================================================================
+   */
+  renderStandingLayout(currentVisual) {
+    const grid = document.createElement("div");
+    grid.className = `lp-profile-grid lp-profile-type-${this.sectionType}`;
 
     // =========================================================================
     // 1. 画面左側: プロフィール詳細情報エリア (order: 1 / z-index: 10)
@@ -148,75 +267,7 @@ export class ProfileSection {
     }
 
     // ⑤ & ⑥ 横並びの2カラムカード (SPECS & CREDITS)
-    const twoColCards = document.createElement("div");
-    twoColCards.className = "lp-profile-two-cards-grid";
-
-    const formatDisplayBirthday = (val) => {
-      if (!val) return "";
-      const m = String(val).match(/^\d{4}-(\d{2})-(\d{2})$/);
-      if (m) return `${m[1]}月${m[2]}日`;
-      return val;
-    };
-    const formatDisplayStreaming = (val) => {
-      if (!val) return "";
-      const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (m) return `${m[1]}年${m[2]}月${m[3]}日`;
-      return val;
-    };
-
-    // ⑤ PROFILE SPECS（未設定項目は "---" で表示）
-    const specs = [
-      { icon: "🎂", label: "誕生日", value: formatDisplayBirthday(this.profile.birthday) || "---" },
-      { icon: "🚀", label: "活動開始日", value: formatDisplayStreaming(this.profile.streaming) || "---" },
-      { icon: "✨", label: "年齢", value: this.profile.age ? `${this.profile.age} 歳` : "---" },
-      { icon: "📏", label: "身長", value: this.profile.height ? `${this.profile.height} cm` : "---" },
-      { icon: "💫", label: "ファンネーム", value: this.profile.fanName || "---" },
-    ];
-
-    const specsCard = document.createElement("div");
-    specsCard.className = "lp-profile-theme-card lp-profile-specs-card";
-    specsCard.innerHTML = `<div class="lp-card-header-badge lp-badge-yellow">✦ PROFILE SPECS ✦</div>`;
-
-    const specsList = document.createElement("div");
-    specsList.className = "lp-specs-row-list";
-    specs.forEach((s) => {
-      const row = document.createElement("div");
-      row.className = "lp-spec-row-item";
-      row.innerHTML = `
-        <span class="lp-spec-row-label"><i>${escapeHtml(s.icon)}</i> ${escapeHtml(s.label)}</span>
-        <span class="lp-spec-row-val">${escapeHtml(s.value)}</span>
-      `;
-      specsList.appendChild(row);
-    });
-    specsCard.appendChild(specsList);
-    twoColCards.appendChild(specsCard);
-
-    // ⑥ CREATIVE CREDITS（未設定項目は "---" で表示）
-    const credits = [
-      { label: "キャラクターデザイン", val: currentVisual?.characterDesign || "---" },
-      { label: "イラストレーター", val: currentVisual?.illustrator || "---" },
-      { label: "Live2Dモデラー", val: currentVisual?.live2d || "---" },
-      { label: "3Dモデラー", val: currentVisual?.["3dModeling"] || "---" },
-    ];
-
-    const creditsCard = document.createElement("div");
-    creditsCard.className = "lp-profile-theme-card lp-profile-credits-card";
-    creditsCard.innerHTML = `<div class="lp-card-header-badge lp-badge-purple">✦ CREATIVE CREDITS ✦</div>`;
-
-    const creditsList = document.createElement("div");
-    creditsList.className = "lp-credits-row-list";
-    credits.forEach((c) => {
-      const row = document.createElement("div");
-      row.className = "lp-credit-row-item";
-      row.innerHTML = `
-        <span class="lp-credit-row-label">${escapeHtml(c.label)}</span>
-        <span class="lp-credit-row-val">${escapeHtml(c.val)}</span>
-      `;
-      creditsList.appendChild(row);
-    });
-    creditsCard.appendChild(creditsList);
-    twoColCards.appendChild(creditsCard);
-
+    const twoColCards = this.createTwoColCards(currentVisual);
     bodyGroup.appendChild(twoColCards);
 
     // ⑦ OFFICIAL CHANNELS & PLATFORMS
@@ -552,6 +603,267 @@ export class ProfileSection {
 
     grid.appendChild(visualCol);
     this.container.appendChild(grid);
+  }
+
+  /**
+   * ⑤ & ⑥ 横並びの2カラムカード (SPECS & CREDITS)
+   */
+  createTwoColCards(currentVisual) {
+    const twoColCards = document.createElement("div");
+    twoColCards.className = "lp-profile-two-cards-grid";
+
+    const formatDisplayBirthday = (val) => {
+      if (!val) return "";
+      const m = String(val).match(/^\d{4}-(\d{2})-(\d{2})$/);
+      if (m) return `${m[1]}月${m[2]}日`;
+      return val;
+    };
+    const formatDisplayStreaming = (val) => {
+      if (!val) return "";
+      const m = String(val).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return `${m[1]}年${m[2]}月${m[3]}日`;
+      return val;
+    };
+
+    // ⑤ PROFILE SPECS（未設定項目は "---" で表示）
+    const specs = [
+      { icon: "🎂", label: "誕生日", value: formatDisplayBirthday(this.profile.birthday) || "---" },
+      { icon: "🚀", label: "活動開始日", value: formatDisplayStreaming(this.profile.streaming) || "---" },
+      { icon: "✨", label: "年齢", value: this.profile.age ? `${this.profile.age} 歳` : "---" },
+      { icon: "📏", label: "身長", value: this.profile.height ? `${this.profile.height} cm` : "---" },
+      { icon: "💫", label: "ファンネーム", value: this.profile.fanName || "---" },
+    ];
+
+    const specsCard = document.createElement("div");
+    specsCard.className = "lp-profile-theme-card lp-profile-specs-card";
+    specsCard.innerHTML = `<div class="lp-card-header-badge lp-badge-yellow">✦ PROFILE SPECS ✦</div>`;
+
+    const specsList = document.createElement("div");
+    specsList.className = "lp-specs-row-list";
+    specs.forEach((s) => {
+      const row = document.createElement("div");
+      row.className = "lp-spec-row-item";
+      row.innerHTML = `
+        <span class="lp-spec-row-label"><i>${escapeHtml(s.icon)}</i> ${escapeHtml(s.label)}</span>
+        <span class="lp-spec-row-val">${escapeHtml(s.value)}</span>
+      `;
+      specsList.appendChild(row);
+    });
+    specsCard.appendChild(specsList);
+    twoColCards.appendChild(specsCard);
+
+    // ⑥ CREATIVE CREDITS（未設定項目は "---" で表示）
+    const credits = [
+      { label: "キャラクターデザイン", val: currentVisual?.characterDesign || "---" },
+      { label: "イラストレーター", val: currentVisual?.illustrator || "---" },
+      { label: "Live2Dモデラー", val: currentVisual?.live2d || "---" },
+      { label: "3Dモデラー", val: currentVisual?.["3dModeling"] || "---" },
+    ];
+
+    const creditsCard = document.createElement("div");
+    creditsCard.className = "lp-profile-theme-card lp-profile-credits-card";
+    creditsCard.innerHTML = `<div class="lp-card-header-badge lp-badge-purple">✦ CREATIVE CREDITS ✦</div>`;
+
+    const creditsList = document.createElement("div");
+    creditsList.className = "lp-credits-row-list";
+    credits.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "lp-credit-row-item";
+      row.innerHTML = `
+        <span class="lp-credit-row-label">${escapeHtml(c.label)}</span>
+        <span class="lp-credit-row-val">${escapeHtml(c.val)}</span>
+      `;
+      creditsList.appendChild(row);
+    });
+    creditsCard.appendChild(creditsList);
+    twoColCards.appendChild(creditsCard);
+
+    return twoColCards;
+  }
+
+  /**
+   * バナー形式用 INTRO MOVIES ブロック
+   */
+  createBannerMovesBlock() {
+    if (!Array.isArray(this.profile.moves)) return null;
+    const validMoves = this.profile.moves.filter((url) => Boolean(url && String(url).trim()));
+    if (validMoves.length === 0) return null;
+
+    const block = document.createElement("div");
+    block.className = "lp-profile-banner-movie-section";
+    block.innerHTML = `<div class="lp-banner-moves-title">✦ INTRO MOVIES ✦</div>`;
+
+    if (validMoves.length === 1) {
+      const videoUrl = validMoves[0];
+      const ytInfo = getYouTubeInfo(videoUrl);
+      const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
+
+      const card = document.createElement("div");
+      card.className = "lp-profile-banner-movie-card";
+      card.innerHTML = `
+        <div class="lp-profile-banner-movie-thumb-wrap">
+          <img class="lp-profile-banner-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画" loading="lazy" />
+          <div class="lp-profile-banner-movie-play-btn">
+            <div class="lp-profile-banner-play-icon">▶</div>
+          </div>
+        </div>
+        <div class="lp-profile-banner-movie-title">活動者・配信者</div>
+      `;
+      card.onclick = () => {
+        Modal.openVideo(videoUrl, `自己紹介ムービー`);
+      };
+      block.appendChild(card);
+    } else {
+      const sliderContainer = document.createElement("div");
+      sliderContainer.className = "lp-profile-moves-slider-container";
+
+      const sliderViewport = document.createElement("div");
+      sliderViewport.className = "lp-profile-moves-slider-viewport";
+
+      const sliderTrack = document.createElement("div");
+      sliderTrack.className = "lp-profile-moves-slider-track";
+
+      validMoves.forEach((videoUrl, idx) => {
+        const card = document.createElement("div");
+        card.className = "lp-profile-movie-item lp-profile-banner-movie-card";
+
+        const ytInfo = getYouTubeInfo(videoUrl);
+        const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
+
+        card.innerHTML = `
+          <div class="lp-profile-banner-movie-thumb-wrap">
+            <img class="lp-profile-banner-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
+            <div class="lp-profile-banner-movie-play-btn">
+              <div class="lp-profile-banner-play-icon">▶</div>
+            </div>
+          </div>
+          <div class="lp-profile-banner-movie-title">活動者・配信者</div>
+        `;
+        card.onclick = () => {
+          Modal.openVideo(videoUrl, `自己紹介ムービー`);
+        };
+        sliderTrack.appendChild(card);
+      });
+
+      sliderViewport.appendChild(sliderTrack);
+      sliderContainer.appendChild(sliderViewport);
+
+      let currentIndex = 0;
+      const totalSlides = validMoves.length;
+      const updateSlide = (newIndex) => {
+        currentIndex = (newIndex + totalSlides) % totalSlides;
+        sliderTrack.style.transform = `translateX(-${currentIndex * 100}%)`;
+        const dots = sliderContainer.querySelectorAll(".lp-moves-slider-dot");
+        dots.forEach((dot, dIdx) => {
+          dot.classList.toggle("is-active", dIdx === currentIndex);
+        });
+      };
+
+      const prevBtn = document.createElement("button");
+      prevBtn.type = "button";
+      prevBtn.className = "lp-moves-slider-arrow prev";
+      prevBtn.setAttribute("aria-label", "前の動画");
+      prevBtn.innerHTML = "‹";
+      prevBtn.onclick = (e) => {
+        e.stopPropagation();
+        updateSlide(currentIndex - 1);
+      };
+
+      const nextBtn = document.createElement("button");
+      nextBtn.type = "button";
+      nextBtn.className = "lp-moves-slider-arrow next";
+      nextBtn.setAttribute("aria-label", "次の動画");
+      nextBtn.innerHTML = "›";
+      nextBtn.onclick = (e) => {
+        e.stopPropagation();
+        updateSlide(currentIndex + 1);
+      };
+
+      sliderContainer.appendChild(prevBtn);
+      sliderContainer.appendChild(nextBtn);
+
+      const dotsWrap = document.createElement("div");
+      dotsWrap.className = "lp-moves-slider-dots";
+      for (let i = 0; i < totalSlides; i++) {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = `lp-moves-slider-dot${i === 0 ? " is-active" : ""}`;
+        dot.setAttribute("aria-label", `動画 ${i + 1}`);
+        dot.onclick = (e) => {
+          e.stopPropagation();
+          updateSlide(i);
+        };
+        dotsWrap.appendChild(dot);
+      }
+      sliderContainer.appendChild(dotsWrap);
+      block.appendChild(sliderContainer);
+    }
+
+    return block;
+  }
+
+  /**
+   * バナー形式用 OFFICIAL CHANNELS & PLATFORMS ブロック
+   */
+  createBannerSnsBlock() {
+    const isSafeUrl = (url) => {
+      if (!url || typeof url !== "string") return false;
+      const lower = url.trim().toLowerCase();
+      return lower.startsWith("http://") || lower.startsWith("https://");
+    };
+
+    const hasYt = this.profile.youtubeUrl && isSafeUrl(this.profile.youtubeUrl);
+    const hasX = this.profile.xUrl && isSafeUrl(this.profile.xUrl);
+    const hasPlatforms = Array.isArray(this.profile.platforms) && this.profile.platforms.some((p) => p.link && isSafeUrl(p.link));
+
+    if (!hasYt && !hasX && !hasPlatforms) return null;
+
+    const block = document.createElement("div");
+    block.className = "lp-profile-banner-sns-section";
+    block.innerHTML = `<div class="lp-banner-channels-title">✦ OFFICIAL CHANNELS & PLATFORMS ✦</div>`;
+
+    const card = document.createElement("div");
+    card.className = "lp-profile-banner-sns-card";
+
+    const snsBtns = document.createElement("div");
+    snsBtns.className = "lp-channels-btn-group";
+
+    if (hasYt) {
+      const ytBtn = document.createElement("a");
+      ytBtn.className = "lp-channel-btn lp-btn-youtube";
+      ytBtn.href = this.profile.youtubeUrl;
+      ytBtn.target = "_blank";
+      ytBtn.rel = "noopener noreferrer";
+      ytBtn.innerHTML = `<span>▶ YouTube Channel</span>`;
+      snsBtns.appendChild(ytBtn);
+    }
+
+    if (hasX) {
+      const xBtn = document.createElement("a");
+      xBtn.className = "lp-channel-btn lp-btn-x";
+      xBtn.href = this.profile.xUrl;
+      xBtn.target = "_blank";
+      xBtn.rel = "noopener noreferrer";
+      xBtn.innerHTML = `<span>𝕏 Official X</span>`;
+      snsBtns.appendChild(xBtn);
+    }
+
+    if (Array.isArray(this.profile.platforms)) {
+      this.profile.platforms.forEach((p) => {
+        if (!p.link || !isSafeUrl(p.link)) return;
+        const pBtn = document.createElement("a");
+        pBtn.className = "lp-channel-btn lp-btn-platform";
+        pBtn.href = p.link;
+        pBtn.target = "_blank";
+        pBtn.rel = "noopener noreferrer";
+        pBtn.textContent = p.name || "Platform";
+        snsBtns.appendChild(pBtn);
+      });
+    }
+
+    card.appendChild(snsBtns);
+    block.appendChild(card);
+    return block;
   }
 
   /**

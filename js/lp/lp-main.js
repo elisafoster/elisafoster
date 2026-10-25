@@ -7,7 +7,7 @@
  */
 
 import { api } from "../common/api-client.js";
-import { ProfileSection } from "./profile-section.js?v=20261025_arrow_3x_no_mask";
+import { ProfileSection } from "./profile-section.js?v=20261025_profile_banner_type";
 import { EventSection } from "./event-section.js";
 import { NoticeSection } from "./notice-section.js?v=20261024_notice_flex_shrink_fix";
 import { ScheduleSection } from "./schedule-section.js";
