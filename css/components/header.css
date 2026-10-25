@@ -125,6 +125,9 @@
   max-height: calc(100dvh - var(--header-height));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--color-border);
@@ -134,6 +137,13 @@
   opacity: 0;
   visibility: hidden;
   transition: all var(--transition-normal);
+}
+
+/* モバイルドロワー展開時の背面スクロールロック */
+body.lp-drawer-locked {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
 }
 
 .lp-header-mobile-drawer.is-open {

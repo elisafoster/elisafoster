@@ -197,11 +197,36 @@ class LpApp {
         if (isOpen) {
           this.closeMobileDrawer();
         } else {
-          hamburger.classList.add("is-active");
-          drawer.classList.add("is-open");
+          this.openMobileDrawer();
         }
       };
+
+      // ドロワー内のタッチ操作が背後に伝搬するのを遮断
+      drawer.addEventListener(
+        "touchmove",
+        (e) => {
+          e.stopPropagation();
+        },
+        { passive: true }
+      );
     }
+  }
+
+  openMobileDrawer() {
+    const hamburger = document.getElementById("lp-hamburger-btn");
+    const drawer = document.getElementById("lp-mobile-drawer");
+    if (hamburger) hamburger.classList.add("is-active");
+    if (drawer) drawer.classList.add("is-open");
+
+    // 背面スクロールロック (iOS Safari 対応)
+    this._savedScrollY = window.scrollY || document.documentElement.scrollTop;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${this._savedScrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("lp-drawer-locked");
   }
 
   closeMobileDrawer() {
@@ -209,6 +234,18 @@ class LpApp {
     const drawer = document.getElementById("lp-mobile-drawer");
     if (hamburger) hamburger.classList.remove("is-active");
     if (drawer) drawer.classList.remove("is-open");
+
+    // 背面スクロールロック解除
+    if (document.body.classList.contains("lp-drawer-locked")) {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      document.body.classList.remove("lp-drawer-locked");
+      window.scrollTo(0, this._savedScrollY || 0);
+    }
   }
 
   smoothScrollTo(e, elementId) {

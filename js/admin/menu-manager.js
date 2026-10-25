@@ -85,6 +85,46 @@ export class MenuManager {
     const closeBtn = document.getElementById("admin-sidebar-close-btn");
     const overlay = document.getElementById("admin-sidebar-overlay");
 
+    // モバイルメニュー展開時の背面（ページ側）スクロールロック制御
+    let savedScrollY = 0;
+
+    const lockBodyScroll = () => {
+      savedScrollY = window.scrollY || document.documentElement.scrollTop;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${savedScrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+      document.body.classList.add("admin-sidebar-locked");
+    };
+
+    const unlockBodyScroll = () => {
+      if (!document.body.classList.contains("admin-sidebar-locked")) return;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      document.body.classList.remove("admin-sidebar-locked");
+      window.scrollTo(0, savedScrollY);
+    };
+
+    const openSidebarSP = () => {
+      if (!sidebar) return;
+      sidebar.classList.add("is-open");
+      if (overlay) overlay.classList.add("is-active");
+      lockBodyScroll();
+    };
+
+    const closeSidebarSP = () => {
+      if (!sidebar) return;
+      sidebar.classList.remove("is-open");
+      if (overlay) overlay.classList.remove("is-active");
+      unlockBodyScroll();
+    };
+
     const toggleSidebar = () => {
       if (!sidebar) return;
       if (window.innerWidth > 1024) {
@@ -92,9 +132,10 @@ export class MenuManager {
         sidebar.classList.toggle("is-collapsed");
       } else {
         // SP (一定画面幅未満): ドロワー開閉 (is-open)
-        sidebar.classList.toggle("is-open");
-        if (overlay) {
-          overlay.classList.toggle("is-active", sidebar.classList.contains("is-open"));
+        if (sidebar.classList.contains("is-open")) {
+          closeSidebarSP();
+        } else {
+          openSidebarSP();
         }
       }
     };
@@ -104,8 +145,7 @@ export class MenuManager {
       if (window.innerWidth > 1024) {
         sidebar.classList.add("is-collapsed");
       } else {
-        sidebar.classList.remove("is-open");
-        if (overlay) overlay.classList.remove("is-active");
+        closeSidebarSP();
       }
     };
 
@@ -125,7 +165,33 @@ export class MenuManager {
       overlay.onclick = () => {
         closeSidebar();
       };
+      // オーバーレイ上のタッチ操作が背後に貫通するのを防止
+      overlay.addEventListener(
+        "touchmove",
+        (e) => {
+          e.preventDefault();
+        },
+        { passive: false }
+      );
     }
+
+    if (sidebar) {
+      // サイドバー内のタッチスクロールが背後ページへ伝搬するのを遮断
+      sidebar.addEventListener(
+        "touchmove",
+        (e) => {
+          e.stopPropagation();
+        },
+        { passive: true }
+      );
+    }
+
+    // 画面リサイズ時にSPメニューが開いたままPC幅になった場合は解除
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 1024 && sidebar && sidebar.classList.contains("is-open")) {
+        closeSidebarSP();
+      }
+    });
 
     // ナビゲーショングループの開閉アコーディオン (デフォルトは開いた状態)
     const groupTitles = document.querySelectorAll(".admin-nav-group-title");
@@ -153,9 +219,8 @@ export class MenuManager {
         const tabKey = btn.getAttribute("data-tab");
         this.switchTab(tabKey);
         // SP時のみタブ選択時にサイドバーを閉じる (PC時は開いたまま)
-        if (window.innerWidth <= 1024 && sidebar) {
-          sidebar.classList.remove("is-open");
-          if (overlay) overlay.classList.remove("is-active");
+        if (window.innerWidth <= 1024) {
+          closeSidebarSP();
         }
       };
     });
