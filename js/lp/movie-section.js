@@ -23,6 +23,47 @@ const GENERIC_PLACEHOLDER_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0c
 // TikTok oEmbed キャッシュ
 const tiktokOembedCache = new Map();
 
+// YouTube IFrame Player API の非同期ローダー
+let ytApiPromise = null;
+function loadYouTubeIframeApi() {
+  if (typeof window !== "undefined" && window.YT && window.YT.Player) {
+    return Promise.resolve(window.YT);
+  }
+  if (ytApiPromise) {
+    return ytApiPromise;
+  }
+  ytApiPromise = new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(null);
+      return;
+    }
+    const existing = document.querySelector('script[src*="youtube.com/iframe_api"]');
+    if (!existing) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      if (firstScriptTag && firstScriptTag.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+    const prevOnReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prevOnReady === "function") prevOnReady();
+      resolve(window.YT);
+    };
+    // 既存ロード済みのフォールバックポーリング
+    const checkInterval = setInterval(() => {
+      if (window.YT && window.YT.Player) {
+        clearInterval(checkInterval);
+        resolve(window.YT);
+      }
+    }, 100);
+  });
+  return ytApiPromise;
+}
+
 export class MovieSection {
   constructor(container, movieList, categoryList, tagList, playlistList) {
     this.container = container;
@@ -1249,6 +1290,8 @@ export class MovieSection {
     const url = movie.movieUrl || "";
     let embedUrl = url;
     let isTall = false;
+    let type = "other";
+    let videoId = null;
 
     // カテゴリーのアスペクト比判定
     const cat = this.categories.find((c) => String(c.id) === String(movie.movieCategory_id));
@@ -1256,58 +1299,71 @@ export class MovieSection {
       isTall = true;
     }
 
+    const originParam = (typeof window !== "undefined" && window.location.origin && window.location.origin !== "null")
+      ? `&origin=${encodeURIComponent(window.location.origin)}`
+      : "";
+
     try {
       // 1. YouTube Shorts
       const ytShortsMatch = url.match(/youtube\.com\/shorts\/([\w-]{11})/);
       if (ytShortsMatch && ytShortsMatch[1]) {
-        embedUrl = `https://www.youtube.com/embed/${ytShortsMatch[1]}?autoplay=1`;
+        videoId = ytShortsMatch[1];
+        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1${originParam}&playsinline=1&rel=0`;
         isTall = true;
-        return { embedUrl, isTall };
+        type = "youtube";
+        return { embedUrl, isTall, type, videoId };
       }
 
       // 2. YouTube 通常
       const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/);
       if (ytMatch && ytMatch[1]) {
-        embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
-        return { embedUrl, isTall };
+        videoId = ytMatch[1];
+        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1${originParam}&playsinline=1&rel=0`;
+        type = "youtube";
+        return { embedUrl, isTall, type, videoId };
       }
 
       // 3. TikTok
       if (url.includes("tiktok.com")) {
         isTall = true;
-        let videoId = null;
+        type = "tiktok";
+        let ttId = null;
         const ttVideoMatch = url.match(/\/video\/(\d+)/);
         if (ttVideoMatch && ttVideoMatch[1]) {
-          videoId = ttVideoMatch[1];
+          ttId = ttVideoMatch[1];
         }
-        if (!videoId) {
+        if (!ttId) {
           const KNOWN = { "ZSbqgvf8n": "7692026651252755713" };
           const shortMatch = url.match(/vt\.tiktok\.com\/([a-zA-Z0-9]+)/);
           if (shortMatch && KNOWN[shortMatch[1]]) {
-            videoId = KNOWN[shortMatch[1]];
+            ttId = KNOWN[shortMatch[1]];
           }
         }
-        if (videoId) {
-          embedUrl = `https://www.tiktok.com/player/v1/${videoId}?autoplay=1`;
+        if (ttId) {
+          videoId = ttId;
+          embedUrl = `https://www.tiktok.com/player/v1/${ttId}?autoplay=1`;
         } else {
           embedUrl = url;
         }
-        return { embedUrl, isTall };
+        return { embedUrl, isTall, type, videoId };
       }
     } catch (e) {
       console.warn("動画URLの埋め込み変換エラー:", e);
     }
 
-    return { embedUrl, isTall };
+    return { embedUrl, isTall, type, videoId };
   }
 
   /**
-   * 再生リスト専用モーダルの展開
+   * 再生リスト専用モーダルの展開 (動画再生終了後の自動連続再生対応)
    */
   openPlaylistModal(playlist, movies) {
     if (!movies || movies.length === 0) return;
 
     let currentIndex = 0;
+    let isModalOpen = true;
+    let isTransitioning = false;
+    let ytPlayer = null;
 
     const modalRoot = document.createElement("div");
     modalRoot.className = "lp-playlist-modal-root";
@@ -1318,6 +1374,7 @@ export class MovieSection {
 
     const iframe = document.createElement("iframe");
     iframe.className = "lp-playlist-modal-iframe";
+    iframe.id = `lp-playlist-player-${Date.now()}`;
     iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
     iframe.allowFullscreen = true;
     playerWrapper.appendChild(iframe);
@@ -1377,6 +1434,78 @@ export class MovieSection {
     listWrap.appendChild(listContainer);
     modalRoot.appendChild(listWrap);
 
+    // 動画再生終了時の「次の動画へ自動遷移」ハンドラー
+    const handleVideoEnded = () => {
+      if (!isModalOpen || isTransitioning) return;
+      if (currentIndex < movies.length - 1) {
+        isTransitioning = true;
+        switchVideo(currentIndex + 1);
+        setTimeout(() => {
+          isTransitioning = false;
+        }, 1500);
+      }
+    };
+
+    // postMessage による YouTube 終了検知 (フォールバック & 即時リスニング)
+    const onWindowMessage = (event) => {
+      if (!isModalOpen) return;
+      try {
+        let data = event.data;
+        if (typeof data === "string") {
+          try {
+            data = JSON.parse(data);
+          } catch (e) {
+            return;
+          }
+        }
+        if (!data || typeof data !== "object") return;
+
+        // パターンA: YouTube API 標準 onStateChange: 0 (ENDED)
+        if (data.event === "onStateChange" && Number(data.info) === 0) {
+          handleVideoEnded();
+        }
+        // パターンB: info オブジェクト内の playerState: 0 (ENDED)
+        else if (data.info && typeof data.info === "object" && Number(data.info.playerState) === 0) {
+          handleVideoEnded();
+        }
+      } catch (e) {}
+    };
+    window.addEventListener("message", onWindowMessage);
+
+    // iframe load 時に YouTube postMessage リスナー登録 handshake
+    iframe.addEventListener("load", () => {
+      try {
+        iframe.contentWindow.postMessage(JSON.stringify({
+          event: "listening",
+          id: iframe.id,
+        }), "*");
+        iframe.contentWindow.postMessage(JSON.stringify({
+          event: "command",
+          func: "addEventListener",
+          args: ["onStateChange"],
+        }), "*");
+      } catch (e) {}
+    });
+
+    // YouTube IFrame Player API のバインド
+    loadYouTubeIframeApi().then((YT) => {
+      if (!isModalOpen || !YT || !YT.Player) return;
+      try {
+        ytPlayer = new YT.Player(iframe, {
+          events: {
+            onStateChange: (event) => {
+              // 0: YT.PlayerState.ENDED (動画終了)
+              if (event.data === 0) {
+                handleVideoEnded();
+              }
+            },
+          },
+        });
+      } catch (err) {
+        console.warn("YT.Player初期化失敗:", err);
+      }
+    }).catch(() => {});
+
     // 動画切り替え関数
     const switchVideo = (index) => {
       if (index < 0 || index >= movies.length) return;
@@ -1384,13 +1513,23 @@ export class MovieSection {
       const movie = movies[currentIndex];
 
       const videoInfo = this.getVideoEmbedInfo(movie);
-      iframe.src = videoInfo.embedUrl;
       extLink.href = movie.movieUrl || "#";
 
       if (videoInfo.isTall) {
         playerWrapper.classList.add("is-tall");
       } else {
         playerWrapper.classList.remove("is-tall");
+      }
+
+      // YouTube Player API が利用可能で次動画も YouTube の場合、シームレス再生
+      if (ytPlayer && typeof ytPlayer.loadVideoById === "function" && videoInfo.type === "youtube" && videoInfo.videoId) {
+        try {
+          ytPlayer.loadVideoById(videoInfo.videoId);
+        } catch (e) {
+          iframe.src = videoInfo.embedUrl;
+        }
+      } else {
+        iframe.src = videoInfo.embedUrl;
       }
 
       countIndicator.textContent = `${currentIndex + 1} / ${movies.length}`;
@@ -1463,6 +1602,13 @@ export class MovieSection {
       content: modalRoot,
       isLarge: true,
       onClose: () => {
+        isModalOpen = false;
+        window.removeEventListener("message", onWindowMessage);
+        if (ytPlayer && typeof ytPlayer.destroy === "function") {
+          try {
+            ytPlayer.destroy();
+          } catch (e) {}
+        }
         iframe.src = "about:blank"; // 音声を確実に停止
       },
     });
