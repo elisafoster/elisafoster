@@ -491,6 +491,9 @@ export default {
       if (!recordId || SINGLETON_TABLES.includes(tableName)) {
         return notFoundResponse(); // 固定レコードの削除は不可
       }
+      if (tableName === "visual" && String(recordId) === "1") {
+        return forbiddenResponse("立ち絵・衣装一覧のデフォルトデータ (id: 1) は削除できません");
+      }
       const res = await env.DB.prepare(
         `DELETE FROM ${tableName} WHERE id = ?`
       ).bind(recordId).run();

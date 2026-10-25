@@ -1285,6 +1285,18 @@ export class CrudController {
               delBtn.title = "admin権限ではownerおよびadminアカウントを削除できません";
             }
 
+            // 立ち絵・衣装一覧 (visual) の id: 1 はデフォルトデータのため削除不可
+            if (tableName === "visual" && Number(row.id) === 1) {
+              delBtn.disabled = true;
+              delBtn.style.opacity = "0.4";
+              delBtn.style.cursor = "not-allowed";
+              delBtn.title = "デフォルト衣装データ (id: 1) は削除できません";
+              delBtn.onclick = (e) => {
+                e.stopPropagation();
+                Toast.warning("デフォルト衣装データ (id: 1) は削除できません");
+              };
+            }
+
             tdAct.appendChild(actWrap);
             tr.appendChild(tdAct);
           } else {
@@ -12570,6 +12582,10 @@ export class CrudController {
    */
   async deleteRecord(tableName, id) {
     if (tableName === "visual") {
+      if (Number(id) === 1) {
+        Toast.warning("デフォルト衣装データ (id: 1) は削除できません");
+        return;
+      }
       if (!confirm(`ID: ${id} の立ち絵・衣装データを一覧から削除しますか？\n\n※この操作は「更新反映」ボタンを押すまでD1には保存されません。`)) return;
       this.visualState.currentRecords = this.visualState.currentRecords.filter(
         (r) => Number(r.id) !== Number(id)
@@ -12741,6 +12757,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.visualState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
+        if (Number(rec.id) === 1) continue;
         await api.deleteRecord("visual", rec.id, true);
       }
 
