@@ -7,7 +7,7 @@
  */
 
 import { api } from "../common/api-client.js";
-import { ProfileSection } from "./profile-section.js?v=20261025_profile_banner_v2";
+import { ProfileSection } from "./profile-section.js?v=20261025_banner_size_bg_v3";
 import { EventSection } from "./event-section.js";
 import { NoticeSection } from "./notice-section.js?v=20261024_notice_flex_shrink_fix";
 import { ScheduleSection } from "./schedule-section.js";
@@ -389,7 +389,14 @@ class LpApp {
         const defaultBg = this.themeConfig?.background
           ? api.resolveAssetUrl(this.themeConfig.background, "config")
           : "";
-        new ProfileSection(container, this.allData.profile, this.allData.visual, defaultBg, sec).render();
+        new ProfileSection(
+          container,
+          this.allData.profile,
+          this.allData.visual,
+          defaultBg,
+          sec,
+          this.themeConfig
+        ).render();
         break;
       case "EVENT":
         new EventSection(container, this.allData.event).render();

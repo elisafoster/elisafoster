@@ -41,13 +41,14 @@ function getYouTubeInfo(url) {
 }
 
 export class ProfileSection {
-  constructor(container, profileData, visualList, defaultPageBackground = "", sectionConfig = null) {
+  constructor(container, profileData, visualList, defaultPageBackground = "", sectionConfig = null, themeConfig = null) {
     this.container = container;
     this.profile = profileData || {};
     this.visuals = Array.isArray(visualList) ? visualList : [];
     this.currentVisualIndex = 0;
     this.defaultPageBackground = defaultPageBackground || "";
     this.sectionConfig = sectionConfig || {};
+    this.themeConfig = themeConfig || {};
     this.sectionType = this.sectionConfig.sectionType || "standing";
 
     if (!this.defaultPageBackground && typeof document !== "undefined") {
@@ -115,6 +116,27 @@ export class ProfileSection {
     // 1. 上部ヒーローバナー
     const bannerHero = document.createElement("div");
     bannerHero.className = "lp-profile-banner-hero";
+
+    // バナーカード背景設定:
+    // visual の id が 1 の visualBackground が設定されている場合はカード背景画像に設定
+    // 設定されていない場合は themeConfig のカード背景設定を参照
+    if (visual1 && visual1.visualBackground && String(visual1.visualBackground).trim()) {
+      const bgUrl = api.resolveAssetUrl(visual1.visualBackground, "visual/background");
+      bannerHero.style.backgroundImage = `url("${bgUrl}")`;
+      bannerHero.style.backgroundSize = "cover";
+      bannerHero.style.backgroundPosition = "center center";
+      bannerHero.style.backgroundRepeat = "no-repeat";
+    } else {
+      const tc = this.themeConfig;
+      if (tc && tc.card_bg_type === "single" && tc.card_bg_color) {
+        bannerHero.style.background = tc.card_bg_color;
+      } else if (tc && tc.card_bg_gradient_start && tc.card_bg_gradient_end) {
+        const angle = tc.card_bg_gradient_angle ?? 0;
+        bannerHero.style.background = `linear-gradient(${angle}deg, ${tc.card_bg_gradient_start}, ${tc.card_bg_gradient_end})`;
+      } else {
+        bannerHero.style.background = "var(--theme-card-bg, linear-gradient(135deg, #38bdf8 0%, #60a5fa 55%, #38bdf8 100%))";
+      }
+    }
 
     const heroInner = document.createElement("div");
     heroInner.className = "lp-profile-banner-hero-inner";

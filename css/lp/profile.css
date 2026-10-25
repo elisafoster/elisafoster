@@ -1021,12 +1021,15 @@
 }
 
 /* --------------------------------------------------------------------------
-   1. 上部ヒーローバナー (水色グラデーション背景・名前・NICKNAME・キャラ上半身)
+   1. 上部ヒーローバナー (カードサイズ1.5倍、背景設定対応、立ち絵見切れ防止)
    -------------------------------------------------------------------------- */
 .lp-profile-banner-hero {
   width: 100%;
-  min-height: 240px;
-  background: linear-gradient(135deg, #38bdf8 0%, #60a5fa 55%, #38bdf8 100%) !important;
+  min-height: 360px; /* 従来の240pxから1.5倍に拡大 */
+  background: var(--theme-card-bg, linear-gradient(135deg, #38bdf8 0%, #60a5fa 55%, #38bdf8 100%));
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
   border-radius: 20px;
   position: relative;
   overflow: hidden;
@@ -1037,9 +1040,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 32px 48px;
+  padding: 44px 56px;
   height: 100%;
-  min-height: 240px;
+  min-height: 360px;
   position: relative;
 }
 
@@ -1047,13 +1050,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
+  gap: 20px;
   z-index: 2;
 }
 
 /* 名前: 極太斜体ブラックフォント */
 .lp-profile-banner-name {
-  font-size: clamp(3.2rem, 7.5vw, 5.4rem);
+  font-size: clamp(3.4rem, 8vw, 5.6rem);
   font-weight: 900;
   font-style: italic;
   color: #000000;
@@ -1073,23 +1076,23 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* 立ち絵上半身 (visual id=1) */
+/* 立ち絵上半身 (visual id=1) - 上部が見切れないよう top 余白と height: 100% を指定 */
 .lp-profile-banner-hero-visual {
   position: absolute;
-  right: 30px;
+  right: 40px;
   bottom: 0;
-  top: 0;
+  top: 16px; /* 上端で見切れないよう余白を確保 */
   width: 45%;
-  max-width: 380px;
+  max-width: 460px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   pointer-events: none;
-  overflow: visible;
 }
 
 .lp-profile-banner-char-img {
-  height: 118%;
+  height: 100%;
+  max-height: 100%;
   width: auto;
   max-width: 100%;
   object-fit: contain;
@@ -1099,22 +1102,24 @@
 
 @media (max-width: 768px) {
   .lp-profile-banner-hero {
-    min-height: 180px;
+    min-height: 270px; /* 従来の180pxから1.5倍に拡大 */
     border-radius: 16px;
   }
   .lp-profile-banner-hero-inner {
-    padding: 20px 24px;
-    min-height: 180px;
+    padding: 24px 24px;
+    min-height: 270px;
   }
   .lp-profile-banner-name {
-    font-size: clamp(2.4rem, 10vw, 3.4rem);
+    font-size: clamp(2.4rem, 10vw, 3.6rem);
   }
   .lp-profile-banner-hero-visual {
-    right: 10px;
-    width: 45%;
+    right: 12px;
+    top: 12px;
+    width: 46%;
   }
   .lp-profile-banner-char-img {
-    height: 110%;
+    height: 100%;
+    max-height: 100%;
   }
 }
 
