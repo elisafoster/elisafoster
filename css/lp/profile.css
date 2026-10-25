@@ -1143,20 +1143,46 @@
     border-radius: 16px;
   }
   .lp-profile-banner-hero-inner {
-    padding: 24px 24px;
+    padding: 24px 20px;
     min-height: 270px;
   }
+  .lp-profile-banner-hero-text {
+    max-width: 60%;
+    z-index: 2;
+  }
   .lp-profile-banner-name {
-    font-size: clamp(4.2rem, 15vw, 6.2rem);
+    font-size: clamp(3.8rem, 14vw, 5.8rem);
   }
   .lp-profile-banner-hero-visual {
-    right: 12px;
-    top: 12px;
-    width: 46%;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    width: auto;
+    max-width: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    z-index: 1;
+    pointer-events: none;
   }
   .lp-profile-banner-char-img {
     height: 100%;
     max-height: 100%;
+    width: auto;
+    max-width: none;
+    object-fit: contain;
+    object-position: bottom right;
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.2));
+  }
+}
+
+@media (max-width: 480px) {
+  .lp-profile-banner-hero-inner {
+    padding: 20px 16px;
+  }
+  .lp-profile-banner-hero-visual {
+    right: -10px;
   }
 }
 
