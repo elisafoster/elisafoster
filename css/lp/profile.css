@@ -113,19 +113,27 @@
 
 .lp-profile-ruby-furi {
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #0284c7;
   letter-spacing: 0.08em;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
 }
 
 .lp-profile-ruby-romaji {
   font-size: 0.8rem;
   font-weight: 800;
-  color: #475569;
+  color: #1e293b;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
 }
 
 .lp-profile-main-title {
@@ -135,8 +143,11 @@
   line-height: 1.15;
   margin: 0;
   letter-spacing: 0.06em;
-  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.8),
-               0 1px 2px rgba(0, 0, 0, 0.1);
+  text-shadow:
+    0 0 6px #ffffff,
+    0 0 12px #ffffff,
+    0 0 20px rgba(255, 255, 255, 0.95),
+    0 2px 4px rgba(255, 255, 255, 1);
 }
 
 @media (max-width: 480px) {
@@ -156,7 +167,8 @@
   padding: 6px 16px;
   border-radius: var(--radius-full);
   width: fit-content;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .lp-nick-label {
@@ -192,47 +204,53 @@
 
 /* --------------------------------------------------------------------------
    ③ & ④ 引用表示スタイル (キャッチフレーズ & 自己紹介文)
-   - 左側のアクセントバーは2倍の太さ (8px)
-   - 背景の半透明白は非表示 (透明)
+   - どんな背景画像でも確実に読めるハイコントラスト光彩 ＋ 自然なソフトすりガラス下地
+   - 左側アクセントバー: 8px 太線
    -------------------------------------------------------------------------- */
 .lp-profile-quote-block {
   margin: 0;
   position: relative;
   border-left: 8px solid #0ea5e9;
-  background: transparent;
-  backdrop-filter: none;
-  box-shadow: none;
-  border-radius: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.25) 75%, transparent 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 0 12px 12px 0;
+  box-shadow: -2px 0 10px rgba(255, 255, 255, 0.7);
   transition: transform var(--transition-fast);
 }
 
 .lp-profile-quote-block:hover {
-  background: transparent;
-  box-shadow: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.35) 75%, transparent 100%);
 }
 
 /* ③ キャッチフレーズ引用 */
 .lp-profile-catchphrase-quote {
-  padding: 8px 0 8px 18px;
+  padding: 10px 18px 10px 18px;
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #0f172a;
   line-height: 1.5;
   letter-spacing: 0.03em;
   display: flex;
   align-items: baseline;
   gap: 6px;
-  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8),
-               0 1px 1px rgba(0, 0, 0, 0.05);
+  text-shadow:
+    0 0 3px #ffffff,
+    0 0 6px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
 }
 
 .lp-profile-quote-mark {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   font-family: Georgia, serif;
-  color: #0ea5e9;
+  color: #0284c7;
   line-height: 1;
   user-select: none;
   font-weight: 800;
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff;
 }
 
 .lp-profile-quote-mark.start {
@@ -249,9 +267,8 @@
 
 /* ④ 自己紹介文引用 */
 .lp-profile-message-quote {
-  padding: 10px 0 10px 18px;
-  border-left: 8px solid rgba(14, 165, 233, 0.85);
-  background: transparent;
+  padding: 12px 18px 12px 18px;
+  border-left: 8px solid #0284c7;
 }
 
 .lp-profile-message-quote-inner {
@@ -260,13 +277,17 @@
 
 .lp-profile-message-quote-text {
   margin: 0;
-  font-size: 0.96rem;
-  color: #1e293b;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f172a;
   line-height: 1.85;
   white-space: pre-wrap;
   letter-spacing: 0.02em;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.8),
-               0 1px 1px rgba(0, 0, 0, 0.05);
+  text-shadow:
+    0 0 3px #ffffff,
+    0 0 6px #ffffff,
+    0 0 10px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
 }
 
 /* --------------------------------------------------------------------------
@@ -360,10 +381,15 @@
 }
 
 .lp-channels-badge-title {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #0ea5e9; /* スカイブルー */
+  letter-spacing: 0.1em;
+  color: #0284c7; /* スカイブルー */
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
   text-align: left;
 }
 
@@ -435,10 +461,15 @@
 }
 
 .lp-moves-badge-title {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #f59e0b; /* イエローゴールド */
+  letter-spacing: 0.1em;
+  color: #d97706; /* イエローゴールド */
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
   text-align: left;
 }
 
@@ -1063,7 +1094,10 @@
   line-height: 0.95;
   letter-spacing: 0.02em;
   margin: 0;
-  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.6);
+  text-shadow:
+    0 0 8px #ffffff,
+    0 0 16px rgba(255, 255, 255, 0.95),
+    0 2px 8px rgba(255, 255, 255, 0.9);
 }
 
 /* 立ち絵上半身 (visual id=1) - 上部が見切れないよう top 余白と height: 100% を指定 */
@@ -1188,10 +1222,15 @@
 .lp-banner-moves-title {
   font-size: 0.95rem;
   font-weight: 800;
-  color: #f59e0b;
-  letter-spacing: 0.05em;
+  color: #d97706;
+  letter-spacing: 0.06em;
   display: flex;
   align-items: center;
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
 }
 
 .lp-profile-banner-movie-card {
@@ -1354,9 +1393,14 @@
   font-size: 0.95rem;
   font-weight: 800;
   color: #0284c7;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   display: flex;
   align-items: center;
+  text-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ffffff,
+    0 0 12px rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(255, 255, 255, 1);
 }
 
 .lp-banner-channels-btn-group {
