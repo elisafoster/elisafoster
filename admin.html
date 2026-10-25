@@ -25,7 +25,7 @@
 
   <!-- 管理画面固有 CSS -->
   <link rel="stylesheet" href="css/admin/admin-auth.css">
-  <link rel="stylesheet" href="css/admin/admin-layout.css?v=20261024_sidebar_fixed_scroll">
+  <link rel="stylesheet" href="css/admin/admin-layout.css?v=20261025_pwa_btn">
   <link rel="stylesheet" href="css/admin/admin-crud.css?v=20261024_library_all_files">
   <link rel="stylesheet" href="css/admin/richtext-editor.css?v=20261023_guideline_block_split">
 
@@ -194,6 +194,15 @@
 
       <!-- サイドバー ログアウト (一番下に配置) -->
       <div class="admin-sidebar-logout-wrap">
+        <!-- PWA アプリインストールボタン -->
+        <button type="button" id="admin-pwa-install-btn" class="admin-sidebar-pwa-btn" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="admin-pwa-icon">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>アプリをインストール</span>
+        </button>
         <button id="admin-sidebar-logout-btn" class="admin-sidebar-logout-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="admin-logout-icon">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -239,7 +248,7 @@
   </div>
 
   <!-- スクリプト -->
-  <script type="module" src="js/admin/admin-main.js?v=20261025_pwa_v1"></script>
+  <script type="module" src="js/admin/admin-main.js?v=20261025_pwa_installer_v1"></script>
 </body>
 </html>
 

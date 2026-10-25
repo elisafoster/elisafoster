@@ -7,6 +7,7 @@ import { AuthManager } from "./auth-manager.js";
 import { MenuManager } from "./menu-manager.js?v=20261024_menu_enhancement";
 import { CrudController } from "./crud-controller.js?v=20261025_theme_appicon_v1";
 import { MaintenanceManager } from "./maintenance-manager.js?v=20261024_github_storage_format";
+import { PwaInstaller } from "../common/pwa-installer.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const contentArea = document.getElementById("admin-content-area");
@@ -84,5 +85,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
   }
+
+  // PWA インストールボタンの初期化
+  new PwaInstaller({
+    buttonId: "admin-pwa-install-btn",
+    appName: "ELISA Official 管理画面",
+    appIcon: "assets/appIcon/app_icon.png",
+  });
 });
 

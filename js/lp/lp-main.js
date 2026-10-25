@@ -15,6 +15,7 @@ import { GallerySection } from "./gallery-section.js";
 import { MovieSection } from "./movie-section.js?v=20261025_playlist_autoplay_next";
 import { ShopSection } from "./shop-section.js";
 import { LinkSection } from "./link-section.js";
+import { PwaInstaller } from "../common/pwa-installer.js";
 
 class LpApp {
   constructor() {
@@ -24,9 +25,8 @@ class LpApp {
   }
 
   async init() {
-    // 0. 画像保護 & PWA初期化
+    // 0. 画像保護
     this.setupImageProtection();
-    this.setupPWA();
 
     try {
       // 1. themeConfig と section テーブルの取得
@@ -57,6 +57,9 @@ class LpApp {
 
       // 7. スクロール監視 (ヘッダーの背景変化など)
       this.setupScrollWatcher();
+
+      // 8. PWA初期化 (フッター生成後にボタンリスナーをバインド)
+      this.setupPWA();
     } catch (err) {
       console.error("[LpApp Initialization Error]:", err);
     }
@@ -466,7 +469,14 @@ class LpApp {
     if (footerLinkContainer) {
       footerLinkContainer.innerHTML = `
         <a href="guideline.html" class="lp-footer-link">ガイドライン・二次創作規約</a>
-        <a href="admin.html" class="lp-footer-link" style="opacity: 0.6;">管理者ログイン</a>
+        <button type="button" id="lp-pwa-install-btn" class="lp-footer-link lp-footer-pwa-btn" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; display: inline-block; vertical-align: -2px; margin-right: 4px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>アプリをインストール</span>
+        </button>
       `;
     }
 
@@ -533,7 +543,7 @@ class LpApp {
   }
 
   /**
-   * PWA Service Worker の登録
+   * PWA Service Worker の登録 & インストーラー初期化
    */
   setupPWA() {
     if ("serviceWorker" in navigator) {
@@ -548,6 +558,13 @@ class LpApp {
           });
       });
     }
+
+    // PWA インストールボタンの初期化
+    new PwaInstaller({
+      buttonId: "lp-pwa-install-btn",
+      appName: "ELISA Official Website",
+      appIcon: "assets/appIcon/app_icon.png",
+    });
   }
 }
 

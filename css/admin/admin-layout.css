@@ -275,6 +275,37 @@
   flex-shrink: 0;
 }
 
+/* PWA アプリインストールボタン */
+.admin-sidebar-pwa-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-bottom: 8px;
+}
+
+.admin-sidebar-pwa-btn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #ffffff;
+}
+
+.admin-pwa-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .admin-sidebar-logout-btn {
   width: 100%;
   display: flex;
