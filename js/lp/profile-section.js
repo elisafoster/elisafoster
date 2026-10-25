@@ -62,25 +62,53 @@ export class ProfileSection {
     if (!this.container) return;
     this.container.innerHTML = "";
 
-    // 現在選択中のビジュアル
-    const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0] || null;
-
-    // visual.visualBackground に応じたページ背景の動的切り替え
-    this.updatePageBackground(currentVisual);
-
     if (this.sectionType === "banner") {
-      this.renderBannerLayout(currentVisual);
+      // banner の時は visualBackground, deformed, thumbnail を一切参照しない
+      this.resetPageBackground();
+      this.renderBannerLayout();
     } else {
+      // standing の時は現在選択中のビジュアル・背景・立ち絵・デフォルメ・サムネイルを表示
+      const currentVisual = this.visuals[this.currentVisualIndex] || this.visuals[0] || null;
+      this.updatePageBackground(currentVisual);
       this.renderStandingLayout(currentVisual);
+    }
+  }
+
+  /**
+   * ページ背景レイヤーをデフォルト背景にリセット (banner形式専用)
+   */
+  resetPageBackground() {
+    if (typeof document === "undefined") return;
+    const pageBgLayer = document.getElementById("lp-page-bg-layer");
+    if (!pageBgLayer) return;
+
+    if (this.defaultPageBackground) {
+      if (this.defaultPageBackground.startsWith("url(")) {
+        pageBgLayer.style.backgroundImage = this.defaultPageBackground;
+      } else {
+        pageBgLayer.style.backgroundImage = `url("${this.defaultPageBackground}")`;
+      }
+    } else {
+      pageBgLayer.style.backgroundImage = "";
     }
   }
 
   /**
    * =========================================================================
    * ① バナー形式 (sectionType === "banner")
+   * 仕様:
+   * - 名前の横の画像は visual の id が 1 のビジュアル画像 (standing) を参照
+   * - deformed, thumbnail, visualBackground は banner の時は一切参照しない
+   * - キャッチフレーズ・自己紹介・動画・SNS・スペック・クレジットをカンプ通りに確実に表示
    * =========================================================================
    */
-  renderBannerLayout(currentVisual) {
+  renderBannerLayout() {
+    // visual の id が 1 のビジュアルを厳密に検索 (フォールバック: 先頭ビジュアル)
+    const visual1 =
+      this.visuals.find((v) => Number(v.id) === 1 || String(v.id) === "1") ||
+      this.visuals[0] ||
+      null;
+
     const mainContainer = document.createElement("div");
     mainContainer.className = "lp-profile-banner-container";
 
@@ -91,7 +119,7 @@ export class ProfileSection {
     const heroInner = document.createElement("div");
     heroInner.className = "lp-profile-banner-hero-inner";
 
-    // 左側テキスト (ELISA + NICKNAME)
+    // 左側テキスト (ELISA + 白座布団付き NICKNAME)
     const heroText = document.createElement("div");
     heroText.className = "lp-profile-banner-hero-text";
 
@@ -100,31 +128,36 @@ export class ProfileSection {
     heroName.textContent = this.profile.name || "ELISA";
     heroText.appendChild(heroName);
 
-    if (this.profile.nickname) {
-      const nickWrap = document.createElement("div");
-      nickWrap.className = "lp-profile-banner-nick-wrap";
+    const nickWrap = document.createElement("div");
+    nickWrap.className = "lp-profile-banner-nick-wrap";
 
-      const nickBadge = document.createElement("div");
-      nickBadge.className = "lp-profile-nick-badge";
-      nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${escapeHtml(this.profile.nickname)}</span>`;
-      nickWrap.appendChild(nickBadge);
-      heroText.appendChild(nickWrap);
-    }
+    const nickBadge = document.createElement("div");
+    nickBadge.className = "lp-profile-nick-badge";
+    const nickVal = (this.profile.nickname && String(this.profile.nickname).trim()) || "サンプル";
+    nickBadge.innerHTML = `<span class="lp-nick-label">NICKNAME</span> <span class="lp-nick-val">${escapeHtml(nickVal)}</span>`;
+    nickWrap.appendChild(nickBadge);
+    heroText.appendChild(nickWrap);
 
     heroInner.appendChild(heroText);
 
-    // 右側キャラクター上半身
-    if (currentVisual) {
-      const visualWrap = document.createElement("div");
-      visualWrap.className = "lp-profile-banner-hero-visual";
+    // 右側キャラクター上半身 (visual の id が 1 の画像を参照)
+    const visualWrap = document.createElement("div");
+    visualWrap.className = "lp-profile-banner-hero-visual";
 
-      const charImg = document.createElement("img");
-      charImg.className = "lp-profile-banner-char-img";
-      charImg.src = api.resolveAssetUrl(currentVisual.visual, "visual/standing");
-      charImg.alt = currentVisual.costumeName || this.profile.name || "キャラクター";
-      visualWrap.appendChild(charImg);
-      heroInner.appendChild(visualWrap);
-    }
+    const charImg = document.createElement("img");
+    charImg.className = "lp-profile-banner-char-img";
+    const standingSrc = visual1?.visual
+      ? api.resolveAssetUrl(visual1.visual, "visual/standing")
+      : "assets/visual/standing/sample.png";
+    charImg.src = standingSrc;
+    charImg.alt = visual1?.costumeName || this.profile.name || "キャラクター";
+    charImg.onerror = () => {
+      if (charImg.src !== "assets/visual/standing/sample.png") {
+        charImg.src = "assets/visual/standing/sample.png";
+      }
+    };
+    visualWrap.appendChild(charImg);
+    heroInner.appendChild(visualWrap);
 
     bannerHero.appendChild(heroInner);
     mainContainer.appendChild(bannerHero);
@@ -133,43 +166,41 @@ export class ProfileSection {
     const contentGrid = document.createElement("div");
     contentGrid.className = "lp-profile-banner-content-grid";
 
-    // --- 左カラム ---
+    // --- 左カラム (キャッチフレーズ、自己紹介、2カラムカード) ---
     const leftCol = document.createElement("div");
     leftCol.className = "lp-profile-banner-left-col";
 
-    // キャッチフレーズ
-    if (this.profile.comment) {
-      const phraseCard = document.createElement("div");
-      phraseCard.className = "lp-profile-banner-phrase-card";
-      phraseCard.innerHTML = `<p class="lp-profile-banner-phrase-text">${escapeHtml(this.profile.comment)}</p>`;
-      leftCol.appendChild(phraseCard);
-    }
+    // キャッチフレーズカード (未設定時もカンプ通りサンプルを表示)
+    const phraseCard = document.createElement("div");
+    phraseCard.className = "lp-profile-banner-phrase-card";
+    const phraseText = (this.profile.comment && String(this.profile.comment).trim()) || "サンプルキャッチフレーズ";
+    phraseCard.innerHTML = `<p class="lp-profile-banner-phrase-text">${escapeHtml(phraseText)}</p>`;
+    leftCol.appendChild(phraseCard);
 
-    // 自己紹介
-    if (this.profile.message) {
-      const introCard = document.createElement("div");
-      introCard.className = "lp-profile-banner-intro-card";
-      introCard.innerHTML = `<p class="lp-profile-banner-intro-text">${escapeHtml(this.profile.message)}</p>`;
-      leftCol.appendChild(introCard);
-    }
+    // 自己紹介カード (未設定時もカンプ通りサンプルを表示)
+    const introCard = document.createElement("div");
+    introCard.className = "lp-profile-banner-intro-card";
+    const introText = (this.profile.message && String(this.profile.message).trim()) || "サンプル 自己紹介";
+    introCard.innerHTML = `<p class="lp-profile-banner-intro-text">${escapeHtml(introText)}</p>`;
+    leftCol.appendChild(introCard);
 
-    // スペック＆クレジット (2カラムカード)
-    const twoCardsGrid = this.createTwoColCards(currentVisual);
+    // スペック＆クレジット (2カラムカード: visual1 の情報を渡す)
+    const twoCardsGrid = this.createTwoColCards(visual1);
     leftCol.appendChild(twoCardsGrid);
 
     contentGrid.appendChild(leftCol);
 
-    // --- 右カラム ---
+    // --- 右カラム (動画、SNS) ---
     const rightCol = document.createElement("div");
     rightCol.className = "lp-profile-banner-right-col";
 
-    // INTRO MOVIES
+    // INTRO MOVIES (カンプ通り確実に表示)
     const movesBlock = this.createBannerMovesBlock();
     if (movesBlock) {
       rightCol.appendChild(movesBlock);
     }
 
-    // OFFICIAL CHANNELS & PLATFORMS
+    // OFFICIAL CHANNELS & PLATFORMS (カンプ通り確実に表示)
     const snsBlock = this.createBannerSnsBlock();
     if (snsBlock) {
       rightCol.appendChild(snsBlock);
@@ -682,27 +713,27 @@ export class ProfileSection {
   }
 
   /**
-   * バナー形式用 INTRO MOVIES ブロック
+   * バナー形式用 INTRO MOVIES ブロック (カンプ通り確実に表示)
    */
   createBannerMovesBlock() {
-    if (!Array.isArray(this.profile.moves)) return null;
-    const validMoves = this.profile.moves.filter((url) => Boolean(url && String(url).trim()));
-    if (validMoves.length === 0) return null;
+    const validMoves = Array.isArray(this.profile.moves)
+      ? this.profile.moves.filter((url) => Boolean(url && String(url).trim()))
+      : [];
 
     const block = document.createElement("div");
     block.className = "lp-profile-banner-movie-section";
     block.innerHTML = `<div class="lp-banner-moves-title">✦ INTRO MOVIES ✦</div>`;
 
-    if (validMoves.length === 1) {
-      const videoUrl = validMoves[0];
-      const ytInfo = getYouTubeInfo(videoUrl);
+    if (validMoves.length <= 1) {
+      const videoUrl = validMoves[0] || "";
+      const ytInfo = videoUrl ? getYouTubeInfo(videoUrl) : null;
       const thumbSrc = ytInfo ? ytInfo.thumbUrl : "assets/movie/sample.png";
 
       const card = document.createElement("div");
       card.className = "lp-profile-banner-movie-card";
       card.innerHTML = `
         <div class="lp-profile-banner-movie-thumb-wrap">
-          <img class="lp-profile-banner-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画" loading="lazy" />
+          <img class="lp-profile-banner-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画" onerror="this.src='assets/movie/sample.png'" loading="lazy" />
           <div class="lp-profile-banner-movie-play-btn">
             <div class="lp-profile-banner-play-icon">▶</div>
           </div>
@@ -710,18 +741,22 @@ export class ProfileSection {
         <div class="lp-profile-banner-movie-title">活動者・配信者</div>
       `;
       card.onclick = () => {
-        Modal.openVideo(videoUrl, `自己紹介ムービー`);
+        if (videoUrl) {
+          Modal.openVideo(videoUrl, `自己紹介ムービー`);
+        } else {
+          Modal.openVideo("https://www.youtube.com/watch?v=sample", `自己紹介ムービー (サンプル)`);
+        }
       };
       block.appendChild(card);
     } else {
       const sliderContainer = document.createElement("div");
-      sliderContainer.className = "lp-profile-moves-slider-container";
+      sliderContainer.className = "lp-profile-banner-moves-slider-container";
 
       const sliderViewport = document.createElement("div");
-      sliderViewport.className = "lp-profile-moves-slider-viewport";
+      sliderViewport.className = "lp-profile-banner-moves-slider-viewport";
 
       const sliderTrack = document.createElement("div");
-      sliderTrack.className = "lp-profile-moves-slider-track";
+      sliderTrack.className = "lp-profile-banner-moves-slider-track";
 
       validMoves.forEach((videoUrl, idx) => {
         const card = document.createElement("div");
@@ -732,7 +767,7 @@ export class ProfileSection {
 
         card.innerHTML = `
           <div class="lp-profile-banner-movie-thumb-wrap">
-            <img class="lp-profile-banner-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画 #${idx + 1}" loading="lazy" />
+            <img class="lp-profile-banner-movie-thumb" src="${escapeHtml(thumbSrc)}" alt="自己紹介動画 #${idx + 1}" onerror="this.src='assets/movie/sample.png'" loading="lazy" />
             <div class="lp-profile-banner-movie-play-btn">
               <div class="lp-profile-banner-play-icon">▶</div>
             </div>
@@ -753,7 +788,7 @@ export class ProfileSection {
       const updateSlide = (newIndex) => {
         currentIndex = (newIndex + totalSlides) % totalSlides;
         sliderTrack.style.transform = `translateX(-${currentIndex * 100}%)`;
-        const dots = sliderContainer.querySelectorAll(".lp-moves-slider-dot");
+        const dots = sliderContainer.querySelectorAll(".lp-banner-moves-slider-dot");
         dots.forEach((dot, dIdx) => {
           dot.classList.toggle("is-active", dIdx === currentIndex);
         });
@@ -761,7 +796,7 @@ export class ProfileSection {
 
       const prevBtn = document.createElement("button");
       prevBtn.type = "button";
-      prevBtn.className = "lp-moves-slider-arrow prev";
+      prevBtn.className = "lp-banner-moves-slider-arrow prev";
       prevBtn.setAttribute("aria-label", "前の動画");
       prevBtn.innerHTML = "‹";
       prevBtn.onclick = (e) => {
@@ -771,7 +806,7 @@ export class ProfileSection {
 
       const nextBtn = document.createElement("button");
       nextBtn.type = "button";
-      nextBtn.className = "lp-moves-slider-arrow next";
+      nextBtn.className = "lp-banner-moves-slider-arrow next";
       nextBtn.setAttribute("aria-label", "次の動画");
       nextBtn.innerHTML = "›";
       nextBtn.onclick = (e) => {
@@ -783,11 +818,11 @@ export class ProfileSection {
       sliderContainer.appendChild(nextBtn);
 
       const dotsWrap = document.createElement("div");
-      dotsWrap.className = "lp-moves-slider-dots";
+      dotsWrap.className = "lp-banner-moves-slider-dots";
       for (let i = 0; i < totalSlides; i++) {
         const dot = document.createElement("button");
         dot.type = "button";
-        dot.className = `lp-moves-slider-dot${i === 0 ? " is-active" : ""}`;
+        dot.className = `lp-banner-moves-slider-dot${i === 0 ? " is-active" : ""}`;
         dot.setAttribute("aria-label", `動画 ${i + 1}`);
         dot.onclick = (e) => {
           e.stopPropagation();
@@ -803,7 +838,7 @@ export class ProfileSection {
   }
 
   /**
-   * バナー形式用 OFFICIAL CHANNELS & PLATFORMS ブロック
+   * バナー形式用 OFFICIAL CHANNELS & PLATFORMS ブロック (カンプ通り確実に表示)
    */
   createBannerSnsBlock() {
     const isSafeUrl = (url) => {
@@ -814,9 +849,9 @@ export class ProfileSection {
 
     const hasYt = this.profile.youtubeUrl && isSafeUrl(this.profile.youtubeUrl);
     const hasX = this.profile.xUrl && isSafeUrl(this.profile.xUrl);
-    const hasPlatforms = Array.isArray(this.profile.platforms) && this.profile.platforms.some((p) => p.link && isSafeUrl(p.link));
-
-    if (!hasYt && !hasX && !hasPlatforms) return null;
+    const platforms = Array.isArray(this.profile.platforms)
+      ? this.profile.platforms.filter((p) => p && p.link && isSafeUrl(p.link))
+      : [];
 
     const block = document.createElement("div");
     block.className = "lp-profile-banner-sns-section";
@@ -826,39 +861,45 @@ export class ProfileSection {
     card.className = "lp-profile-banner-sns-card";
 
     const snsBtns = document.createElement("div");
-    snsBtns.className = "lp-channels-btn-group";
+    snsBtns.className = "lp-banner-channels-btn-group";
 
-    if (hasYt) {
-      const ytBtn = document.createElement("a");
-      ytBtn.className = "lp-channel-btn lp-btn-youtube";
-      ytBtn.href = this.profile.youtubeUrl;
-      ytBtn.target = "_blank";
-      ytBtn.rel = "noopener noreferrer";
-      ytBtn.innerHTML = `<span>▶ YouTube Channel</span>`;
-      snsBtns.appendChild(ytBtn);
-    }
+    // 1. YouTube ボタン (赤)
+    const ytBtn = document.createElement("a");
+    ytBtn.className = "lp-banner-channel-btn lp-btn-youtube";
+    ytBtn.href = hasYt ? this.profile.youtubeUrl : "https://youtube.com";
+    ytBtn.target = "_blank";
+    ytBtn.rel = "noopener noreferrer";
+    ytBtn.innerHTML = `<span>▶ YouTube Channel</span>`;
+    snsBtns.appendChild(ytBtn);
 
-    if (hasX) {
-      const xBtn = document.createElement("a");
-      xBtn.className = "lp-channel-btn lp-btn-x";
-      xBtn.href = this.profile.xUrl;
-      xBtn.target = "_blank";
-      xBtn.rel = "noopener noreferrer";
-      xBtn.innerHTML = `<span>𝕏 Official X</span>`;
-      snsBtns.appendChild(xBtn);
-    }
+    // 2. Official X ボタン (黒)
+    const xBtn = document.createElement("a");
+    xBtn.className = "lp-banner-channel-btn lp-btn-x";
+    xBtn.href = hasX ? this.profile.xUrl : "https://x.com";
+    xBtn.target = "_blank";
+    xBtn.rel = "noopener noreferrer";
+    xBtn.innerHTML = `<span>𝕏 Official X</span>`;
+    snsBtns.appendChild(xBtn);
 
-    if (Array.isArray(this.profile.platforms)) {
-      this.profile.platforms.forEach((p) => {
-        if (!p.link || !isSafeUrl(p.link)) return;
+    // 3. プラットフォーム (設定がある場合はそれを表示、未設定ならカンプ通りTikTokボタンを表示)
+    if (platforms.length > 0) {
+      platforms.forEach((p) => {
         const pBtn = document.createElement("a");
-        pBtn.className = "lp-channel-btn lp-btn-platform";
+        pBtn.className = "lp-banner-channel-btn lp-btn-platform";
         pBtn.href = p.link;
         pBtn.target = "_blank";
         pBtn.rel = "noopener noreferrer";
         pBtn.textContent = p.name || "Platform";
         snsBtns.appendChild(pBtn);
       });
+    } else {
+      const ttBtn = document.createElement("a");
+      ttBtn.className = "lp-banner-channel-btn lp-btn-tiktok";
+      ttBtn.href = "https://www.tiktok.com";
+      ttBtn.target = "_blank";
+      ttBtn.rel = "noopener noreferrer";
+      ttBtn.textContent = "TikTok";
+      snsBtns.appendChild(ttBtn);
     }
 
     card.appendChild(snsBtns);

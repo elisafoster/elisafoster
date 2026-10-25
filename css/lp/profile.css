@@ -1013,6 +1013,8 @@
    ========================================================================== */
 .lp-profile-banner-container {
   width: 100%;
+  position: relative;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -1023,21 +1025,21 @@
    -------------------------------------------------------------------------- */
 .lp-profile-banner-hero {
   width: 100%;
-  min-height: 220px;
-  background: linear-gradient(135deg, #38bdf8 0%, #60a5fa 55%, #38bdf8 100%);
+  min-height: 240px;
+  background: linear-gradient(135deg, #38bdf8 0%, #60a5fa 55%, #38bdf8 100%) !important;
   border-radius: 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
+  box-shadow: 0 8px 28px rgba(14, 165, 233, 0.28);
 }
 
 .lp-profile-banner-hero-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 40px;
+  padding: 32px 48px;
   height: 100%;
-  min-height: 220px;
+  min-height: 240px;
   position: relative;
 }
 
@@ -1049,49 +1051,50 @@
   z-index: 2;
 }
 
+/* 名前: 極太斜体ブラックフォント */
 .lp-profile-banner-name {
-  font-size: clamp(3.2rem, 7vw, 5.2rem);
+  font-size: clamp(3.2rem, 7.5vw, 5.4rem);
   font-weight: 900;
   font-style: italic;
   color: #000000;
   line-height: 1;
   letter-spacing: 0.04em;
   margin: 0;
-  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.4);
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.5);
 }
 
+/* 白い四角座布団 */
 .lp-profile-banner-nick-wrap {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: #ffffff !important;
+  padding: 6px 14px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* 立ち絵上半身 (visual id=1) */
 .lp-profile-banner-hero-visual {
   position: absolute;
-  right: 40px;
+  right: 30px;
   bottom: 0;
   top: 0;
-  width: 40%;
-  max-width: 340px;
+  width: 45%;
+  max-width: 380px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  overflow: hidden;
   pointer-events: none;
+  overflow: visible;
 }
 
 .lp-profile-banner-char-img {
-  height: 125%;
+  height: 118%;
   width: auto;
-  max-width: none;
+  max-width: 100%;
   object-fit: contain;
   object-position: bottom center;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.18));
 }
 
 @media (max-width: 768px) {
@@ -1111,7 +1114,7 @@
     width: 45%;
   }
   .lp-profile-banner-char-img {
-    height: 115%;
+    height: 110%;
   }
 }
 
@@ -1142,15 +1145,17 @@
 /* ぷっくり光沢のある立体水色カード (キャッチフレーズ / 自己紹介) */
 .lp-profile-banner-phrase-card,
 .lp-profile-banner-intro-card {
-  background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 18%, #bae6fd 60%, #7dd3fc 100%);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  padding: 12px 20px;
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 35%, #7dd3fc 100%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  padding: 14px 22px;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.22),
+              inset 0 2px 2px rgba(255, 255, 255, 0.95),
+              inset 0 -2px 3px rgba(56, 189, 248, 0.35);
 }
 
 .lp-profile-banner-intro-card {
-  padding: 14px 20px;
+  padding: 16px 22px;
 }
 
 .lp-profile-banner-phrase-text {
@@ -1186,7 +1191,7 @@
 }
 
 .lp-banner-moves-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #f59e0b;
   letter-spacing: 0.05em;
@@ -1233,22 +1238,22 @@
   transition: background 0.2s ease;
 }
 
-.lp-profile-banner-movie-card:hover .lp-profile-banner-play-btn {
+.lp-profile-banner-movie-card:hover .lp-profile-banner-movie-play-btn {
   background: rgba(0, 0, 0, 0.35);
 }
 
 .lp-profile-banner-play-icon {
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
-  background: #8b5cf6;
+  background: #8b5cf6 !important;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
   padding-left: 3px;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.55);
+  box-shadow: 0 4px 18px rgba(139, 92, 246, 0.6);
   transition: transform 0.2s ease;
 }
 
@@ -1265,6 +1270,84 @@
   background: #ffffff;
 }
 
+/* バナー用動画スライダー */
+.lp-profile-banner-moves-slider-container {
+  position: relative;
+  width: 100%;
+}
+
+.lp-profile-banner-moves-slider-viewport {
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+}
+
+.lp-profile-banner-moves-slider-track {
+  display: flex;
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.lp-banner-moves-slider-arrow {
+  position: absolute;
+  top: 42%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+  padding: 0;
+}
+
+.lp-banner-moves-slider-arrow:hover {
+  background: rgba(14, 165, 233, 0.95);
+  border-color: #38bdf8;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.lp-banner-moves-slider-arrow.prev {
+  left: 8px;
+}
+
+.lp-banner-moves-slider-arrow.next {
+  right: 8px;
+}
+
+.lp-banner-moves-slider-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lp-banner-moves-slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(14, 165, 233, 0.3);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.lp-banner-moves-slider-dot.is-active {
+  background: #0284c7;
+  transform: scale(1.3);
+}
+
 /* SNSプラットフォームセクション (✦ OFFICIAL CHANNELS & PLATFORMS ✦) */
 .lp-profile-banner-sns-section {
   display: flex;
@@ -1273,7 +1356,7 @@
 }
 
 .lp-banner-channels-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #0284c7;
   letter-spacing: 0.05em;
@@ -1282,9 +1365,55 @@
 }
 
 .lp-profile-banner-sns-card {
-  background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
+  background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%) !important;
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 14px 18px;
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 4px 12px rgba(14, 165, 233, 0.12);
+}
+
+.lp-banner-channels-btn-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lp-banner-channel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.lp-banner-channel-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+}
+
+.lp-banner-channel-btn.lp-btn-youtube {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.lp-banner-channel-btn.lp-btn-x {
+  background: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.lp-banner-channel-btn.lp-btn-tiktok {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.lp-banner-channel-btn.lp-btn-platform {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
 }
