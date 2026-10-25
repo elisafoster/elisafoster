@@ -24,6 +24,10 @@ class LpApp {
   }
 
   async init() {
+    // 0. 画像保護 & PWA初期化
+    this.setupImageProtection();
+    this.setupPWA();
+
     try {
       // 1. themeConfig と section テーブルの取得
       const [themeRes, sectionRes] = await Promise.all([
@@ -487,6 +491,63 @@ class LpApp {
         header.classList.remove("is-scrolled");
       }
     });
+  }
+
+  /**
+   * 画像保護: 右クリック・長押しタップ・ドラッグ保存の抑止
+   */
+  setupImageProtection() {
+    // 1. 右クリック（コンテキストメニュー）抑止
+    document.addEventListener("contextmenu", (e) => {
+      const target = e.target;
+      if (!target) return;
+      const isImg = target.tagName === "IMG" || target.closest("img");
+      const isBgLayer = target.classList?.contains("lp-page-bg-layer") || target.classList?.contains("lp-section-bg-layer");
+      const hasBgImage = target.style?.backgroundImage && target.style.backgroundImage !== "none";
+      const isThumb = target.closest(".lp-gallery-card-thumb, .lp-movie-card-thumb, .lp-event-card-banner, .lp-shop-card-thumb, .lp-notice-item-thumb, .lp-header-brand-logo");
+
+      if (isImg || isBgLayer || hasBgImage || isThumb) {
+        e.preventDefault();
+        return false;
+      }
+    }, { capture: true });
+
+    // 2. ドラッグ＆ドロップによる画像保存抑止
+    document.addEventListener("dragstart", (e) => {
+      if (e.target && (e.target.tagName === "IMG" || e.target.closest("img"))) {
+        e.preventDefault();
+        return false;
+      }
+    }, { capture: true });
+
+    // 3. モバイルでの長押しタップによるコンテキストメニュー抑止補強 (iOS Safari / Android Chrome)
+    document.addEventListener("pointerdown", (e) => {
+      if (e.target && (e.target.tagName === "IMG" || e.target.closest("img"))) {
+        if (e.pointerType === "touch" || e.pointerType === "pen") {
+          e.target.style.webkitTouchCallout = "none";
+          e.target.style.webkitUserSelect = "none";
+          e.target.style.userSelect = "none";
+        }
+      }
+    }, { passive: true });
+  }
+
+  /**
+   * PWA Service Worker の登録
+   */
+  setupPWA() {
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("./sw.js")
+          .then((reg) => {
+            console.log("[PWA LP] ServiceWorker registered with scope:", reg.scope);
+          })
+          .catch((err) => {
+            console.warn("[PWA LP] ServiceWorker registration failed:", err);
+          });
+      });
+    }
   }
 }
 

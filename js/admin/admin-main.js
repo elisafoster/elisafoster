@@ -70,5 +70,19 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch (err) {
     console.error("[AuthManager Init Error]:", err);
   }
+
+  // PWA Service Worker の登録
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("./sw.js")
+        .then((reg) => {
+          console.log("[PWA Admin] ServiceWorker registered with scope:", reg.scope);
+        })
+        .catch((err) => {
+          console.warn("[PWA Admin] ServiceWorker registration failed:", err);
+        });
+    });
+  }
 });
 

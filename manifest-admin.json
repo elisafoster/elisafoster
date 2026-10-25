@@ -1,0 +1,26 @@
+{
+  "name": "ELISA Official 管理画面",
+  "short_name": "ELISA Admin",
+  "description": "ELISA Official 専用管理ダッシュボード",
+  "start_url": "./admin.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B1120",
+  "theme_color": "#0B1120",
+  "icons": [
+    {
+      "src": "assets/appIcon/app_icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/appIcon/app_icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
+

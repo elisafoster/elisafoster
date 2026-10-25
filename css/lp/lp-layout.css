@@ -3,6 +3,22 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
+   画像保護スタイル (右クリック・長押しタップメニュー・ドラッグ保存の抑止)
+   -------------------------------------------------------------------------- */
+img,
+.lp-page-bg-layer,
+.lp-section-bg-layer,
+.lp-header-brand-logo,
+[style*="background-image"] {
+  -webkit-touch-callout: none !important; /* iOS Safari 長押しメニュー抑止 */
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important; /* ドラッグ保存抑止 */
+}
+
+/* --------------------------------------------------------------------------
    Layer 1: 最背面 - ページ全体背景 (themeConfig)
    -------------------------------------------------------------------------- */
 .lp-body {

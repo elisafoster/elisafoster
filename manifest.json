@@ -1,0 +1,26 @@
+{
+  "name": "ELISA Official Website",
+  "short_name": "ELISA",
+  "description": "ELISA公式オフィシャルWebサイト",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B1120",
+  "theme_color": "#0B1120",
+  "icons": [
+    {
+      "src": "assets/appIcon/app_icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/appIcon/app_icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
+
