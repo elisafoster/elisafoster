@@ -6,6 +6,7 @@
 class ToastService {
   constructor() {
     this.container = null;
+    this.activeTimer = null;
     this.init();
   }
 
@@ -21,8 +22,24 @@ class ToastService {
     this.container = container;
   }
 
+  /**
+   * 既存のトースト通知を全てクリア (多重表示防止)
+   */
+  clearAll() {
+    if (this.activeTimer) {
+      clearTimeout(this.activeTimer);
+      this.activeTimer = null;
+    }
+    if (this.container) {
+      this.container.innerHTML = "";
+    }
+  }
+
   show(message, type = "info", duration = 4000) {
     if (!this.container) this.init();
+
+    // 常に1つのみ表示されるよう、既存のトースト通知をクリア
+    this.clearAll();
 
     const icons = {
       success: "✓",
@@ -60,7 +77,7 @@ class ToastService {
     });
 
     if (duration > 0) {
-      setTimeout(() => {
+      this.activeTimer = setTimeout(() => {
         this.dismiss(toast);
       }, duration);
     }
@@ -72,7 +89,7 @@ class ToastService {
     if (!toast) return;
     toast.classList.remove("is-show");
     setTimeout(() => {
-      if (toast.parentNode) {
+      if (toast && toast.parentNode) {
         toast.parentNode.removeChild(toast);
       }
     }, 250);

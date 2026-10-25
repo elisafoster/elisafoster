@@ -9,7 +9,7 @@
  */
 
 import { API_CONFIG } from "../config/api-config.js";
-import { Toast } from "./toast.js";
+import { Toast } from "./toast.js?v=20261025_single_toast";
 
 class ApiClient {
   constructor() {
@@ -199,8 +199,12 @@ class ApiClient {
 
   /**
    * テーブルレコード保存 (新規: POST, 更新: PUT)
+   * @param {string} tableName
+   * @param {object} recordData
+   * @param {number|string|null} id
+   * @param {boolean} suppressToast 一括更新時などの個別トースト表示を抑制するかどうか
    */
-  async saveTable(tableName, recordData, id = null) {
+  async saveTable(tableName, recordData, id = null, suppressToast = false) {
     let endpoint = API_CONFIG.ENDPOINTS.TABLE(tableName);
     let method = "POST";
 
@@ -228,17 +232,24 @@ class ApiClient {
       body: JSON.stringify(payload),
     });
 
-    Toast.success("保存が完了しました");
+    if (!suppressToast) {
+      Toast.success("保存が完了しました");
+    }
     return res;
   }
 
   /**
    * レコード削除 (DELETE)
+   * @param {string} tableName
+   * @param {number|string} id
+   * @param {boolean} suppressToast 一括更新時などの個別トースト表示を抑制するかどうか
    */
-  async deleteRecord(tableName, id) {
+  async deleteRecord(tableName, id, suppressToast = false) {
     const endpoint = `${API_CONFIG.ENDPOINTS.TABLE(tableName)}/${id}`;
     const res = await this.request(endpoint, { method: "DELETE" });
-    Toast.success("削除しました");
+    if (!suppressToast) {
+      Toast.success("削除しました");
+    }
     return res;
   }
 

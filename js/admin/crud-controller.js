@@ -5,7 +5,7 @@
 
 import { api } from "../common/api-client.js";
 import { Modal } from "../common/modal.js";
-import { Toast } from "../common/toast.js";
+import { Toast } from "../common/toast.js?v=20261025_single_toast";
 import { RichTextEditor } from "./richtext-editor.js";
 import { escapeHtml } from "../common/utils.js";
 import { ROLE_PERMISSIONS } from "./menu-manager.js";
@@ -12741,7 +12741,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.visualState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("visual", rec.id);
+        await api.deleteRecord("visual", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -12749,12 +12749,12 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("visual", cleanRec, null);
+          await api.saveTable("visual", cleanRec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
           if (hasDiff) {
-            const cleanOrig = { ...orig }; if (cleanOrig.defoemed && !cleanOrig.deformed) cleanOrig.deformed = cleanOrig.defoemed; delete cleanOrig.defoemed; delete cleanOrig.costumeThumbnail; await api.saveTable("visual", cleanRec, cleanRec.id);
+            const cleanOrig = { ...orig }; if (cleanOrig.defoemed && !cleanOrig.deformed) cleanOrig.deformed = cleanOrig.defoemed; delete cleanOrig.defoemed; delete cleanOrig.costumeThumbnail; await api.saveTable("visual", cleanRec, cleanRec.id, true);
           }
         }
       }
@@ -12822,7 +12822,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.eventState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("event", rec.id);
+        await api.deleteRecord("event", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -12830,12 +12830,12 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("event", rec, null);
+          await api.saveTable("event", rec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
           if (hasDiff) {
-            await api.saveTable("event", rec, rec.id);
+            await api.saveTable("event", rec, rec.id, true);
           }
         }
       }
@@ -12903,7 +12903,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.noticeState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("notice", rec.id);
+        await api.deleteRecord("notice", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -12911,12 +12911,12 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("notice", rec, null);
+          await api.saveTable("notice", rec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
           if (hasDiff) {
-            await api.saveTable("notice", rec, rec.id);
+            await api.saveTable("notice", rec, rec.id, true);
           }
         }
       }
@@ -12984,7 +12984,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.scheduleState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("schedule", rec.id);
+        await api.deleteRecord("schedule", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -12992,12 +12992,12 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("schedule", rec, null);
+          await api.saveTable("schedule", rec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
           if (hasDiff) {
-            await api.saveTable("schedule", rec, rec.id);
+            await api.saveTable("schedule", rec, rec.id, true);
           }
         }
       }
@@ -13065,7 +13065,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.galleryState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("gallery", rec.id);
+        await api.deleteRecord("gallery", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -13073,12 +13073,12 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("gallery", rec, null);
+          await api.saveTable("gallery", rec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => rec[k] !== orig[k]);
           if (hasDiff) {
-            await api.saveTable("gallery", rec, rec.id);
+            await api.saveTable("gallery", rec, rec.id, true);
           }
         }
       }
@@ -13150,7 +13150,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.movieState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("movie", rec.id);
+        await api.deleteRecord("movie", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -13158,7 +13158,7 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("movie", rec, null);
+          await api.saveTable("movie", rec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => {
@@ -13167,7 +13167,7 @@ export class CrudController {
             return vCurr !== vOrig;
           });
           if (hasDiff) {
-            await api.saveTable("movie", rec, rec.id);
+            await api.saveTable("movie", rec, rec.id, true);
           }
         }
       }
@@ -13239,7 +13239,7 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.shopState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("shop", rec.id);
+        await api.deleteRecord("shop", rec.id, true);
       }
 
       // 2. 新規追加 (POST) および 更新 (PUT) の反映
@@ -13247,7 +13247,7 @@ export class CrudController {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
           // 新規追加
-          await api.saveTable("shop", rec, null);
+          await api.saveTable("shop", rec, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => {
@@ -13256,7 +13256,7 @@ export class CrudController {
             return vCurr !== vOrig;
           });
           if (hasDiff) {
-            await api.saveTable("shop", rec, rec.id);
+            await api.saveTable("shop", rec, rec.id, true);
           }
         }
       }
@@ -13328,14 +13328,14 @@ export class CrudController {
       // 1. 削除されたレコードの反映 (DELETE)
       const toDelete = this.linkListState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
       for (const rec of toDelete) {
-        await api.deleteRecord("linkList", rec.id);
+        await api.deleteRecord("linkList", rec.id, true);
       }
 
       // 2. 新規追加 (POST) ・ 更新 (PUT) の反映
       for (const rec of this.linkListState.currentRecords) {
         const orig = origMap.get(Number(rec.id));
         if (!orig) {
-          await api.saveTable("linkList", rec, null);
+          await api.saveTable("linkList", rec, null, true);
         } else {
           const hasDiff = Object.keys(rec).some((k) => {
             const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
@@ -13343,7 +13343,7 @@ export class CrudController {
             return vCurr !== vOrig;
           });
           if (hasDiff) {
-            await api.saveTable("linkList", rec, rec.id);
+            await api.saveTable("linkList", rec, rec.id, true);
           }
         }
       }
@@ -13419,13 +13419,13 @@ export class CrudController {
 
         const toDelete = this.movieListState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
         for (const rec of toDelete) {
-          await api.deleteRecord("movieList", rec.id);
+          await api.deleteRecord("movieList", rec.id, true);
         }
 
         for (const rec of this.movieListState.currentRecords) {
           const orig = origMap.get(Number(rec.id));
           if (!orig) {
-            await api.saveTable("movieList", rec, null);
+            await api.saveTable("movieList", rec, null, true);
           } else {
             const hasDiff = Object.keys(rec).some((k) => {
               const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
@@ -13433,7 +13433,7 @@ export class CrudController {
               return vCurr !== vOrig;
             });
             if (hasDiff) {
-              await api.saveTable("movieList", rec, rec.id);
+              await api.saveTable("movieList", rec, rec.id, true);
             }
           }
         }
@@ -13448,13 +13448,13 @@ export class CrudController {
 
         const toDelete = this.movieState.originalRecords.filter((r) => !currMap.has(Number(r.id)));
         for (const rec of toDelete) {
-          await api.deleteRecord("movie", rec.id);
+          await api.deleteRecord("movie", rec.id, true);
         }
 
         for (const rec of this.movieState.currentRecords) {
           const orig = origMap.get(Number(rec.id));
           if (!orig) {
-            await api.saveTable("movie", rec, null);
+            await api.saveTable("movie", rec, null, true);
           } else {
             const hasDiff = Object.keys(rec).some((k) => {
               const vCurr = rec[k] === null || rec[k] === undefined ? "" : String(rec[k]);
@@ -13462,7 +13462,7 @@ export class CrudController {
               return vCurr !== vOrig;
             });
             if (hasDiff) {
-              await api.saveTable("movie", rec, rec.id);
+              await api.saveTable("movie", rec, rec.id, true);
             }
           }
         }
@@ -13540,7 +13540,7 @@ export class CrudController {
             continue;
           }
         }
-        await api.deleteRecord("whitelist", rec.id);
+        await api.deleteRecord("whitelist", rec.id, true);
       }
 
       // 2. 新規追加 (POST) ・ 更新 (PUT) の反映
@@ -13560,7 +13560,7 @@ export class CrudController {
             mail: rec.mail,
             role: rec.role,
           };
-          await api.saveTable("whitelist", payload, null);
+          await api.saveTable("whitelist", payload, null, true);
         } else {
           // 変更の有無をチェック
           const hasDiff = Object.keys(rec).some((k) => {
@@ -13581,7 +13581,7 @@ export class CrudController {
               mail: rec.mail,
               role: rec.role,
             };
-            await api.saveTable("whitelist", payload, rec.id);
+            await api.saveTable("whitelist", payload, rec.id, true);
           }
         }
       }
@@ -16238,7 +16238,7 @@ export class CrudController {
             outLine: sec.outLine || "",
             sectionBackground: sec.sectionBackground || "",
           };
-          return api.saveTable("section", payload, sec.id);
+          return api.saveTable("section", payload, sec.id, true);
         });
 
         await Promise.all(savePromises);
