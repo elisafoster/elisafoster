@@ -12,6 +12,7 @@
 .admin-sidebar {
   width: 280px;
   height: 100vh;
+  height: 100dvh;
   position: sticky;
   top: 0;
   background: #1e293b;
@@ -25,6 +26,24 @@
   box-sizing: border-box;
 }
 
+/* サイドバー全体のスクロールバースタイル */
+.admin-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 /* PC時: is-collapsed クラスでサイドバーを格納・閉じる（メイン領域が自動で全幅に拡大） */
 @media (min-width: 1025px) {
   .admin-sidebar.is-collapsed {
@@ -36,14 +55,52 @@
   .admin-sidebar {
     position: fixed;
     top: 0;
-    bottom: 0;
     left: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: 85vw;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     transform: translateX(-100%);
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
   }
 
   .admin-sidebar.is-open {
     transform: translateX(0);
+  }
+
+  /* SP時: ヘッダーを上部にsticky固定 (メニューをスクロールしても閉じるボタンが常に使える) */
+  .admin-sidebar-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1e293b;
+    flex-shrink: 0;
+  }
+
+  /* SP時: ナビゲーションをサイドバー全体のスクロール領域に統合 */
+  .admin-sidebar-nav {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-sidebar-maintenance {
+    flex-shrink: 0;
+  }
+
+  .admin-sidebar-status {
+    flex-shrink: 0;
+  }
+
+  /* SP時: 最下部ボタンにiOSセーフエリア余白を付与し、Safari下部UIやホームバー被りを防止 */
+  .admin-sidebar-logout-wrap {
+    flex-shrink: 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -60,6 +117,8 @@
     left: 0;
     right: 0;
     bottom: 0;
+    height: 100vh;
+    height: 100dvh;
     background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
     z-index: 90;
@@ -83,6 +142,7 @@
   justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+  background: #1e293b;
 }
 
 .admin-sidebar-brand {
