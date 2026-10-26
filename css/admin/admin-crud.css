@@ -1998,14 +1998,13 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
+  height: 42px !important;
+  min-height: 42px !important;
   box-sizing: border-box !important;
   padding: 8px 6px !important;
   font-size: 0.82rem !important;
   text-align: center !important;
   letter-spacing: -0.02em !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  appearance: none !important;
 }
 
 /* スマホ表示時（768px以下）のモーダルおよびフォーム最適化 */
@@ -2049,14 +2048,13 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
+    height: 42px !important;
+    min-height: 42px !important;
     box-sizing: border-box !important;
     padding: 8px 4px !important;
-    font-size: 0.76rem !important; /* 幅を縮めても入力内容が綺麗に収まるサイズ */
+    font-size: 0.78rem !important; /* 幅を縮めても入力内容が綺麗に収まるサイズ */
     text-align: center !important;
-    letter-spacing: -0.03em !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    appearance: none !important;
+    letter-spacing: -0.02em !important;
     border-radius: var(--radius-sm, 6px) !important;
   }
 
@@ -2068,7 +2066,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     margin: 0 !important;
     width: 14px !important;
     height: 14px !important;
-    transform: scale(0.8) !important;
+    transform: scale(0.85) !important;
     transform-origin: center right !important;
     cursor: pointer !important;
     flex-shrink: 0 !important;
