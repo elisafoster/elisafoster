@@ -2814,7 +2814,7 @@ export class CrudController {
       </div>
 
       <!-- 行2: 開始日時 ｜ 終了日時 (カレンダーピッカー) -->
-      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-datetime-row">
         <div class="admin-form-group">
           <label class="admin-form-label">
             開始日時
@@ -3668,7 +3668,7 @@ export class CrudController {
       </div>
 
       <!-- 行2: 予約投稿時刻 ｜ 送信時刻 -->
-      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-datetime-row">
         <div class="admin-form-group">
           <label class="admin-form-label admin-form-label-2row">
             <span class="admin-form-label-main">予約投稿時刻</span>
@@ -3686,7 +3686,7 @@ export class CrudController {
         <div class="admin-form-group">
           <label class="admin-form-label admin-form-label-2row">
             <span class="admin-form-label-main">送信時刻</span>
-            <span class="admin-form-label-sub">(${isNew ? "(新規保存時に自動設定)" : "(作成日時)"})</span>
+            <span class="admin-form-label-sub">(${isNew ? "新規保存時に自動設定" : "作成日時"})</span>
           </label>
           <input
             class="admin-form-input"
@@ -5123,7 +5123,7 @@ export class CrudController {
       </div>
 
       <!-- 行3: 日にち ｜ 時間 -->
-      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-datetime-row">
         <div class="admin-form-group">
           <label class="admin-form-label">
             日にち
