@@ -2137,6 +2137,47 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     cursor: pointer !important;
     flex-shrink: 0 !important;
   }
+
+  /* アセット管理: スマホ表示時は横スライド表示 */
+  .admin-asset-grid {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 12px !important;
+    padding-bottom: 8px !important;
+    scroll-snap-type: x mandatory !important;
+  }
+
+  .admin-asset-card {
+    flex: 0 0 240px !important;
+    width: 240px !important;
+    min-width: 240px !important;
+    scroll-snap-align: start !important;
+  }
+
+  .admin-asset-path-body {
+    padding: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* セクション装飾画像アップロード: タブがダイアログ内に収まるよう調整 */
+  .admin-upload-category-bar {
+    padding: 3px !important;
+    gap: 4px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-upload-category-btn {
+    flex: 0 0 auto !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+  }
 }
 
 /* 2段ラベルスタイル (カラム名 + 説明文) */
@@ -2251,6 +2292,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 @media (max-width: 960px) {
   .admin-theme-layout-grid {
     grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+  .admin-theme-preview-wrap {
+    order: -1 !important;
   }
 }
 
@@ -3308,6 +3354,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-radius: 8px;
   padding: 4px;
   gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.admin-upload-category-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .admin-upload-category-btn {

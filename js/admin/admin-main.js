@@ -5,7 +5,7 @@
 
 import { AuthManager } from "./auth-manager.js";
 import { MenuManager } from "./menu-manager.js?v=20261025_scroll_lock_fix";
-import { CrudController } from "./crud-controller.js?v=20261027_datetime_id_exact";
+import { CrudController } from "./crud-controller.js?v=20261027_mobile_layout_polish";
 import { MaintenanceManager } from "./maintenance-manager.js?v=20261024_github_storage_format";
 import { PwaInstaller } from "../common/pwa-installer.js";
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin CRUD Controller
  * 各テーブルの一覧・編集・新規作成・削除ロジック
  */
@@ -9714,7 +9714,7 @@ export class CrudController {
 
     form.innerHTML = `
       <!-- 行1: id ｜ リスト名 -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             id
@@ -10499,7 +10499,7 @@ export class CrudController {
       </div>
 
       <!-- 行2: 商品名 ｜ 価格 -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             商品名
