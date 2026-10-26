@@ -2785,7 +2785,7 @@ export class CrudController {
 
     form.innerHTML = `
       <!-- 行1: id ｜ リンク -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             id
@@ -2814,7 +2814,7 @@ export class CrudController {
       </div>
 
       <!-- 行2: 開始日時 ｜ 終了日時 (カレンダーピッカー) -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             開始日時
@@ -3668,11 +3668,11 @@ export class CrudController {
       </div>
 
       <!-- 行2: 予約投稿時刻 ｜ 送信時刻 -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
-          <label class="admin-form-label">
-            予約投稿時刻
-            <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(未設定時は即時公開)</span>
+          <label class="admin-form-label admin-form-label-2row">
+            <span class="admin-form-label-main">予約投稿時刻</span>
+            <span class="admin-form-label-sub">(未設定時は即時公開)</span>
           </label>
           <input
             class="admin-form-input"
@@ -3684,9 +3684,9 @@ export class CrudController {
         </div>
 
         <div class="admin-form-group">
-          <label class="admin-form-label">
-            送信時刻
-            <span style="color: #94a3b8; font-weight: normal; font-size: 0.78rem; margin-left: 4px;">(${isNew ? "新規保存時に自動設定" : "作成日時"})</span>
+          <label class="admin-form-label admin-form-label-2row">
+            <span class="admin-form-label-main">送信時刻</span>
+            <span class="admin-form-label-sub">(${isNew ? "(新規保存時に自動設定)" : "(作成日時)"})</span>
           </label>
           <input
             class="admin-form-input"
@@ -5065,7 +5065,7 @@ export class CrudController {
       </div>
 
       <!-- 行2: タイトル ｜ タグ -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             タイトル
@@ -5123,7 +5123,7 @@ export class CrudController {
       </div>
 
       <!-- 行3: 日にち ｜ 時間 -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             日にち
@@ -6066,7 +6066,7 @@ export class CrudController {
 
     form.innerHTML = `
       <!-- 行1: id ｜ 画像名 -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             id
@@ -7592,7 +7592,7 @@ export class CrudController {
       </div>
 
       <!-- 行2: 動画タイプ ｜ タグ -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             動画タイプ
@@ -7647,7 +7647,7 @@ export class CrudController {
       </div>
 
       <!-- 行3: 動画URL ｜ 再生リスト -->
-      <div class="admin-form-row admin-form-grid-2">
+      <div class="admin-form-row admin-form-grid-2 admin-form-grid-stack-mobile">
         <div class="admin-form-group">
           <label class="admin-form-label">
             動画URL
