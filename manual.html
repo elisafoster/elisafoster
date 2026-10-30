@@ -1085,13 +1085,149 @@
 
         <div class="manual-card">
           <p>
-            公式サイトのトップビューおよびプロフィール・ビジュアル切替機能で使用されるキャラクター立ち絵と衣装バリエーションを管理します。
+            公式サイトのトップビュー（メインビジュアル）およびビジュアル切替機能で使用されるキャラクター立ち絵と衣装バリエーションを管理します。<br>
+            新規追加ダイアログは<strong>「基本情報」「イラスト」「クレジット」</strong>の3つのアコーディオン構成で、細やかな設定が可能です。
           </p>
-          <ul class="manual-list">
-            <li><strong>立ち絵画像の登録:</strong> 背景が透過されたPNG形式またはWebP形式の画像をご使用ください（推奨アスペクト比 1:2 前後の縦長全身画像）。</li>
-            <li><strong>サムネイル画像:</strong> 衣装切り替えボタン等に使用されるアイコン用正方形画像。</li>
-            <li><strong>表示順 (priority):</strong> 数字が小さい順（または昇順）に先頭から表示されます。</li>
-          </ul>
+
+          <!-- 5-1. 基本情報 -->
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📌 基本情報
+          </h3>
+          <p style="color: var(--manual-text-sub); font-size: 0.9rem; margin-bottom: 12px;">
+            衣装の識別名や並び順を設定します。
+          </p>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（新規作成時に最大値+1が自動採番されます。読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>表示優先度<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(priority)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    サイト上での表示並び順数値（数値が小さいほど先頭に表示されます）。新規時は末尾の優先度が自動設定されます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>衣装名<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(costumeName)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>管理用の衣装識別名（例: <code>デフォルト衣装</code>、<code>新春晴れ着</code>、<code>部屋着パジャマ</code>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 5-2. イラスト -->
+          <h3 class="manual-sub-title" style="margin-top: 28px;">
+            🎨 イラスト（立ち絵・SD・サムネイル・背景）
+          </h3>
+          <p style="color: var(--manual-text-sub); font-size: 0.9rem; margin-bottom: 12px;">
+            各画像枠ごとに「ライブラリ参照」または「直URL指定」を選択できます。また、「📤 アップロード」ボタンからトリミング調整を行って直接アップロードすることも可能です。
+          </p>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・規格比率・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>立ち絵<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(visual)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    公式サイトトップでメイン表示される全身立ち絵画像。<br>
+                    <strong>透過PNG推奨</strong> ｜ 規格比率: <strong>4:3 (contain)</strong> ｜ 最大容量: <strong>5MB</strong> ｜ 長辺推奨: <strong>1280px</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td>SD / デフォルメ<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(deformed)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    デフォルメキャラクター（ミニキャラ）立ち絵画像。<br>
+                    <strong>透過PNG推奨</strong> ｜ 規格比率: <strong>4:3 (contain)</strong> ｜ 最大容量: <strong>3MB</strong> ｜ 長辺推奨: <strong>640px</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td>サムネイル<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(thumbnail)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    衣装切り替えボタン等に使用される正方形アイコン画像。<br>
+                    <strong>透過PNG推奨</strong> ｜ 規格比率: <strong>1:1 正方形</strong> ｜ 最大容量: <strong>1MB</strong> ｜ 長辺推奨: <strong>512px</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td>衣装背景<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(visualBackground)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    立ち絵の背面に敷く専用背景画像。<br>
+                    対応形式: <strong>PNG / JPG / JPEG</strong> ｜ 最大容量: <strong>5MB</strong> ｜ オリジナル比率維持
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 5-3. クレジット -->
+          <h3 class="manual-sub-title" style="margin-top: 28px;">
+            🖋️ クレジット情報
+          </h3>
+          <p style="color: var(--manual-text-sub); font-size: 0.9rem; margin-bottom: 12px;">
+            衣装のデザインや制作に携わったクリエイター様のお名前を記録・表示します。
+          </p>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>キャラクターデザイン<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(characterDesign)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>キャラクターデザイナー名（例: <code>デザイナー名</code>）</td>
+                </tr>
+                <tr>
+                  <td>イラストレーター<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(illustrator)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>立ち絵を描き下ろしたイラストレーター名（絵師名）</td>
+                </tr>
+                <tr>
+                  <td>Live2Dモデラー<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(live2d)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>Live2Dモデリング・リギングを担当されたモデラー名</td>
+                </tr>
+                <tr>
+                  <td>3Dモデラー<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(3dModeling)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>3Dモデルの制作を担当されたモデラー名</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-tip" style="margin-top: 24px;">
+            <span class="manual-alert-icon">💡</span>
+            <div>
+              <strong>立ち絵・衣装の保存反映:</strong><br>
+              ダイアログで「新規作成」または「変更を保存する」を押した後は、画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して変更を確定してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1105,30 +1241,80 @@
         </div>
 
         <div class="manual-card">
-          <p>新曲リリース、グッズ発売、周年イベントなどの告知バナーをサイト上に掲載・管理します。</p>
+          <p>
+            新曲リリース、グッズ発売、周年イベントなどの告知バナーをサイト上に掲載・管理します。<br>
+            掲載開始日時と終了日時を指定することで、期間外のバナーは自動的に非表示となる<strong>自動期間連動システム</strong>を採用しています。
+          </p>
 
-          <h3 class="manual-sub-title">掲載期間と自動公開・終了</h3>
-          <div class="manual-steps">
-            <div class="manual-step-item">
-              <span class="manual-step-badge">開始日時</span>
-              <div class="manual-step-body">
-                <div class="manual-step-title">start_at（カレンダー＆時計ピッカー）</div>
-                <div class="manual-step-text">バナーの掲載を開始する日時。この時刻より前はサイト上に表示されません。</div>
-              </div>
-            </div>
-            <div class="manual-step-item">
-              <span class="manual-step-badge">終了日時</span>
-              <div class="manual-step-body">
-                <div class="manual-step-title">end_at（カレンダー＆時計ピッカー）</div>
-                <div class="manual-step-text">掲載を終了する日時。この時刻を過ぎると自動的に非表示になります。</div>
-              </div>
-            </div>
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 新規追加・編集項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>リンク<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(link)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    バナーをクリックしたときのジャンプ先URL（例: <code>https://example.com/event</code>）。<br>
+                    外部サイトや配信ページ、ショップページなどを指定します。
+                  </td>
+                </tr>
+                <tr>
+                  <td>開始日時<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(start_at)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    バナーの掲載を開始する日時（カレンダー＆時計ピッカー対応）。<br>
+                    この時刻より前は公開サイト上に表示されません。
+                  </td>
+                </tr>
+                <tr>
+                  <td>終了日時<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(end_at)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    バナーの掲載を終了する日時（カレンダー＆時計ピッカー対応）。<br>
+                    この時刻を過ぎると公開サイト側から自動的に非表示になります。
+                  </td>
+                </tr>
+                <tr>
+                  <td>画像選択<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(banner)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    イベント告知バナー画像（推奨比率 <strong>16:9</strong>）。<br>
+                    ・<strong>ライブラリ参照:</strong> <code>assets/event</code> 配下の既存画像から選択<br>
+                    ・<strong>直URL指定:</strong> Googleドライブ共有リンク（自動変換対応）や画像直リンクを入力<br>
+                    ・<strong>アップロード:</strong> PCやスマホから画像を直接アップロード＆トリミング
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="manual-alert is-tip">
+
+          <div class="manual-alert is-tip" style="margin-top: 20px;">
             <span class="manual-alert-icon">📱</span>
             <div>
-              <strong>スマホ画面での入力:</strong><br>
-              スマートフォン操作時、入力ボックスをタップするとOS標準の日付・時刻ドラムロールピッカーが立ち上がります。ダイアログ幅に綺麗に収まるよう最適化されています。
+              <strong>スマホ画面での入力配慮:</strong><br>
+              スマートフォン操作時、idとリンクは縦並びに配置され、開始日時と終了日時の入力ボックスは横幅が見切れることなくドラムロールで快適に入力できるように最適化されています。
+            </div>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 14px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              追加や編集が完了したら、バナー一覧画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存を完了してください。
             </div>
           </div>
         </div>
@@ -1144,20 +1330,79 @@
         </div>
 
         <div class="manual-card">
-          <p>ファン向けのお知らせ・ニュースを管理します。未来の日時を指定した<strong>自動予約投稿</strong>に対応しています。</p>
+          <p>
+            公式サイトトップのお知らせセクションに掲載されるニュース・告知文を管理します。<br>
+            「即時公開」はもちろん、未来の日時を指定して自動的に公開される<strong>「予約投稿 (scheduled)」</strong>、編集中に下書き保存できる<strong>「下書き (draft)」</strong>の3つのステータスに対応しています。
+          </p>
 
-          <h3 class="manual-sub-title">ステータスの種類</h3>
-          <ul class="manual-list">
-            <li><strong>公開 (published):</strong> 保存後、即座に公式サイトのお知らせ欄に公開されます。</li>
-            <li><strong>予約 (scheduled):</strong> 「予約投稿時刻」に指定した日時が到来すると自動的に公開されます。それまでは一般閲覧者には見えません。</li>
-            <li><strong>下書き (draft):</strong> 編集中の非公開データとして保存されます。</li>
-          </ul>
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 新規追加・編集項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>ステータス<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(status)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    公開状態を選択します。<br>
+                    ・<strong>公開 (published):</strong> 保存後、即座にサイト上に公開<br>
+                    ・<strong>予約 (scheduled):</strong> 予約投稿時刻が到来した時点で自動公開<br>
+                    ・<strong>下書き (draft):</strong> 編集中の非公開保存（一般閲覧者には非表示）
+                  </td>
+                </tr>
+                <tr>
+                  <td>予約投稿時刻<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(scheduled_at)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    公開を開始する未来の日時（カレンダー＆時計ピッカー対応）。<br>
+                    <span style="font-size: 0.8rem; color: var(--manual-text-muted);">※未設定の場合は「即時公開」となります。ステータスが「予約」の場合は必ず設定してください。</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>送信時刻<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(created_at)</span></td>
+                  <td><span class="manual-badge" style="background: rgba(148, 163, 184, 0.2); color: #cbd5e1;">自動記録</span></td>
+                  <td>新規保存時に現在日時がタイムスタンプとして自動記録されます（読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>お知らせ本文<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(message)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    お知らせのテキスト内容（複数行テキストエリア）。<br>
+                    入力した改行は公開サイト上でもそのまま忠実に段落・改行として反映されます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>画像選択<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(Image)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    お知らせに添付するアイキャッチ画像。<br>
+                    ・<strong>ライブラリ参照:</strong> <code>assets/notice</code> 配下の既存画像から選択<br>
+                    ・<strong>直URL指定:</strong> Googleドライブ共有URL（自動変換対応）や画像直リンクを入力<br>
+                    ・<strong>アップロード:</strong> PCやスマホから直接画像をアップロード可能
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <div class="manual-alert is-note">
-            <span class="manual-alert-icon">⏱️</span>
+          <div class="manual-alert is-important" style="margin-top: 20px;">
+            <span class="manual-alert-icon">⚠️</span>
             <div>
-              <strong>送信時刻 (created_at):</strong><br>
-              新規作成時に自動的に現在の時刻が記録されます。お知らせ一覧やタイムスタンプとして活用されます。
+              <strong>変更の確定（更新反映）:</strong><br>
+              お知らせの新規作成や編集後は、画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存を完了してください。
             </div>
           </div>
         </div>
@@ -1173,15 +1418,99 @@
         </div>
 
         <div class="manual-card">
-          <p>週間配信予定やイベントスケジュールを登録します。</p>
+          <p>
+            週間配信予定や記念配信、イベントスケジュールを登録・管理します。<br>
+            タグ別の色分け表示や、日付順ソート、配信枠リンクへのスムーズな誘導が可能です。
+          </p>
 
-          <h3 class="manual-sub-title">登録手順・入力Tips</h3>
-          <ul class="manual-list">
-            <li><strong>日にち & 時間:</strong> カレンダーピッカーと時刻ピッカー（24時間制）で指定します。</li>
-            <li><strong>タイトル:</strong> 「定期雑談配信 #42」「歌枠耐久！」など配信枠のタイトルを入力します。</li>
-            <li><strong>タグ選択 & インライン追加:</strong> 「ライブ配信」「歌枠」「ゲーム」などのタグをプルダウンから選択します。新しいタグを作りたい場合は、横の<strong>「＋ タグ追加」</strong>ボタンを押すとダイアログ内で即座に新タグを登録できます。</li>
-            <li><strong>公開フラグ (スイッチ):</strong> 準備中のスケジュールは「非表示」にしておくことで、下書きとして保存できます。</li>
-          </ul>
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 新規追加・編集項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>公開フラグ<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(is_active)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    表示/非表示を切り替えるトグルスイッチ（デフォルト: 表示）。<br>
+                    日程未定の枠や一時的な非公開枠はOFF（非表示）に設定できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>タイトル<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(title)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    配信やイベントのタイトル（例: <code>定期配信 #42</code>、<code>歌枠耐久！目指せ登録者数◯万人</code>、<code>マインクラフト参加型</code>）
+                  </td>
+                </tr>
+                <tr>
+                  <td>タグ<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(scheduleTag_id)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    配信区分タグを選択します（例: <code>ライブ配信</code>、<code>歌枠</code>、<code>ゲーム実況</code>、<code>コラボ</code>）。<br>
+                    横の<strong>「＋ タグ追加」</strong>ボタンをクリックすると、モーダルを閉じることなくその場で新規タグを即時追加できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>日にち<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(schedule_at)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>配信日（日付選択ピッカー、<code>YYYY-MM-DD</code>形式）</td>
+                </tr>
+                <tr>
+                  <td>時間<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(time)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>配信開始時刻（時刻ピッカー、<code>HH:mm</code>形式、例: <code>21:00</code>）</td>
+                </tr>
+                <tr>
+                  <td>リンク<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(link)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>YouTube配信待機所URLや告知ポストURL（例: <code>https://youtube.com/watch?v=...</code>）</td>
+                </tr>
+                <tr>
+                  <td>詳細<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(detail)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>配信内容、コラボ相手、参加型ルールなどの補足テキスト</td>
+                </tr>
+                <tr>
+                  <td>画像選択<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(Image)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    スケジュール告知サムネイル画像（アスペクト比 <strong>16:9</strong> プレビュー対応）。<br>
+                    ライブラリ参照・直URL指定・直接アップロードに対応。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-tip" style="margin-top: 20px;">
+            <span class="manual-alert-icon">📱</span>
+            <div>
+              <strong>スマホ画面でのレイアウト:</strong><br>
+              タイトルとタグは縦並びで表示され、「日にち」と「時間」は横幅が重なることなく横並びで快適に入力できるように最適化されています。
+            </div>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 14px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              追加や編集が完了したら、画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存を完了してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1195,12 +1524,65 @@
         </div>
 
         <div class="manual-card">
-          <p>記念イラスト、ファンアート、公式ビジュアルのギャラリーカードを管理します。</p>
-          <ul class="manual-list">
-            <li><strong>画像名 & 画像選択:</strong> <code>assets/gallery</code> 配下の画像を選択、またはアップロードします。</li>
-            <li><strong>作者クレジット:</strong> 絵師様・クリエイター様のお名前やTwitter/Xアカウントリンクを併記できます。</li>
-            <li><strong>モーダル拡大表示:</strong> サイト側ではクリックすることでフルスクリーン高解像度プレビューが展開されます。</li>
-          </ul>
+          <p>
+            キービジュアル、三面図、記念イラスト、表情差分などのグラフィック作品を管理します。<br>
+            登録されたイラストはサイト上で美しいカードとして一覧表示され、クリックすると高解像度フルスクリーンプレビューモーダルが展開されます。
+          </p>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 新規追加・編集項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>画像名<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(name)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    イラストや作品のタイトル（例: <code>公式三面図設定資料</code>、<code>活動1周年記念イラスト</code>、<code>表情差分まとめ</code>）
+                  </td>
+                </tr>
+                <tr>
+                  <td>画像選択<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(image)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    ギャラリーに掲載する画像ファイル。<br>
+                    ・<strong>ライブラリ参照:</strong> <code>assets/gallery</code> 配下の既存画像から選択<br>
+                    ・<strong>直URL指定:</strong> Googleドライブ共有URL（自動変換対応）や直リンクを入力<br>
+                    ・<strong>アップロード:</strong> PCやスマホから直接アップロード（トリミング調整対応）
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-tip" style="margin-top: 20px;">
+            <span class="manual-alert-icon">↕️</span>
+            <div>
+              <strong>ドラッグ＆ドロップで表示順の並び替え:</strong><br>
+              ギャラリー一覧テーブルの行をドラッグ＆ドロップすることで、公開サイト側での表示順序を直感的に入れ替えることができます。並び替え後は「更新反映」ボタンを押してください。
+            </div>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 14px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              追加・編集・並び替えが完了したら、画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存を完了してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1214,19 +1596,127 @@
         </div>
 
         <div class="manual-card">
-          <p>YouTubeのミュージックビデオ、歌ってみた、切り抜き動画、配信アーカイブを管理します。</p>
+          <p>
+            YouTubeの通常動画、ミュージックビデオ（MV）、歌ってみた、切り抜き動画、およびYouTube Shortsを管理します。<br>
+            「動画リスト」と「再生リスト（カテゴリー）」の2つの管理単位に分かれており、サイト側でのタブ切り替えやフィルター検索と完全に連動します。
+          </p>
 
-          <h3 class="manual-sub-title">動画リスト (movie)</h3>
-          <ul class="manual-list">
-            <li><strong>動画URL:</strong> YouTube動画の通常URL（<code>https://www.youtube.com/watch?v=...</code>）またはShorts用URLをそのまま貼り付けます。サムネイルや動画IDは自動解析されます。</li>
-            <li><strong>動画種別 (type):</strong> 「YouTube動画」「Shorts」「その他」から選択します。</li>
-            <li><strong>所属再生リスト:</strong> あらかじめ作成した「再生リスト」に紐付けることで、サイト側でタブ切り替えフィルターが機能します。</li>
-          </ul>
+          <!-- 10-1. 動画リスト -->
+          <h3 id="movie-item" class="manual-sub-title" style="margin-top: 24px;">
+            🎬 動画リストの新規追加・編集
+          </h3>
+          <p style="color: var(--manual-text-sub); font-size: 0.9rem; margin-bottom: 12px;">
+            個々の動画情報、リンク、サムネイル、所属カテゴリーを設定します。
+          </p>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>公開フラグ<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(is_active)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>表示/非表示を切り替えるトグルスイッチ（デフォルト: 表示）</td>
+                </tr>
+                <tr>
+                  <td>動画タイプ<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(movieCategory_id)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    動画の種別を選択します（例: <code>通常動画</code>、<code>YouTube Shorts</code>、<code>配信アーカイブ</code>）。
+                  </td>
+                </tr>
+                <tr>
+                  <td>タグ<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(movieTag_id)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    動画タグを選択します（例: <code>MV</code>、<code>歌ってみた</code>、<code>切り抜き</code>）。<br>
+                    横の<strong>「＋ タグ追加」</strong>ボタンからモーダル内で新規タグを即時追加できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>動画URL<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(movieUrl)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    YouTube通常URL（<code>https://www.youtube.com/watch?v=...</code>）、短縮URL（<code>https://youtu.be/...</code>）、Shorts（<code>https://www.youtube.com/shorts/...</code>）またはTikTokなどのURL
+                  </td>
+                </tr>
+                <tr>
+                  <td>再生リスト<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(movieList)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    所属させたい再生リストを選択します（例: <code>歌ってみたまとめ</code>、<code>名場面集</code>）。「所属しない（なし）」も選択可能です。
+                  </td>
+                </tr>
+                <tr>
+                  <td>動画画像 (サムネイル)<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(movieImage)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    動画サムネイル画像。<br>
+                    未設定の場合は動画URLから自動取得されます。独自サムネイルを設定したい場合はライブラリ参照・直URL指定・直接アップロードが可能です。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <h3 class="manual-sub-title" style="margin-top: 20px;">再生リスト (movieList)</h3>
-          <ul class="manual-list">
-            <li>「歌ってみたまとめ」「ゲーム実況」「雑談配信」などのカテゴリーを作成し、カバー画像を設定できます。</li>
-          </ul>
+          <!-- 10-2. 再生リスト -->
+          <h3 id="movie-list" class="manual-sub-title" style="margin-top: 32px;">
+            📑 再生リストの新規追加・編集
+          </h3>
+          <p style="color: var(--manual-text-sub); font-size: 0.9rem; margin-bottom: 12px;">
+            複数の動画を束ねる再生リスト（アルバム）を作成・管理します。
+          </p>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>リスト名<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(listName)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    再生リストの名称（例: <code>歌ってみたコレクション</code>、<code>ゲーム実況まとめ</code>、<code>雑談アーカイブ</code>）
+                  </td>
+                </tr>
+                <tr>
+                  <td>画像選択<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(listImage)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    再生リストのカバー画像（アスペクト比 <strong>16:9</strong> 推奨）。<br>
+                    ライブラリ参照・直URL指定・直接アップロード（16:9トリミングキャンバス付き）に対応。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 20px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              動画リストおよび再生リストの変更は、画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存を完了してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1240,12 +1730,99 @@
         </div>
 
         <div class="manual-card">
-          <p>オフィシャルグッズ、ボイス、CDなどの商品カードと各通販プラットフォームへのリンクを管理します。</p>
-          <ul class="manual-list">
-            <li><strong>商品名 & 価格 (円):</strong> 商品の名称と税込価格を入力します（スマホ時は縦並びで入力しやすいレイアウトになっています）。</li>
-            <li><strong>商品画像 (4:3比率):</strong> 商品写真やパッケージ画像を登録します。</li>
-            <li><strong>マルチプラットフォームリンク:</strong> BOOTH、BASE、StreamArt、任意のオリジナルショップURLの4種類に対応しています。入力されたプラットフォームのボタンが自動的にサイト側に表示されます。</li>
-          </ul>
+          <p>
+            オフィシャルグッズ、ボイスドラマ、CD、同人誌などの商品カードと、各通販プラットフォームへの購入リンクを管理します。<br>
+            主要通販サービス（BOOTH、BASE、StreamArt、独自ショップ）にマルチ対応しており、URLが入力されたプラットフォームのボタンが自動的に公開サイト側に生成されます。
+          </p>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 新規追加・編集項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>表示順<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(priority)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>サイト上での表示並び順数値（ドラッグ＆ドロップによる並び替えも可能）</td>
+                </tr>
+                <tr>
+                  <td>商品名<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(name)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>グッズ・商品の名称（例: <code>アクリルスタンド（通常衣装）</code>、<code>記念ボイスセット</code>）</td>
+                </tr>
+                <tr>
+                  <td>価格 (円)<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(price)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>税込価格を半角数値で入力（例: <code>1500</code>）</td>
+                </tr>
+                <tr>
+                  <td>タグ (区分)<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(shopTag_id)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    商品区分タグを選択します（例: <code>グッズ</code>、<code>ボイス</code>、<code>音楽</code>）。<br>
+                    横の<strong>「＋ タグ追加」</strong>ボタンからモーダル内で新規タグを即時追加できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>商品画像<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(merchandiseImage)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    商品写真・パッケージ画像（規格比率 <strong>4:3</strong> ｜ 容量上限 <strong>2MB</strong> ｜ 長辺 <strong>800px</strong>）。<br>
+                    ライブラリ参照・直URL指定（Googleドライブ自動変換対応）・直接アップロード（トリミング調整付き）に対応。
+                  </td>
+                </tr>
+                <tr>
+                  <td>BOOTH URL<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(booth)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>BOOTH商品ページのURL（例: <code>https://◯◯.booth.pm/items/...</code>）</td>
+                </tr>
+                <tr>
+                  <td>BASE URL<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(base)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>BASE公式ショップの商品URL（例: <code>https://◯◯.thebase.in/items/...</code>）</td>
+                </tr>
+                <tr>
+                  <td>StreamArt URL<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(streamart)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>StreamArtの商品ページURL（例: <code>https://streamart.jp/...</code>）</td>
+                </tr>
+                <tr>
+                  <td>任意ショップ URL<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(freeshop)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>アニメイト、メロンブックス、自社ECなどその他ショップの個別商品ページURL</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-tip" style="margin-top: 20px;">
+            <span class="manual-alert-icon">📱</span>
+            <div>
+              <strong>スマホ画面でのレイアウト:</strong><br>
+              スマートフォン操作時、「商品名」と「価格」は縦並びで表示され、小さな画面でも見切れずに快適に入力できます。
+            </div>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 14px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              商品の新規追加・変更後は、一覧画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して変更を確定してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1259,7 +1836,73 @@
         </div>
 
         <div class="manual-card">
-          <p>ファンクラブ、コラボ企画、マシュマロ、各種SNSなど、外部サービスへのリンク集を管理します。アイコン画像やバナー画像を設定できます。</p>
+          <p>
+            公式ファンクラブ、コラボ企画、マシュマロ（質問箱）、各種外部SNS・ポータルなど、サイト下部に並ぶボタンスタイルのリンク集を管理します。<br>
+            ボタンテキストの文字色や背景画像（SVG/PNG）を個別にカスタマイズできます。
+          </p>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 新規追加・編集項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>id</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理用番号（自動採番・読み取り専用）</td>
+                </tr>
+                <tr>
+                  <td>表示順<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(priority)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>ボタンの表示順序数値（昇順で左/上から表示されます）</td>
+                </tr>
+                <tr>
+                  <td>ボタンテキスト<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(title)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>ボタン上に表示されるタイトル（例: <code>公式FANBOX</code>、<code>マシュマロ質問箱</code>、<code>BOOTHショップ</code>）</td>
+                </tr>
+                <tr>
+                  <td>文字色<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(buttonTextColor)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    ボタンラベルのフォントカラー。<br>
+                    カラーピッカーで直感的に選択、またはHEXカラーコード（例: <code>#ffffff</code>）を入力して指定できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>リンク<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(link)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>クリックしたときの遷移先URL（例: <code>https://fanbox.cc/...</code>）</td>
+                </tr>
+                <tr>
+                  <td>ボタン画像<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(buttonImage)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    ボタンの背景または装飾アイコン画像。<br>
+                    ・<strong>ライブラリ参照:</strong> <code>assets/link</code> 配下の画像（SVG推奨 / PNG）から選択<br>
+                    ・<strong>直URL指定:</strong> 外部画像URLを入力<br>
+                    ・<strong>アップロード:</strong> PCやスマホから新しい装飾画像を直接アップロード
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 20px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              追加・編集が完了したら、一覧画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存を完了してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1273,30 +1916,113 @@
         </div>
 
         <div class="manual-card">
-          <p>公式サイト全体の配色、カード背景、ロゴ、背景画像、アプリアイコンを直感的に変更できます。</p>
-
-          <h3 class="manual-sub-title">リアルタイム表示プレビュー</h3>
           <p>
-            カラーピッカーやパレットを操作すると、右側（スマホ時は最上部）のプレビュー画面に即座にデザインが反映されます。実際の見え方を確認しながら調整できます。
+            公式サイト全体の配色、カード背景、ロゴ、背景画像、アプリアイコンを直感的にカスタマイズできます。<br>
+            設定を変更すると、右側（スマホ時は最上部）の<strong>「リアルタイム表示プレビュー」</strong>に即座に反映され、仕上がりを確認しながら調整できます。
           </p>
 
-          <h3 class="manual-sub-title" style="margin-top: 18px;">カード背景スタイル</h3>
-          <ul class="manual-list">
-            <li><strong>単色 (ソリッドカラー):</strong> シンプルなフラットカラー。プリセットパレットまたはHEXコードで指定。</li>
-            <li><strong>グラデーション:</strong> 開始色・終了色とグラデーション角度（0°、45°、90°、135°、180°、270°）を組み合わせて美しいグラデーションを作成できます。</li>
-          </ul>
+          <!-- 13-1. カラー・スタイル設定 -->
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            🎨 テーマカラー・カード背景スタイル
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>カード背景タイプ</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    カードの塗りつぶし方法を選択します。<br>
+                    ・<strong>単色 (ソリッドカラー):</strong> フラットで統一感のある背景<br>
+                    ・<strong>グラデーション:</strong> 2色の滑らかな移り変わりを表現
+                  </td>
+                </tr>
+                <tr>
+                  <td>グラデーション角度</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>グラデーション方向を選択（<code>0° (下から上)</code>、<code>45°</code>、<code>90° (左から右)</code>、<code>135°</code>、<code>180° (上から下)</code>、<code>270°</code>）</td>
+                </tr>
+                <tr>
+                  <td>カード背景色 / 開始色</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>プリセットパレットまたはカラーピッカー/HEXコードで指定（例: <code>#1e293b</code>）</td>
+                </tr>
+                <tr>
+                  <td>グラデーション終了色</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>グラデーション有効時の終点カラー（例: <code>#0f172a</code>）</td>
+                </tr>
+                <tr>
+                  <td>サブ背景色</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>入力フォームやサブボックスの背景カラー（例: <code>rgba(255, 255, 255, 0.05)</code>）</td>
+                </tr>
+                <tr>
+                  <td>文字色</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>サイト全体の本文フォントカラー（デフォルト: <code>#f8fafc</code>）</td>
+                </tr>
+                <tr>
+                  <td>見出し色</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>各セクションタイトルや見出しテキストのフォントカラー（例: <code>#38bdf8</code>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <h3 class="manual-sub-title" style="margin-top: 18px;">サイト構成画像の変更</h3>
-          <ul class="manual-list">
-            <li><strong>背景画像 (background):</strong> サイト全体のメイン背景テクスチャ画像。</li>
-            <li><strong>ロゴ画像 (logo):</strong> ヘッダーおよびカード内のウォーターマークに使用されるロゴPNG画像。</li>
-            <li><strong>アプリアイコン画像 (appIcon):</strong> PWAとしてスマホやPCにインストールした際にホーム画面に表示される正方形アイコン（192x192 / 512x512 推奨）。</li>
-          </ul>
+          <!-- 13-2. サイト構成画像 -->
+          <h3 class="manual-sub-title" style="margin-top: 28px;">
+            🖼️ サイト構成画像の変更
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・推奨規格・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>背景画像<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(background)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    サイト全画面のメイン背景テクスチャ画像（<code>assets/background/</code>）。<br>
+                    「画像を変更」ボタンから新しい背景をアップロード可能。
+                  </td>
+                </tr>
+                <tr>
+                  <td>ロゴ画像<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(logo)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    ヘッダーおよびカード内の透かし（ウォーターマーク）に使用される透過PNGロゴ（<code>assets/logo/</code>）。
+                  </td>
+                </tr>
+                <tr>
+                  <td>アプリアイコン画像<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(appIcon)</span></td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    PWAとしてスマホやPCのホーム画面に追加した際に表示される正方形アイコン画像（<code>assets/appIcon/</code>、推奨: <strong>512×512 px</strong> 正方形PNG）。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <div class="manual-alert is-important">
+          <div class="manual-alert is-important" style="margin-top: 20px;">
             <span class="manual-alert-icon">⚠️</span>
             <div>
-              <strong>重要:</strong> 調整が終わったら、必ず画面右上のオレンジ色<strong>「更新反映」</strong>ボタンを押してください。押さないまま別ページへ移動すると変更内容は破棄されます。
+              <strong>重要（更新反映の実行）:</strong><br>
+              外観カラーや画像を変更した後は、必ず画面右上のオレンジ色<strong>「更新反映」</strong>ボタンを押してください。押さずに別タブへ移動すると変更内容は保存されません。
             </div>
           </div>
         </div>
@@ -1312,19 +2038,79 @@
         </div>
 
         <div class="manual-card">
-          <p>各セクションの表示順の並び替え、表示/非表示の切り替え、およびセクションを彩る装飾画像のアップロードと設定を行います。</p>
-
-          <h3 class="manual-sub-title">装飾画像の種類と規格比率</h3>
-          <ul class="manual-list">
-            <li><strong>トップライン (topLine):</strong> セクション上部に配置される横長ライン装飾画像（規格比率 10:1）。</li>
-            <li><strong>アウトライン (outLine):</strong> セクション外周を縁取るアウトライン装飾画像（規格比率 10:1）。</li>
-            <li><strong>セクション背景 (sectionBackground):</strong> セクション背面に敷かれる装飾グラフィック（元画像比率維持）。</li>
-          </ul>
-
-          <h3 class="manual-sub-title" style="margin-top: 18px;">トリミング・ズーム調整機能</h3>
           <p>
-            アップロードダイアログ内蔵のキャンバスにて、画像をドラッグして位置調整、スライダーで拡大・縮小ズームが可能です。「フィット」「中央揃え」ボタンを活用して規格比率（10:1）にピタリと合わせることができます。
+            公式サイトに配置される各セクションの表示/非表示切り替え、表示順序の並び替え、およびセクションを彩る装飾グラフィック（トップライン、アウトライン、背景装飾）を一括設定します。
           </p>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 セクション構成・装飾設定項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 170px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・規格比率・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>表示切り替えスイッチ</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    各セクション（Profile, Visual, Event, Notice, Schedule, Gallery, Movie, Shop, Link等）の公開/非表示を個別にON/OFFできます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>セクション順序並び替え</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    セクションカードをドラッグ＆ドロップして、トップページ上での表示順序を直感的に入れ替え可能です。
+                  </td>
+                </tr>
+                <tr>
+                  <td>トップライン装飾<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(topLine)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    セクション上部に配置される横長ライン装飾画像。<br>
+                    規格比率: <strong>10:1 (超横長)</strong> ｜ トリミングキャンバス内蔵
+                  </td>
+                </tr>
+                <tr>
+                  <td>アウトライン装飾<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(outLine)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    セクション外枠を縁取る装飾ライン画像。<br>
+                    規格比率: <strong>10:1 (超横長)</strong> ｜ トリミングキャンバス内蔵
+                  </td>
+                </tr>
+                <tr>
+                  <td>セクション背景装飾<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">(sectionBackground)</span></td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>
+                    セクション背面に敷かれる専用グラフィック（元画像比率維持）。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-tip" style="margin-top: 20px;">
+            <span class="manual-alert-icon">✂️</span>
+            <div>
+              <strong>装飾画像のトリミング機能:</strong><br>
+              アップロードモーダル内のキャンバスで、画像をドラッグして位置調整、ズームスライダーで拡大・縮小が可能です。「フィット」「中央揃え」ボタンを使って規格比率（10:1）に正確にトリミングできます。
+            </div>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 14px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              設定変更後は、画面上部のオレンジ色<strong>「更新反映」</strong>ボタンを押して保存してください。
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1338,20 +2124,54 @@
         </div>
 
         <div class="manual-card">
-          <p>GitHubリポジトリ内に格納されている全画像ファイルの一覧・プレビュー・整理・安全な削除を行うマスター管理画面です。</p>
+          <p>
+            GitHubリポジトリ内に格納されている全画像ファイルの一覧・プレビュー・整理・安全な削除を行うマスター管理画面です。<br>
+            各カテゴリフォルダ（<code>assets/...</code>）ごとに分類され、スマートフォンでも横スライド形式で快適に閲覧できます。
+          </p>
 
-          <h3 class="manual-sub-title">アセットステータス（バッジ）の見方</h3>
-          <ul class="manual-list">
-            <li><span class="manual-badge" style="background:#f59e0b; color:#0f172a;">🔒 使用中</span> : データベース内のプロフィールやスケジュール、ギャラリー等で現在実際に参照されているファイルです。安全のため削除ボタンはロックされます。</li>
-            <li><span class="manual-badge" style="background:#10b981; color:#0f172a;">✨ 未使用</span> : どのセクションでも使用されていない余剰画像です。不要な場合は「削除」ボタンでGitHubリポジトリから完全に削除できます。</li>
-            <li><span class="manual-badge" style="background:#a855f7; color:#fff;">🛡️ デフォルト(SVG)</span> : システムの初期アイコン等のため削除できません。</li>
-          </ul>
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            🏷️ アセットステータス（バッジ）の見方
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">ステータス</th>
+                  <th style="width: 110px;">表示バッジ</th>
+                  <th>動作・仕様</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>使用中</strong></td>
+                  <td><span class="manual-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);">🔒 使用中</span></td>
+                  <td>
+                    データベース（プロフィール、衣装、スケジュール、ギャラリー等）で実際に参照されているファイルです。リンク切れ防止のため<strong>削除ボタンは自動的にロック</strong>されます。
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>未使用</strong></td>
+                  <td><span class="manual-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">✨ 未使用</span></td>
+                  <td>
+                    どのセクションでも使用されていない余剰画像です。「削除」ボタンをクリックすることで、GitHubリポジトリから安全に完全削除できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>システム初期画像</strong></td>
+                  <td><span class="manual-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);">🛡️ デフォルト(SVG)</span></td>
+                  <td>
+                    システムで初期登録されている必須アイコン等のため、削除不可として保護されています。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <div class="manual-alert is-tip">
+          <div class="manual-alert is-tip" style="margin-top: 20px;">
             <span class="manual-alert-icon">📱</span>
             <div>
-              <strong>スマホでの閲覧:</strong><br>
-              スマートフォン操作時は各フォルダ内のカードが横スライド形式で並びます。左右に指でスワイプしてスムーズに画像を確認できます。
+              <strong>スマホでの横スライド閲覧:</strong><br>
+              スマートフォン操作時は各カテゴリのカードが横スクロール形式で配置されます。左右に指でスワイプしながら直感的に画像を確認できます。
             </div>
           </div>
         </div>
@@ -1370,10 +2190,49 @@
           <p>
             ファンやクリエイターに向けた「二次創作・ファン活動に関するガイドライン」ページ（<code>guideline.html</code>）の本文および制定情報を管理します。
           </p>
-          <ul class="manual-list">
-            <li><strong>リッチテキストツールバー:</strong> 見出し（H1〜H3）、太字、リスト、引用、リンク、区切り線などをGUIボタンで簡単に編集できます。内部的には軽量なMarkdown形式で安全にデータベースへ保存されます。</li>
-            <li><strong>制定者名 & 制定日:</strong> ガイドラインの末尾に署名として表示される情報を設定できます。</li>
-          </ul>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">
+            📝 ガイドライン設定項目一覧
+          </h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 160px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>仕様・入力説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ガイドライン本文</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    二次創作利用規約の本文内容。<br>
+                    リッチテキストツールバー（大見出し、中見出し、太字、箇条書きリスト、番号リスト、引用、ハイパーリンク、水平区切り線）を使ってHTML知識不要で美しく装飾・執筆できます。
+                  </td>
+                </tr>
+                <tr>
+                  <td>制定者名 (署名)</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>ガイドライン末尾に表示される運営組織名・権利者名（例: <code>ELISA Project 運営事務局</code>）</td>
+                </tr>
+                <tr>
+                  <td>制定日 / 最終改定日</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>ガイドラインの発効日・最新改定日（日付選択対応、例: <code>2026年10月01日</code>）</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-important" style="margin-top: 20px;">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>変更の確定（更新反映）:</strong><br>
+              本文の編集完了後は、画面右上のオレンジ色<strong>「更新反映」</strong>ボタンを押して変更を保存してください。
+            </div>
+          </div>
         </div>
       </section>
 
