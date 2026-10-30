@@ -4,7 +4,7 @@
  * ※ /api/ に対するリクエストはキャッシュせず常にネットワークへ直接通信
  */
 
-const CACHE_NAME = "elisa-pwa-v7";
+const CACHE_NAME = "elisa-pwa-v8";
 
 // 初期インストール時にプリキャッシュする基本静的ファイル
 const PRECACHE_ASSETS = [

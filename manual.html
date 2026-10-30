@@ -81,6 +81,36 @@
       gap: 16px;
     }
 
+    .manual-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* モバイル用 ハンバーガーボタン */
+    .manual-hamburger-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .manual-hamburger-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+    }
+
     .manual-header-brand {
       display: flex;
       align-items: center;
@@ -128,16 +158,6 @@
     .manual-header-btn.is-admin:hover {
       background: #0369a1;
       transform: translateY(-1px);
-    }
-
-    .manual-header-btn.is-site {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--manual-text-sub);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .manual-header-btn.is-site:hover {
-      background: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
     }
 
     /* レイアウトコンテナ */
@@ -541,41 +561,95 @@
       transform: translateY(-3px);
     }
 
-    /* モバイル専用 目次トグル */
-    .manual-mobile-toc-toggle {
+    /* モバイル専用 サイドバーオーバーレイ */
+    .manual-sidebar-overlay {
       display: none;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      color: #ffffff;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.88rem;
-      width: 100%;
-      margin-bottom: 20px;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 190;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .manual-sidebar-overlay.is-open {
+      display: block;
+      opacity: 1;
+    }
+
+    /* モバイル専用 ドロワーヘッダー */
+    .manual-sidebar-drawer-header {
+      display: none;
       align-items: center;
       justify-content: space-between;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .manual-sidebar-drawer-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #ffffff;
+    }
+    .manual-sidebar-close-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 1.8rem;
+      line-height: 1;
       cursor: pointer;
+      padding: 0 4px;
+      transition: color 0.2s ease;
+    }
+    .manual-sidebar-close-btn:hover {
+      color: #ffffff;
     }
 
     /* レスポンシブ対応 (スマホ・タブレット) */
     @media (max-width: 960px) {
+      .manual-hamburger-btn {
+        display: inline-flex;
+      }
+      .manual-header-brand span:first-child {
+        font-size: 0.95rem;
+      }
       .manual-layout {
         flex-direction: column;
         padding-top: 16px;
       }
       .manual-sidebar {
-        display: none;
-        width: 100%;
-        position: static;
-        height: auto;
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 320px;
+        max-width: 86vw;
+        height: 100vh;
+        height: 100dvh;
+        background: #090e1a;
+        border-right: 1px solid rgba(56, 189, 248, 0.25);
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        box-shadow: 4px 0 28px rgba(0, 0, 0, 0.75);
+        padding: 20px 16px;
       }
       .manual-sidebar.is-open {
-        display: block;
-        margin-bottom: 24px;
+        transform: translateX(0);
       }
-      .manual-mobile-toc-toggle {
+      .manual-sidebar-drawer-header {
         display: flex;
+      }
+      .manual-header-btn.is-admin {
+        padding: 6px 12px;
+        font-size: 0.78rem;
       }
       .manual-hero {
         padding: 24px 20px;
@@ -600,33 +674,41 @@
   <!-- ヘッダー -->
   <header class="manual-header">
     <div class="manual-header-inner">
-      <a href="admin.html" class="manual-header-brand">
-        <span>⚙ ELISA ADMIN</span>
-        <span class="manual-header-badge">MANUAL</span>
-      </a>
-      <div class="manual-header-nav">
-        <a href="admin.html" class="manual-header-btn is-admin">
-          <span>&larr; 管理画面へ戻る</span>
+      <div class="manual-header-left">
+        <!-- モバイル用 ハンバーガーボタン -->
+        <button type="button" id="manual-hamburger-btn" class="manual-hamburger-btn" aria-label="目次メニューを開く">
+          <span class="manual-hamburger-icon">&#9776;</span>
+        </button>
+        <a href="admin.html" class="manual-header-brand">
+          <span>⚙️ ELISA ADMIN</span>
+          <span class="manual-header-badge">MANUAL</span>
         </a>
-        <a href="index.html" target="_blank" class="manual-header-btn is-site" title="新しいタブで公式サイトを開く">
-          <span>公式サイト ↗</span>
+      </div>
+      <div class="manual-header-nav">
+        <a href="admin.html" class="manual-header-btn is-admin" title="管理画面へ戻る">
+          <span>&larr; 管理画面へ戻る</span>
         </a>
       </div>
     </div>
   </header>
 
+  <!-- モバイル用 サイドバーオーバーレイ背景 -->
+  <div id="manual-sidebar-overlay" class="manual-sidebar-overlay"></div>
+
   <!-- 全体レイアウト -->
   <div class="manual-layout">
 
-    <!-- モバイル用 目次開閉ボタン -->
-    <button type="button" id="manual-mobile-toc-btn" class="manual-mobile-toc-toggle">
-      <span>📑 目次を開く / ナビゲーション</span>
-      <span id="manual-mobile-toc-icon">▼</span>
-    </button>
-
-    <!-- サイドバー目次 (PC / スマホ共通) -->
+    <!-- サイドバー目次 (PC: 固定表示 / スマホ: ドロワーメニュー) -->
     <aside id="manual-sidebar" class="manual-sidebar">
       <div class="manual-sidebar-box">
+        <!-- ドロワー用ヘッダー (スマホ時のみ表示) -->
+        <div class="manual-sidebar-drawer-header">
+          <div class="manual-sidebar-drawer-title">
+            <span>📑 目次ナビゲーション</span>
+          </div>
+          <button type="button" id="manual-sidebar-close-btn" class="manual-sidebar-close-btn" aria-label="目次を閉じる">&times;</button>
+        </div>
+
         <div class="manual-search-box">
           <span class="manual-search-icon">🔍</span>
           <input type="text" id="manual-search-input" class="manual-search-input" placeholder="マニュアル内を検索...">
@@ -2427,24 +2509,43 @@
         window.scrollTo({ top: 0, behavior: "smooth" });
       });
 
-      // 2. モバイル目次トグル
-      const mobileTocBtn = document.getElementById("manual-mobile-toc-btn");
-      const mobileTocIcon = document.getElementById("manual-mobile-toc-icon");
+      // 2. モバイル目次ドロワー (ハンバーガーメニュー)
+      const hamburgerBtn = document.getElementById("manual-hamburger-btn");
+      const closeBtn = document.getElementById("manual-sidebar-close-btn");
+      const overlay = document.getElementById("manual-sidebar-overlay");
       const sidebar = document.getElementById("manual-sidebar");
 
-      if (mobileTocBtn && sidebar) {
-        mobileTocBtn.addEventListener("click", () => {
-          sidebar.classList.toggle("is-open");
-          const isOpen = sidebar.classList.contains("is-open");
-          mobileTocIcon.textContent = isOpen ? "▲" : "▼";
-        });
+      const openDrawer = () => {
+        if (!sidebar) return;
+        sidebar.classList.add("is-open");
+        if (overlay) overlay.classList.add("is-open");
+        document.body.style.overflow = "hidden"; // 背面スクロール抑制
+      };
 
-        // モバイルで目次項目をタップしたら目次を閉じる
+      const closeDrawer = () => {
+        if (!sidebar) return;
+        sidebar.classList.remove("is-open");
+        if (overlay) overlay.classList.remove("is-open");
+        document.body.style.overflow = "";
+      };
+
+      if (hamburgerBtn) hamburgerBtn.addEventListener("click", openDrawer);
+      if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+      if (overlay) overlay.addEventListener("click", closeDrawer);
+
+      // ESCキーでドロワーを閉じる
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && sidebar && sidebar.classList.contains("is-open")) {
+          closeDrawer();
+        }
+      });
+
+      // モバイルで目次項目をタップしたらドロワーを閉じる
+      if (sidebar) {
         sidebar.querySelectorAll(".manual-toc-link").forEach(link => {
           link.addEventListener("click", () => {
             if (window.innerWidth <= 960) {
-              sidebar.classList.remove("is-open");
-              mobileTocIcon.textContent = "▼";
+              closeDrawer();
             }
           });
         });
