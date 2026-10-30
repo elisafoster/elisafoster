@@ -47,11 +47,11 @@ export class MenuManager {
       }
     });
 
-    // 各ナビデーショングループの表示・非表示（グループ内ボタンが全て非表示ならグループも非表示）
+    // 各ナビデーショングループの表示・非表示（グループ内ボタンやリンクが全て非表示ならグループも非表示）
     const navGroups = document.querySelectorAll(".admin-nav-group");
     navGroups.forEach((group) => {
-      const visibleButtons = group.querySelectorAll(".admin-nav-item-btn[data-tab]:not([style*='display: none'])");
-      if (visibleButtons.length === 0) {
+      const visibleItems = group.querySelectorAll(".admin-nav-item-btn[data-tab]:not([style*='display: none']), .admin-nav-item-link");
+      if (visibleItems.length === 0) {
         group.style.display = "none";
       } else {
         group.style.display = "";

@@ -25,7 +25,7 @@
 
   <!-- 管理画面固有 CSS -->
   <link rel="stylesheet" href="css/admin/admin-auth.css">
-  <link rel="stylesheet" href="css/admin/admin-layout.css?v=20261025_sidebar_scroll_priority">
+  <link rel="stylesheet" href="css/admin/admin-layout.css?v=20261030_manual_link">
   <link rel="stylesheet" href="css/admin/admin-crud.css?v=20261027_mobile_layout_polish">
   <link rel="stylesheet" href="css/admin/richtext-editor.css?v=20261023_guideline_block_split">
 
@@ -165,6 +165,28 @@
             </button>
           </div>
         </div>
+
+        <!-- ヘルプ・マニュアル -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title" role="button" tabindex="0">
+            <span>ヘルプ・サポート</span>
+            <span class="admin-nav-group-caret">▲</span>
+          </div>
+          <div class="admin-nav-list">
+            <a href="manual.html" target="_blank" rel="noopener noreferrer" class="admin-nav-item-link" title="新しいタブで操作マニュアルを開く">
+              <span class="admin-nav-item-icon">📖</span> <span>操作マニュアル</span>
+              <span style="font-size: 0.78rem; color: #60a5fa; margin-left: auto;">↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 操作マニュアル テキストリンクバナー -->
+      <div class="admin-sidebar-manual-wrap">
+        <a href="manual.html" target="_blank" rel="noopener noreferrer" class="admin-sidebar-manual-link" title="新しいタブで操作マニュアルを開く">
+          <span>📖 操作マニュアルを見る</span>
+          <span style="font-size: 0.8rem;">↗</span>
+        </a>
       </div>
 
       <!-- 保守機能 (SQL / JSON エクスポートボタン) -->
@@ -248,7 +270,7 @@
   </div>
 
   <!-- スクリプト -->
-  <script type="module" src="js/admin/admin-main.js?v=20261027_mobile_layout_polish"></script>
+  <script type="module" src="js/admin/admin-main.js?v=20261030_manual_link"></script>
 </body>
 </html>
 

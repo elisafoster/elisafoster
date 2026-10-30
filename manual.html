@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELISA ADMIN 操作マニュアル | 管理画面ご利用ガイド</title>
+
+  <!-- Favicon / App Icon -->
+  <link rel="icon" type="image/png" href="assets/visual/thumbnail/ELISA_thumbnail.png">
+
+  <!-- 共通 CSS -->
+  <link rel="stylesheet" href="css/common/reset.css">
+  <link rel="stylesheet" href="css/common/variables.css">
+  <link rel="stylesheet" href="css/common/base.css">
+
+  <style>
+    /* ==========================================================================
+       ELISA ADMIN 操作マニュアル 専用スタイル
+       ========================================================================== */
+    :root {
+      --manual-bg: #090e1a;
+      --manual-card-bg: rgba(17, 28, 52, 0.75);
+      --manual-card-border: rgba(56, 189, 248, 0.18);
+      --manual-primary: #38bdf8;
+      --manual-accent: #60a5fa;
+      --manual-orange: #f59e0b;
+      --manual-green: #10b981;
+      --manual-red: #ef4444;
+      --manual-purple: #c084fc;
+      --manual-text-main: #f8fafc;
+      --manual-text-sub: #cbd5e1;
+      --manual-text-muted: #94a3b8;
+      --sidebar-width: 290px;
+    }
+
+    body {
+      background-color: var(--manual-bg);
+      color: var(--manual-text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Hiragino Sans", "Meiryo", sans-serif;
+      line-height: 1.65;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    /* 背景グラデーション装飾 */
+    .manual-bg-glow {
+      position: fixed;
+      top: -10%;
+      left: 20%;
+      width: 60vw;
+      height: 40vw;
+      background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.08) 0%, rgba(30, 58, 138, 0.03) 50%, transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* ヘッダー */
+    .manual-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(9, 14, 26, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      height: 64px;
+    }
+
+    .manual-header-inner {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 0 20px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .manual-header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #ffffff;
+      text-decoration: none;
+    }
+
+    .manual-header-badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--manual-primary);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .manual-header-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .manual-header-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .manual-header-btn.is-admin {
+      background: #0284c7;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(2, 132, 199, 0.35);
+    }
+    .manual-header-btn.is-admin:hover {
+      background: #0369a1;
+      transform: translateY(-1px);
+    }
+
+    .manual-header-btn.is-site {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--manual-text-sub);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .manual-header-btn.is-site:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+
+    /* レイアウトコンテナ */
+    .manual-layout {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 28px 20px 80px;
+      display: flex;
+      gap: 36px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* 目次サイドバー (PC) */
+    .manual-sidebar {
+      width: var(--sidebar-width);
+      flex-shrink: 0;
+      position: sticky;
+      top: 92px;
+      height: calc(100vh - 120px);
+      overflow-y: auto;
+      padding-right: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .manual-sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .manual-sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    .manual-sidebar-box {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .manual-sidebar-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--manual-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .manual-toc-group {
+      margin-bottom: 18px;
+    }
+    .manual-toc-group-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--manual-accent);
+      margin-bottom: 6px;
+      padding-left: 6px;
+      border-left: 2px solid var(--manual-primary);
+    }
+
+    .manual-toc-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .manual-toc-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      color: var(--manual-text-sub);
+      text-decoration: none;
+      transition: all 0.15s ease;
+      line-height: 1.4;
+    }
+    .manual-toc-link:hover {
+      background: rgba(56, 189, 248, 0.1);
+      color: #ffffff;
+      padding-left: 14px;
+    }
+    .manual-toc-link.is-active {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--manual-primary);
+      font-weight: 600;
+    }
+
+    /* 検索フィルター */
+    .manual-search-box {
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .manual-search-input {
+      width: 100%;
+      background: rgba(11, 20, 38, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 8px 12px 8px 32px;
+      color: #ffffff;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .manual-search-input:focus {
+      border-color: var(--manual-primary);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+    .manual-search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.85rem;
+      color: var(--manual-text-muted);
+      pointer-events: none;
+    }
+
+    /* メインコンテンツエリア */
+    .manual-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ヒーローカード */
+    .manual-hero {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(30, 58, 138, 0.25) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 16px;
+      padding: 32px 36px;
+      margin-bottom: 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .manual-hero::after {
+      content: "⚙️";
+      position: absolute;
+      right: 24px;
+      bottom: -15px;
+      font-size: 8rem;
+      opacity: 0.08;
+      pointer-events: none;
+    }
+    .manual-hero-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+    .manual-hero-desc {
+      font-size: 0.95rem;
+      color: var(--manual-text-sub);
+      max-width: 800px;
+      line-height: 1.7;
+    }
+
+    /* セクション */
+    .manual-section {
+      margin-bottom: 56px;
+      scroll-margin-top: 84px;
+    }
+
+    .manual-section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    }
+    .manual-section-num {
+      background: var(--manual-primary);
+      color: #090e1a;
+      font-weight: 800;
+      font-size: 0.85rem;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .manual-section-title {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    /* カード・ブロック */
+    .manual-card {
+      background: var(--manual-card-bg);
+      border: 1px solid var(--manual-card-border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .manual-sub-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .manual-sub-title::before {
+      content: "";
+      width: 4px;
+      height: 16px;
+      background: var(--manual-primary);
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* リスト */
+    .manual-list {
+      padding-left: 20px;
+      margin: 12px 0;
+      color: var(--manual-text-sub);
+    }
+    .manual-list li {
+      margin-bottom: 8px;
+    }
+
+    /* ステップカード */
+    .manual-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin: 18px 0;
+    }
+    .manual-step-item {
+      display: flex;
+      gap: 16px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 16px;
+      align-items: flex-start;
+    }
+    .manual-step-badge {
+      background: #0284c7;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+    }
+    .manual-step-body {
+      flex: 1;
+    }
+    .manual-step-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .manual-step-text {
+      font-size: 0.88rem;
+      color: var(--manual-text-sub);
+      line-height: 1.6;
+    }
+
+    /* コールアウト / 注意事項ボックス */
+    .manual-alert {
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .manual-alert.is-important {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fef3c7;
+    }
+    .manual-alert.is-tip {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #d1fae5;
+    }
+    .manual-alert.is-note {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #e0f2fe;
+    }
+    .manual-alert-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* テーブル */
+    .manual-table-wrap {
+      overflow-x: auto;
+      margin: 16px 0;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .manual-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+    .manual-table th {
+      background: rgba(11, 20, 38, 0.9);
+      color: #ffffff;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      white-space: nowrap;
+    }
+    .manual-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--manual-text-sub);
+      background: rgba(15, 23, 42, 0.5);
+    }
+    .manual-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* インラインコード・バッジ */
+    code.manual-code {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #38bdf8;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.84em;
+    }
+
+    .manual-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .manual-badge.is-required {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+    .manual-badge.is-optional {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    /* フローティングトップへ戻るボタン */
+    .manual-back-top {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(2, 132, 199, 0.85);
+      color: #ffffff;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
+      opacity: 0;
+      visibility: hidden;
+      z-index: 90;
+    }
+    .manual-back-top.is-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .manual-back-top:hover {
+      background: #0284c7;
+      transform: translateY(-3px);
+    }
+
+    /* モバイル専用 目次トグル */
+    .manual-mobile-toc-toggle {
+      display: none;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #ffffff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      width: 100%;
+      margin-bottom: 20px;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    /* レスポンシブ対応 (スマホ・タブレット) */
+    @media (max-width: 960px) {
+      .manual-layout {
+        flex-direction: column;
+        padding-top: 16px;
+      }
+      .manual-sidebar {
+        display: none;
+        width: 100%;
+        position: static;
+        height: auto;
+      }
+      .manual-sidebar.is-open {
+        display: block;
+        margin-bottom: 24px;
+      }
+      .manual-mobile-toc-toggle {
+        display: flex;
+      }
+      .manual-hero {
+        padding: 24px 20px;
+      }
+      .manual-hero-title {
+        font-size: 1.45rem;
+      }
+      .manual-card {
+        padding: 18px 16px;
+      }
+      .manual-section-title {
+        font-size: 1.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 背景グロー装飾 -->
+  <div class="manual-bg-glow"></div>
+
+  <!-- ヘッダー -->
+  <header class="manual-header">
+    <div class="manual-header-inner">
+      <a href="admin.html" class="manual-header-brand">
+        <span>⚙ ELISA ADMIN</span>
+        <span class="manual-header-badge">MANUAL</span>
+      </a>
+      <div class="manual-header-nav">
+        <a href="admin.html" class="manual-header-btn is-admin">
+          <span>&larr; 管理画面へ戻る</span>
+        </a>
+        <a href="index.html" target="_blank" class="manual-header-btn is-site" title="新しいタブで公式サイトを開く">
+          <span>公式サイト ↗</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全体レイアウト -->
+  <div class="manual-layout">
+
+    <!-- モバイル用 目次開閉ボタン -->
+    <button type="button" id="manual-mobile-toc-btn" class="manual-mobile-toc-toggle">
+      <span>📑 目次を開く / ナビゲーション</span>
+      <span id="manual-mobile-toc-icon">▼</span>
+    </button>
+
+    <!-- サイドバー目次 (PC / スマホ共通) -->
+    <aside id="manual-sidebar" class="manual-sidebar">
+      <div class="manual-sidebar-box">
+        <div class="manual-search-box">
+          <span class="manual-search-icon">🔍</span>
+          <input type="text" id="manual-search-input" class="manual-search-input" placeholder="マニュアル内を検索...">
+        </div>
+
+        <div class="manual-sidebar-title">目次ナビゲーション</div>
+
+        <!-- グループ1: 基本操作 -->
+        <div class="manual-toc-group">
+          <div class="manual-toc-group-title">基本操作・ログイン</div>
+          <ul class="manual-toc-list">
+            <li><a href="#sec-intro" class="manual-toc-link">📌 はじめに・システム概要</a></li>
+            <li><a href="#sec-login" class="manual-toc-link">🔐 ログイン・権限管理</a></li>
+            <li><a href="#sec-layout" class="manual-toc-link">🧭 画面構成・共通ルール</a></li>
+          </ul>
+        </div>
+
+        <!-- グループ2: コンテンツ管理 -->
+        <div class="manual-toc-group">
+          <div class="manual-toc-group-title">コンテンツ管理</div>
+          <ul class="manual-toc-list">
+            <li><a href="#sec-profile" class="manual-toc-link">👤 プロフィール設定</a></li>
+            <li><a href="#sec-visual" class="manual-toc-link">👗 立ち絵・衣装一覧</a></li>
+            <li><a href="#sec-event" class="manual-toc-link">🎪 イベントバナー</a></li>
+            <li><a href="#sec-notice" class="manual-toc-link">📢 お知らせ・予約投稿</a></li>
+            <li><a href="#sec-schedule" class="manual-toc-link">📅 配信スケジュール</a></li>
+            <li><a href="#sec-gallery" class="manual-toc-link">🖼 ギャラリー管理</a></li>
+            <li><a href="#sec-movie" class="manual-toc-link">🎬 動画 & 📑 再生リスト</a></li>
+            <li><a href="#sec-shop" class="manual-toc-link">🛍 ショップ (グッズ)</a></li>
+            <li><a href="#sec-link" class="manual-toc-link">🔗 リンクリスト</a></li>
+          </ul>
+        </div>
+
+        <!-- グループ3: サイト設定・運用 -->
+        <div class="manual-toc-group">
+          <div class="manual-toc-group-title">サイト設定 & アセット</div>
+          <ul class="manual-toc-list">
+            <li><a href="#sec-theme" class="manual-toc-link">🎨 テーマ設定 (外観)</a></li>
+            <li><a href="#sec-section" class="manual-toc-link">📑 セクション設定・装飾</a></li>
+            <li><a href="#sec-asset" class="manual-toc-link">📁 アセット管理</a></li>
+            <li><a href="#sec-guideline" class="manual-toc-link">📝 二次創作ガイドライン</a></li>
+          </ul>
+        </div>
+
+        <!-- グループ4: 保守・トラブル -->
+        <div class="manual-toc-group">
+          <div class="manual-toc-group-title">保守・システム・FAQ</div>
+          <ul class="manual-toc-list">
+            <li><a href="#sec-maintenance" class="manual-toc-link">💾 バックアップ & PAT</a></li>
+            <li><a href="#sec-pwa" class="manual-toc-link">📱 スマホ操作 & PWA導入</a></li>
+            <li><a href="#sec-faq" class="manual-toc-link">❓ よくある質問 (FAQ)</a></li>
+          </ul>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- メインコンテンツ -->
+    <main class="manual-content">
+
+      <!-- ヒーローカード -->
+      <section class="manual-hero">
+        <h1 class="manual-hero-title">ELISA ADMIN 操作マニュアル</h1>
+        <p class="manual-hero-desc">
+          ELISA Official ポートフォリオサイトのコンテンツ管理、スケジュール予約投稿、外観テーマ変更、画像アセット管理など、管理画面の全機能と操作方法を体系的に解説した公式ドキュメントです。
+        </p>
+      </section>
+
+      <!-- =====================================================================
+           1. はじめに・システム概要
+           ===================================================================== -->
+      <section id="sec-intro" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">1</span>
+          <h2 class="manual-section-title">はじめに・システム概要</h2>
+        </div>
+
+        <div class="manual-card">
+          <h3 class="manual-sub-title">システムの特徴と構成</h3>
+          <p>
+            当サイトは、Cloudflare Pages / Workers、Cloudflare D1（高信頼エッジ分散データベース）、GitHub API、および Firebase Authentication を連携させた高速かつ安全なモダンWebアプリケーションです。
+          </p>
+          <ul class="manual-list">
+            <li><strong>超高速な公開サイト:</strong> 静的HTML/CSSとエッジAPIにより、世界中どこからでもミリ秒単位で高速表示されます。</li>
+            <li><strong>データベース連動:</strong> お知らせやスケジュール、ショップ情報などは管理画面から即座に追加・編集できます。</li>
+            <li><strong>GitHubアセット連携:</strong> 画像ファイルはGitHubリポジトリ（<code>assets/</code> 配下）へ直接安全にアップロードされ、CDNを通じて高速配信されます。</li>
+            <li><strong>PWA完全対応:</strong> PC・スマホのホーム画面にアプリとしてインストールでき、ネイティブアプリ感覚で快適に操作できます。</li>
+          </ul>
+
+          <div class="manual-alert is-note">
+            <span class="manual-alert-icon">💡</span>
+            <div>
+              <strong>推奨動作環境:</strong><br>
+              ・PC: Google Chrome / Microsoft Edge / Safari / Firefox（最新版）<br>
+              ・スマートフォン: iOS 15以降（Safari） / Android 10以降（Google Chrome）
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           2. ログイン・権限管理
+           ===================================================================== -->
+      <section id="sec-login" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">2</span>
+          <h2 class="manual-section-title">ログイン・認証と権限管理</h2>
+        </div>
+
+        <div class="manual-card">
+          <h3 class="manual-sub-title">ログイン手順</h3>
+          <div class="manual-steps">
+            <div class="manual-step-item">
+              <span class="manual-step-badge">STEP 1</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">管理画面（admin.html）へアクセス</div>
+                <div class="manual-step-text">ブラウザで <code>/admin.html</code> を開きます。未認証の場合はログインカードが表示されます。</div>
+              </div>
+            </div>
+            <div class="manual-step-item">
+              <span class="manual-step-badge">STEP 2</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">Googleアカウントでログイン</div>
+                <div class="manual-step-text">「Googleアカウントでログイン」ボタンをクリックし、事前に管理者として許可されているGoogleアカウントを選択します。</div>
+              </div>
+            </div>
+            <div class="manual-step-item">
+              <span class="manual-step-badge">STEP 3</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">認証・権限の照合</div>
+                <div class="manual-step-text">データベース上のホワイトリスト（許可リスト）と照合され、権限に応じた管理メニューが表示されます。</div>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">ロール（権限レベル）の違い</h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th>ロール名</th>
+                  <th>表示バッジ</th>
+                  <th>操作可能な機能</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Owner（最高管理者）</strong></td>
+                  <td><span class="manual-badge" style="background:#0284c7; color:#fff;">OWNER</span></td>
+                  <td>全機能の閲覧・作成・編集・削除、管理者アカウントの追加・変更、GitHub PAT設定、D1保守エクスポート</td>
+                </tr>
+                <tr>
+                  <td><strong>Editor（編集者）</strong></td>
+                  <td><span class="manual-badge" style="background:#059669; color:#fff;">EDITOR</span></td>
+                  <td>全セクションコンテンツの編集、テーマ設定、ガイドライン編集、アセット管理（アカウント追加・PAT設定等は不可）</td>
+                </tr>
+                <tr>
+                  <td><strong>Writer（投稿者）</strong></td>
+                  <td><span class="manual-badge" style="background:#d97706; color:#fff;">WRITER</span></td>
+                  <td>お知らせ・スケジュール・ギャラリー等の日常的なコンテンツ投稿・更新のみ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-important">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>「アクセス権限がありません」と表示される場合:</strong><br>
+              ホワイトリストに登録されていないGoogleアカウントでログインした場合は画面が遮断されます。Owner権限を持つ管理者に連絡し、アカウント登録を依頼してください。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           3. 画面構成・共通操作ルール
+           ===================================================================== -->
+      <section id="sec-layout" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">3</span>
+          <h2 class="manual-section-title">画面構成と共通操作ルール</h2>
+        </div>
+
+        <div class="manual-card">
+          <h3 class="manual-sub-title">管理画面の基本レイアウト</h3>
+          <ul class="manual-list">
+            <li><strong>トップバー (上部):</strong> ハンバーガーメニューボタン（スマホ時）、現在開いているタブ名、ログイン中のアカウント名・ロールバッジ、ログアウトボタンが常時配置されています。</li>
+            <li><strong>サイドバー (左側 / スマホはドロワー):</strong> 各管理タブへのナビゲーションリンク、D1データベース保守ボタン、Cloudflare/GitHubの稼働ステータス、アプリインストールボタンが収められています。</li>
+            <li><strong>メイン作業エリア (中央):</strong> 各機能のテーブル一覧、編集フォーム、リアルタイムプレビューなどが展開されます。</li>
+          </ul>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">共通操作ルール（重要）</h3>
+          <div class="manual-alert is-important">
+            <span class="manual-alert-icon">🚨</span>
+            <div>
+              <strong>「更新反映」ボタンの仕組み（ドラフト反映型）:</strong><br>
+              テーマ設定やプロフィール、一部の並び替え設定などは、画面上で入力・編集した時点ではまだ本番データベースには書き込まれません。画面右上のオレンジ色<strong>「更新反映」</strong>ボタンを押すことで、初めてD1データベースに一括コミットされます。作業後は忘れずに「更新反映」を押してください。
+            </div>
+          </div>
+
+          <div class="manual-alert is-tip">
+            <span class="manual-alert-icon">🖼️</span>
+            <div>
+              <strong>画像の選択・指定方法（3つのモード）:</strong><br>
+              管理画面内のほぼ全ての画像指定フォームでは、以下の3つの方法に対応しています：<br>
+              1. <strong>ライブラリ参照:</strong> サーバー上の既存画像ファイル（<code>assets/...</code>）をプルダウンから選択。<br>
+              2. <strong>直URL指定 (Googleドライブ対応):</strong> Googleドライブの「リンクを知っている全員」の共有URLを貼り付けると、自動的に高速直リンクURLに変換されます。<br>
+              3. <strong>📤 新規アップロード:</strong> PCやスマホのストレージから直接画像を選択してGitHubへアップロード（※規格比率に応じたトリミング調整機能付き）。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           4. プロフィール設定
+           ===================================================================== -->
+      <section id="sec-profile" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">4</span>
+          <h2 class="manual-section-title">👤 プロフィール設定</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>公式サイトのプロフィールセクションに表示される基本情報・自己紹介文・SNSリンクなどを設定します。</p>
+
+          <h3 class="manual-sub-title" style="margin-top: 16px;">設定可能項目</h3>
+          <div class="manual-table-wrap">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th>項目名</th>
+                  <th>区分</th>
+                  <th>説明・入力例</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>ニックネーム</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>活動名（例: ELISA、エリー 等）</td>
+                </tr>
+                <tr>
+                  <td>キャッチフレーズ</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>セクション上部に大きく表示される一言キャッチコピー</td>
+                </tr>
+                <tr>
+                  <td>自己紹介テキスト</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>活動内容やメッセージ（改行はそのままサイト側に反映されます）</td>
+                </tr>
+                <tr>
+                  <td>基本スペック情報</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>誕生日、身長、出身地、好きなもの、公式ハッシュタグなど（アコーディオン形式）</td>
+                </tr>
+                <tr>
+                  <td>SNS・外部リンク</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>YouTube、X (旧Twitter)、TikTok、TwitchなどのアカウントURL</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="manual-step-text" style="color: var(--manual-orange); font-weight: 600;">
+            ※編集完了後は、画面右上の「更新反映」ボタンをクリックして保存してください。
+          </p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           5. 立ち絵・衣装一覧
+           ===================================================================== -->
+      <section id="sec-visual" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">5</span>
+          <h2 class="manual-section-title">👗 立ち絵・衣装一覧</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>
+            公式サイトのトップビューおよびプロフィール・ビジュアル切替機能で使用されるキャラクター立ち絵と衣装バリエーションを管理します。
+          </p>
+          <ul class="manual-list">
+            <li><strong>立ち絵画像の登録:</strong> 背景が透過されたPNG形式またはWebP形式の画像をご使用ください（推奨アスペクト比 1:2 前後の縦長全身画像）。</li>
+            <li><strong>サムネイル画像:</strong> 衣装切り替えボタン等に使用されるアイコン用正方形画像。</li>
+            <li><strong>表示順 (priority):</strong> 数字が小さい順（または昇順）に先頭から表示されます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           6. イベントバナー管理
+           ===================================================================== -->
+      <section id="sec-event" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">6</span>
+          <h2 class="manual-section-title">🎪 イベントバナー</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>新曲リリース、グッズ発売、周年イベントなどの告知バナーをサイト上に掲載・管理します。</p>
+
+          <h3 class="manual-sub-title">掲載期間と自動公開・終了</h3>
+          <div class="manual-steps">
+            <div class="manual-step-item">
+              <span class="manual-step-badge">開始日時</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">start_at（カレンダー＆時計ピッカー）</div>
+                <div class="manual-step-text">バナーの掲載を開始する日時。この時刻より前はサイト上に表示されません。</div>
+              </div>
+            </div>
+            <div class="manual-step-item">
+              <span class="manual-step-badge">終了日時</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">end_at（カレンダー＆時計ピッカー）</div>
+                <div class="manual-step-text">掲載を終了する日時。この時刻を過ぎると自動的に非表示になります。</div>
+              </div>
+            </div>
+          </div>
+          <div class="manual-alert is-tip">
+            <span class="manual-alert-icon">📱</span>
+            <div>
+              <strong>スマホ画面での入力:</strong><br>
+              スマートフォン操作時、入力ボックスをタップするとOS標準の日付・時刻ドラムロールピッカーが立ち上がります。ダイアログ幅に綺麗に収まるよう最適化されています。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           7. お知らせ・予約投稿
+           ===================================================================== -->
+      <section id="sec-notice" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">7</span>
+          <h2 class="manual-section-title">📢 お知らせ・予約投稿 (Notice)</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>ファン向けのお知らせ・ニュースを管理します。未来の日時を指定した<strong>自動予約投稿</strong>に対応しています。</p>
+
+          <h3 class="manual-sub-title">ステータスの種類</h3>
+          <ul class="manual-list">
+            <li><strong>公開 (published):</strong> 保存後、即座に公式サイトのお知らせ欄に公開されます。</li>
+            <li><strong>予約 (scheduled):</strong> 「予約投稿時刻」に指定した日時が到来すると自動的に公開されます。それまでは一般閲覧者には見えません。</li>
+            <li><strong>下書き (draft):</strong> 編集中の非公開データとして保存されます。</li>
+          </ul>
+
+          <div class="manual-alert is-note">
+            <span class="manual-alert-icon">⏱️</span>
+            <div>
+              <strong>送信時刻 (created_at):</strong><br>
+              新規作成時に自動的に現在の時刻が記録されます。お知らせ一覧やタイムスタンプとして活用されます。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           8. 配信スケジュール
+           ===================================================================== -->
+      <section id="sec-schedule" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">8</span>
+          <h2 class="manual-section-title">📅 配信スケジュール (Schedule)</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>週間配信予定やイベントスケジュールを登録します。</p>
+
+          <h3 class="manual-sub-title">登録手順・入力Tips</h3>
+          <ul class="manual-list">
+            <li><strong>日にち & 時間:</strong> カレンダーピッカーと時刻ピッカー（24時間制）で指定します。</li>
+            <li><strong>タイトル:</strong> 「定期雑談配信 #42」「歌枠耐久！」など配信枠のタイトルを入力します。</li>
+            <li><strong>タグ選択 & インライン追加:</strong> 「ライブ配信」「歌枠」「ゲーム」などのタグをプルダウンから選択します。新しいタグを作りたい場合は、横の<strong>「＋ タグ追加」</strong>ボタンを押すとダイアログ内で即座に新タグを登録できます。</li>
+            <li><strong>公開フラグ (スイッチ):</strong> 準備中のスケジュールは「非表示」にしておくことで、下書きとして保存できます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           9. ギャラリー管理
+           ===================================================================== -->
+      <section id="sec-gallery" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">9</span>
+          <h2 class="manual-section-title">🖼 ギャラリー管理 (Gallery)</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>記念イラスト、ファンアート、公式ビジュアルのギャラリーカードを管理します。</p>
+          <ul class="manual-list">
+            <li><strong>画像名 & 画像選択:</strong> <code>assets/gallery</code> 配下の画像を選択、またはアップロードします。</li>
+            <li><strong>作者クレジット:</strong> 絵師様・クリエイター様のお名前やTwitter/Xアカウントリンクを併記できます。</li>
+            <li><strong>モーダル拡大表示:</strong> サイト側ではクリックすることでフルスクリーン高解像度プレビューが展開されます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           10. 動画 & 再生リスト
+           ===================================================================== -->
+      <section id="sec-movie" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">10</span>
+          <h2 class="manual-section-title">🎬 動画 & 📑 再生リスト</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>YouTubeのミュージックビデオ、歌ってみた、切り抜き動画、配信アーカイブを管理します。</p>
+
+          <h3 class="manual-sub-title">動画リスト (movie)</h3>
+          <ul class="manual-list">
+            <li><strong>動画URL:</strong> YouTube動画の通常URL（<code>https://www.youtube.com/watch?v=...</code>）またはShorts用URLをそのまま貼り付けます。サムネイルや動画IDは自動解析されます。</li>
+            <li><strong>動画種別 (type):</strong> 「YouTube動画」「Shorts」「その他」から選択します。</li>
+            <li><strong>所属再生リスト:</strong> あらかじめ作成した「再生リスト」に紐付けることで、サイト側でタブ切り替えフィルターが機能します。</li>
+          </ul>
+
+          <h3 class="manual-sub-title" style="margin-top: 20px;">再生リスト (movieList)</h3>
+          <ul class="manual-list">
+            <li>「歌ってみたまとめ」「ゲーム実況」「雑談配信」などのカテゴリーを作成し、カバー画像を設定できます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           11. ショップ (グッズ)
+           ===================================================================== -->
+      <section id="sec-shop" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">11</span>
+          <h2 class="manual-section-title">🛍 ショップ (グッズ)</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>オフィシャルグッズ、ボイス、CDなどの商品カードと各通販プラットフォームへのリンクを管理します。</p>
+          <ul class="manual-list">
+            <li><strong>商品名 & 価格 (円):</strong> 商品の名称と税込価格を入力します（スマホ時は縦並びで入力しやすいレイアウトになっています）。</li>
+            <li><strong>商品画像 (4:3比率):</strong> 商品写真やパッケージ画像を登録します。</li>
+            <li><strong>マルチプラットフォームリンク:</strong> BOOTH、BASE、StreamArt、任意のオリジナルショップURLの4種類に対応しています。入力されたプラットフォームのボタンが自動的にサイト側に表示されます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           12. リンクリスト
+           ===================================================================== -->
+      <section id="sec-link" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">12</span>
+          <h2 class="manual-section-title">🔗 リンクリスト</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>ファンクラブ、コラボ企画、マシュマロ、各種SNSなど、外部サービスへのリンク集を管理します。アイコン画像やバナー画像を設定できます。</p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           13. テーマ設定 (外観デザイン)
+           ===================================================================== -->
+      <section id="sec-theme" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">13</span>
+          <h2 class="manual-section-title">🎨 テーマ設定 (外観デザイン)</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>公式サイト全体の配色、カード背景、ロゴ、背景画像、アプリアイコンを直感的に変更できます。</p>
+
+          <h3 class="manual-sub-title">リアルタイム表示プレビュー</h3>
+          <p>
+            カラーピッカーやパレットを操作すると、右側（スマホ時は最上部）のプレビュー画面に即座にデザインが反映されます。実際の見え方を確認しながら調整できます。
+          </p>
+
+          <h3 class="manual-sub-title" style="margin-top: 18px;">カード背景スタイル</h3>
+          <ul class="manual-list">
+            <li><strong>単色 (ソリッドカラー):</strong> シンプルなフラットカラー。プリセットパレットまたはHEXコードで指定。</li>
+            <li><strong>グラデーション:</strong> 開始色・終了色とグラデーション角度（0°、45°、90°、135°、180°、270°）を組み合わせて美しいグラデーションを作成できます。</li>
+          </ul>
+
+          <h3 class="manual-sub-title" style="margin-top: 18px;">サイト構成画像の変更</h3>
+          <ul class="manual-list">
+            <li><strong>背景画像 (background):</strong> サイト全体のメイン背景テクスチャ画像。</li>
+            <li><strong>ロゴ画像 (logo):</strong> ヘッダーおよびカード内のウォーターマークに使用されるロゴPNG画像。</li>
+            <li><strong>アプリアイコン画像 (appIcon):</strong> PWAとしてスマホやPCにインストールした際にホーム画面に表示される正方形アイコン（192x192 / 512x512 推奨）。</li>
+          </ul>
+
+          <div class="manual-alert is-important">
+            <span class="manual-alert-icon">⚠️</span>
+            <div>
+              <strong>重要:</strong> 調整が終わったら、必ず画面右上のオレンジ色<strong>「更新反映」</strong>ボタンを押してください。押さないまま別ページへ移動すると変更内容は破棄されます。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           14. セクション設定・装飾画像
+           ===================================================================== -->
+      <section id="sec-section" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">14</span>
+          <h2 class="manual-section-title">📑 セクション設定・装飾画像</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>各セクションの表示順の並び替え、表示/非表示の切り替え、およびセクションを彩る装飾画像のアップロードと設定を行います。</p>
+
+          <h3 class="manual-sub-title">装飾画像の種類と規格比率</h3>
+          <ul class="manual-list">
+            <li><strong>トップライン (topLine):</strong> セクション上部に配置される横長ライン装飾画像（規格比率 10:1）。</li>
+            <li><strong>アウトライン (outLine):</strong> セクション外周を縁取るアウトライン装飾画像（規格比率 10:1）。</li>
+            <li><strong>セクション背景 (sectionBackground):</strong> セクション背面に敷かれる装飾グラフィック（元画像比率維持）。</li>
+          </ul>
+
+          <h3 class="manual-sub-title" style="margin-top: 18px;">トリミング・ズーム調整機能</h3>
+          <p>
+            アップロードダイアログ内蔵のキャンバスにて、画像をドラッグして位置調整、スライダーで拡大・縮小ズームが可能です。「フィット」「中央揃え」ボタンを活用して規格比率（10:1）にピタリと合わせることができます。
+          </p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           15. アセット管理
+           ===================================================================== -->
+      <section id="sec-asset" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">15</span>
+          <h2 class="manual-section-title">📁 アセット管理 (Asset Manager)</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>GitHubリポジトリ内に格納されている全画像ファイルの一覧・プレビュー・整理・安全な削除を行うマスター管理画面です。</p>
+
+          <h3 class="manual-sub-title">アセットステータス（バッジ）の見方</h3>
+          <ul class="manual-list">
+            <li><span class="manual-badge" style="background:#f59e0b; color:#0f172a;">🔒 使用中</span> : データベース内のプロフィールやスケジュール、ギャラリー等で現在実際に参照されているファイルです。安全のため削除ボタンはロックされます。</li>
+            <li><span class="manual-badge" style="background:#10b981; color:#0f172a;">✨ 未使用</span> : どのセクションでも使用されていない余剰画像です。不要な場合は「削除」ボタンでGitHubリポジトリから完全に削除できます。</li>
+            <li><span class="manual-badge" style="background:#a855f7; color:#fff;">🛡️ デフォルト(SVG)</span> : システムの初期アイコン等のため削除できません。</li>
+          </ul>
+
+          <div class="manual-alert is-tip">
+            <span class="manual-alert-icon">📱</span>
+            <div>
+              <strong>スマホでの閲覧:</strong><br>
+              スマートフォン操作時は各フォルダ内のカードが横スライド形式で並びます。左右に指でスワイプしてスムーズに画像を確認できます。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           16. ガイドライン管理
+           ===================================================================== -->
+      <section id="sec-guideline" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">16</span>
+          <h2 class="manual-section-title">📝 二次創作ガイドライン</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>
+            ファンやクリエイターに向けた「二次創作・ファン活動に関するガイドライン」ページ（<code>guideline.html</code>）の本文および制定情報を管理します。
+          </p>
+          <ul class="manual-list">
+            <li><strong>リッチテキストツールバー:</strong> 見出し（H1〜H3）、太字、リスト、引用、リンク、区切り線などをGUIボタンで簡単に編集できます。内部的には軽量なMarkdown形式で安全にデータベースへ保存されます。</li>
+            <li><strong>制定者名 & 制定日:</strong> ガイドラインの末尾に署名として表示される情報を設定できます。</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           17. バックアップ & PAT
+           ===================================================================== -->
+      <section id="sec-maintenance" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">17</span>
+          <h2 class="manual-section-title">💾 バックアップ & GitHub PAT設定</h2>
+        </div>
+
+        <div class="manual-card">
+          <h3 class="manual-sub-title">D1 データベース保守（バックアップ）</h3>
+          <p>サイドバー下部にある保守機能から、データベースの定期バックアップをダウンロードできます。</p>
+          <ul class="manual-list">
+            <li><strong>SQLダンプ:</strong> 全テーブルのスキーマ定義とINSERT文を含む完全なSQLファイルを出力します。システム移行や障害復旧に使用します。</li>
+            <li><strong>JSON出力:</strong> 人間が読みやすいJSON形式で全テーブルデータを一括エクスポートします。</li>
+          </ul>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">GitHub PAT (Personal Access Token) の設定</h3>
+          <p>
+            画像のアップロードや削除は、GitHub REST APIを通じてリポジトリへ直接コミットされます。この通信を許可するためにPersonal Access Token（Fine-grainedトークンまたはClassicトークン）を設定します。
+          </p>
+          <div class="manual-steps">
+            <div class="manual-step-item">
+              <span class="manual-step-badge">1</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">GitHubでTokenを発行</div>
+                <div class="manual-step-text">GitHubの Settings &gt; Developer Settings &gt; Personal access tokens にて、対象リポジトリへの <code>Contents: Read and write</code> 権限を持つトークンを発行します。</div>
+              </div>
+            </div>
+            <div class="manual-step-item">
+              <span class="manual-step-badge">2</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">管理画面「GitHub PAT 設定」に入力</div>
+                <div class="manual-step-text">サイドバーの「GitHub PAT 設定」タブを開き、トークンを貼り付けて「保存・接続テスト」を実行します。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           18. スマホ操作 & PWA導入
+           ===================================================================== -->
+      <section id="sec-pwa" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">18</span>
+          <h2 class="manual-section-title">📱 スマホ操作 & PWAアプリ導入</h2>
+        </div>
+
+        <div class="manual-card">
+          <p>
+            当管理システムは、スマートフォンやタブレットからの運用にも完全対応しています。ホーム画面に「アプリ」としてインストールすることで、ブラウザのURLバーのない全画面UIで快適に操作できます。
+          </p>
+
+          <h3 class="manual-sub-title">ホーム画面への追加（インストール）手順</h3>
+          <div class="manual-steps">
+            <div class="manual-step-item">
+              <span class="manual-step-badge">iOS</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">iPhone / iPad (Safari)</div>
+                <div class="manual-step-text">
+                  Safari下部の共有ボタン（四角から上矢印のアイコン <span style="font-size:1.1rem;">⎋</span>）をタップし、メニューから<strong>「ホーム画面に追加」</strong>を選択します。
+                </div>
+              </div>
+            </div>
+            <div class="manual-step-item">
+              <span class="manual-step-badge">Android</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">Android (Google Chrome)</div>
+                <div class="manual-step-text">
+                  サイドバー下部の<strong>「アプリをインストール」</strong>ボタンをタップするか、ブラウザの右上メニュー（︙）から<strong>「アプリをインストール」</strong>を選択します。
+                </div>
+              </div>
+            </div>
+            <div class="manual-step-item">
+              <span class="manual-step-badge">PC</span>
+              <div class="manual-step-body">
+                <div class="manual-step-title">Windows / Mac (Chrome / Edge)</div>
+                <div class="manual-step-text">
+                  アドレスバー右端に表示されるインストールアイコン（🖥️または⊕）をクリックすると、独立したデスクトップアプリとして起動できます。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           19. よくある質問 (FAQ)
+           ===================================================================== -->
+      <section id="sec-faq" class="manual-section">
+        <div class="manual-section-header">
+          <span class="manual-section-num">19</span>
+          <h2 class="manual-section-title">❓ よくある質問 & トラブルシューティング</h2>
+        </div>
+
+        <div class="manual-card">
+          <h3 class="manual-sub-title">Q. 編集した内容が公式サイトに反映されません</h3>
+          <div class="manual-step-text" style="margin-bottom: 16px;">
+            A. 以下の2点をご確認ください：<br>
+            1. <strong>「更新反映」ボタンの押し忘れ:</strong> テーマ設定やプロフィール等は、画面右上の「更新反映」ボタンを押すことで保存が完了します。<br>
+            2. <strong>ブラウザキャッシュ:</strong> スマートフォンやPCのブラウザが古いキャッシュを保持している場合があります。ページを「強制再読み込み（スーパーリロード: Ctrl+F5 や Shift+更新）」するか、PWAアプリの場合はアプリを一度完全にタスクキルして再起動してください。
+          </div>
+
+          <h3 class="manual-sub-title">Q. 画像のアップロード時にエラーが発生します</h3>
+          <div class="manual-step-text" style="margin-bottom: 16px;">
+            A. 以下の原因が考えられます：<br>
+            ・<strong>GitHub PATの期限切れ:</strong> トークンの有効期限が切れている可能性があります。「GitHub PAT 設定」から有効な新しいトークンを再登録してください。<br>
+            ・<strong>ファイル容量超過:</strong> 1ファイルあたり最大2MB（装飾画像は1MB）の上限があります。トリミング調整機能で圧縮するか、リサイズツール等で縮小してアップロードしてください。
+          </div>
+
+          <h3 class="manual-sub-title">Q. Googleドライブの画像が表示されません</h3>
+          <div class="manual-step-text">
+            A. Googleドライブ上の画像ファイルの共有設定が<strong>「リンクを知っている全員が閲覧可」</strong>になっていることをご確認ください。「制限付き」のままだと外部サイトから画像を取得できません。
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- フローティング トップへ戻るボタン -->
+  <button id="manual-back-top" class="manual-back-top" aria-label="トップへ戻る" title="トップへ戻る">▲</button>
+
+  <!-- フッター -->
+  <footer style="background: rgba(8, 14, 26, 0.95); border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 24px 0; text-align: center; font-size: 0.85rem; color: #94a3b8;">
+    <div style="max-width: 1380px; margin: 0 auto; padding: 0 20px;">
+      <p>© 2026 ELISA Official Admin System. All Rights Reserved.</p>
+    </div>
+  </footer>
+
+  <!-- スクリプト (検索・目次ハイライト・スクロール) -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // 1. トップへ戻るボタンの表示・非表示制御
+      const backTopBtn = document.getElementById("manual-back-top");
+      window.addEventListener("scroll", () => {
+        if (window.scrollY > 300) {
+          backTopBtn.classList.add("is-visible");
+        } else {
+          backTopBtn.classList.remove("is-visible");
+        }
+      });
+      backTopBtn.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      // 2. モバイル目次トグル
+      const mobileTocBtn = document.getElementById("manual-mobile-toc-btn");
+      const mobileTocIcon = document.getElementById("manual-mobile-toc-icon");
+      const sidebar = document.getElementById("manual-sidebar");
+
+      if (mobileTocBtn && sidebar) {
+        mobileTocBtn.addEventListener("click", () => {
+          sidebar.classList.toggle("is-open");
+          const isOpen = sidebar.classList.contains("is-open");
+          mobileTocIcon.textContent = isOpen ? "▲" : "▼";
+        });
+
+        // モバイルで目次項目をタップしたら目次を閉じる
+        sidebar.querySelectorAll(".manual-toc-link").forEach(link => {
+          link.addEventListener("click", () => {
+            if (window.innerWidth <= 960) {
+              sidebar.classList.remove("is-open");
+              mobileTocIcon.textContent = "▼";
+            }
+          });
+        });
+      }
+
+      // 3. スクロール時の目次アクティブ連動 (IntersectionObserver)
+      const sections = document.querySelectorAll(".manual-section");
+      const tocLinks = document.querySelectorAll(".manual-toc-link");
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.getAttribute("id");
+            tocLinks.forEach(link => {
+              if (link.getAttribute("href") === `#${id}`) {
+                link.classList.add("is-active");
+              } else {
+                link.classList.remove("is-active");
+              }
+            });
+          }
+        });
+      }, {
+        rootMargin: "-20% 0px -70% 0px"
+      });
+
+      sections.forEach(sec => observer.observe(sec));
+
+      // 4. マニュアル内インクリメンタル検索フィルター
+      const searchInput = document.getElementById("manual-search-input");
+      if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+          const query = e.target.value.trim().toLowerCase();
+          sections.forEach(sec => {
+            if (!query) {
+              sec.style.display = "";
+            } else {
+              const text = sec.textContent.toLowerCase();
+              if (text.includes(query)) {
+                sec.style.display = "";
+              } else {
+                sec.style.display = "none";
+              }
+            }
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html>

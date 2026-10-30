@@ -4,13 +4,14 @@
  * ※ /api/ に対するリクエストはキャッシュせず常にネットワークへ直接通信
  */
 
-const CACHE_NAME = "elisa-pwa-v3";
+const CACHE_NAME = "elisa-pwa-v4";
 
 // 初期インストール時にプリキャッシュする基本静的ファイル
 const PRECACHE_ASSETS = [
   "./",
   "./index.html",
   "./admin.html",
+  "./manual.html",
   "./manifest.json",
   "./manifest-admin.json",
   "./assets/appIcon/app_icon.png"

@@ -266,7 +266,8 @@ body.admin-sidebar-locked {
   gap: 4px;
 }
 
-.admin-nav-item-btn {
+.admin-nav-item-btn,
+.admin-nav-item-link {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -277,15 +278,19 @@ body.admin-sidebar-locked {
   font-weight: 500;
   width: 100%;
   text-align: left;
+  text-decoration: none;
+  box-sizing: border-box;
   transition: all var(--transition-fast);
 }
 
-.admin-nav-item-btn:hover {
+.admin-nav-item-btn:hover,
+.admin-nav-item-link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 
-.admin-nav-item-btn.is-active {
+.admin-nav-item-btn.is-active,
+.admin-nav-item-link.is-active {
   background: var(--color-primary);
   color: #ffffff;
   font-weight: 700;
@@ -295,6 +300,38 @@ body.admin-sidebar-locked {
   font-size: 1.1rem;
   width: 20px;
   text-align: center;
+}
+
+/* サイドバー内 操作マニュアルリンク */
+.admin-sidebar-manual-wrap {
+  margin: 0 12px 12px;
+  padding: 10px 14px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.admin-sidebar-manual-wrap:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.admin-sidebar-manual-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #38bdf8;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  width: 100%;
+}
+
+.admin-sidebar-manual-link:hover {
+  color: #ffffff;
 }
 
 /* 保守・エクスポートエリア */
