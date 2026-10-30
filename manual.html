@@ -675,7 +675,7 @@
         <div class="manual-toc-group">
           <div class="manual-toc-group-title">保守・システム・FAQ</div>
           <ul class="manual-toc-list">
-            <li><a href="#sec-maintenance" class="manual-toc-link">💾 バックアップ & PAT</a></li>
+            <li><a href="#sec-maintenance" class="manual-toc-link">💾 保守・アカウント・PAT</a></li>
             <li><a href="#sec-pwa" class="manual-toc-link">📱 スマホ操作 & PWA導入</a></li>
             <li><a href="#sec-faq" class="manual-toc-link">❓ よくある質問 (FAQ)</a></li>
           </ul>
@@ -763,30 +763,53 @@
           </div>
 
           <h3 class="manual-sub-title" style="margin-top: 24px;">ロール（権限レベル）の違い</h3>
+          <p style="margin-bottom: 12px; color: var(--manual-text-sub); font-size: 0.9rem;">
+            ログインユーザーの権限（ロール）に応じて、サイドバーに表示される管理メニューや実行できる操作が自動的に制御されます。
+          </p>
           <div class="manual-table-wrap">
             <table class="manual-table">
               <thead>
                 <tr>
-                  <th>ロール名</th>
-                  <th>表示バッジ</th>
-                  <th>操作可能な機能</th>
+                  <th style="width: 140px;">ロール名</th>
+                  <th style="width: 100px;">表示バッジ</th>
+                  <th>操作可能な機能・権限範囲</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><strong>Owner（最高管理者）</strong></td>
-                  <td><span class="manual-badge" style="background:#0284c7; color:#fff;">OWNER</span></td>
-                  <td>全機能の閲覧・作成・編集・削除、管理者アカウントの追加・変更、GitHub PAT設定、D1保守エクスポート</td>
+                  <td><strong>Owner<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">（最高管理者）</span></strong></td>
+                  <td><span class="manual-badge" style="background: rgba(168, 85, 247, 0.22); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.45); font-weight: 700;">OWNER</span></td>
+                  <td>
+                    <strong>全機能の完全権限</strong><br>
+                    全コンテンツの閲覧・作成・編集・削除、GitHub PAT設定、D1データベース保守エクスポート（SQL / JSON）、アカウント管理（Ownerを含む全ロールの追加・変更・削除）。
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Editor（編集者）</strong></td>
-                  <td><span class="manual-badge" style="background:#059669; color:#fff;">EDITOR</span></td>
-                  <td>全セクションコンテンツの編集、テーマ設定、ガイドライン編集、アセット管理（アカウント追加・PAT設定等は不可）</td>
+                  <td><strong>Admin<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">（共同運営者）</span></strong></td>
+                  <td><span class="manual-badge" style="background: rgba(59, 130, 246, 0.22); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.45); font-weight: 700;">ADMIN</span></td>
+                  <td>
+                    <strong>コンテンツ・外観の全編集権限</strong><br>
+                    プロフィール、衣装、全セクションコンテンツ、テーマ設定、セクション装飾、アセット管理、ガイドライン編集、アカウント管理（Editor / Writerの追加・編集）。<br>
+                    <span style="font-size: 0.8rem; color: #f59e0b;">※GitHub PAT設定は非表示。OwnerおよびAdminアカウントの編集・削除は不可。</span>
+                  </td>
                 </tr>
                 <tr>
-                  <td><strong>Writer（投稿者）</strong></td>
-                  <td><span class="manual-badge" style="background:#d97706; color:#fff;">WRITER</span></td>
-                  <td>お知らせ・スケジュール・ギャラリー等の日常的なコンテンツ投稿・更新のみ</td>
+                  <td><strong>Editor<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">（編集者）</span></strong></td>
+                  <td><span class="manual-badge" style="background: rgba(16, 185, 129, 0.22); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.45); font-weight: 700;">EDITOR</span></td>
+                  <td>
+                    <strong>主要コンテンツの管理権限</strong><br>
+                    イベントバナー、お知らせ、スケジュール、ギャラリー、動画リスト、再生リスト、ショップ商品、リンクリストの作成・編集・削除・並び替え。<br>
+                    <span style="font-size: 0.8rem; color: var(--manual-text-muted);">※プロフィール・衣装・外観設定・アセット・アカウント管理は非表示。</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Writer<br><span style="font-size: 0.8rem; color: var(--manual-text-muted);">（投稿者）</span></strong></td>
+                  <td><span class="manual-badge" style="background: rgba(14, 165, 233, 0.22); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.45); font-weight: 700;">WRITER</span></td>
+                  <td>
+                    <strong>日常的な告知・更新権限</strong><br>
+                    イベントバナー、お知らせ（予約投稿含む）、スケジュールの閲覧・作成・編集のみ。<br>
+                    <span style="font-size: 0.8rem; color: var(--manual-text-muted);">※日常のライブ告知やスケジュール更新に特化した安全な権限です。</span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -796,7 +819,7 @@
             <span class="manual-alert-icon">⚠️</span>
             <div>
               <strong>「アクセス権限がありません」と表示される場合:</strong><br>
-              ホワイトリストに登録されていないGoogleアカウントでログインした場合は画面が遮断されます。Owner権限を持つ管理者に連絡し、アカウント登録を依頼してください。
+              ホワイトリスト（アカウント管理）に登録されていないGoogleアカウントでログインした場合は画面が自動的に遮断されます。OwnerまたはAdmin権限を持つ管理者に連絡し、アカウント登録を依頼してください。
             </div>
           </div>
         </div>
@@ -1202,16 +1225,60 @@
       </section>
 
       <!-- =====================================================================
-           17. バックアップ & PAT
+           17. 保守・アカウント管理・PAT
            ===================================================================== -->
       <section id="sec-maintenance" class="manual-section">
         <div class="manual-section-header">
           <span class="manual-section-num">17</span>
-          <h2 class="manual-section-title">💾 バックアップ & GitHub PAT設定</h2>
+          <h2 class="manual-section-title">💾 保守・アカウント管理 & GitHub PAT</h2>
         </div>
 
         <div class="manual-card">
-          <h3 class="manual-sub-title">D1 データベース保守（バックアップ）</h3>
+          <h3 class="manual-sub-title">🛡 アカウント管理（ホワイトリスト）</h3>
+          <p>
+            管理画面にアクセスできるGoogleアカウントを登録・管理します。ホワイトリストに登録されていないGoogleアカウントでログインを試みた場合、アクセスは自動的に拒否されます。
+          </p>
+          <div class="manual-table-wrap" style="margin-top: 12px;">
+            <table class="manual-table">
+              <thead>
+                <tr>
+                  <th style="width: 140px;">項目名</th>
+                  <th style="width: 80px;">必須/任意</th>
+                  <th>説明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Google メールアドレス</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>管理者がGoogleログインに使用するGmailまたはGoogle Workspaceメールアドレス</td>
+                </tr>
+                <tr>
+                  <td>表示名</td>
+                  <td><span class="manual-badge is-optional">任意</span></td>
+                  <td>管理画面内で識別するためのユーザー名・担当者名</td>
+                </tr>
+                <tr>
+                  <td>権限 (role)</td>
+                  <td><span class="manual-badge is-required">必須</span></td>
+                  <td>
+                    付与するロールを選択します（<code>owner</code> / <code>admin</code> / <code>editor</code> / <code>writer</code>）。<br>
+                    <span style="font-size: 0.8rem; color: #f59e0b;">※Admin権限のユーザーは Editor / Writer のみ選択可能で、OwnerやAdminの追加・変更はできません。</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="manual-alert is-tip" style="margin-top: 16px;">
+            <span class="manual-alert-icon">🔒</span>
+            <div>
+              <strong>セキュリティ保護機能:</strong><br>
+              共同運営者（Adminロール）でログインしている場合、他の管理者アカウント（OwnerやAdmin）のメールアドレスはマスキング（例: <code>adm***@example.com</code>）され、編集・削除ボタンは自動的に無効化されます。
+            </div>
+          </div>
+
+          <h3 class="manual-sub-title" style="margin-top: 24px;">D1 データベース保守（バックアップ）</h3>
           <p>サイドバー下部にある保守機能から、データベースの定期バックアップをダウンロードできます。</p>
           <ul class="manual-list">
             <li><strong>SQLダンプ:</strong> 全テーブルのスキーマ定義とINSERT文を含む完全なSQLファイルを出力します。システム移行や障害復旧に使用します。</li>
@@ -1220,7 +1287,7 @@
 
           <h3 class="manual-sub-title" style="margin-top: 24px;">GitHub PAT (Personal Access Token) の設定</h3>
           <p>
-            画像のアップロードや削除は、GitHub REST APIを通じてリポジトリへ直接コミットされます。この通信を許可するためにPersonal Access Token（Fine-grainedトークンまたはClassicトークン）を設定します。
+            画像のアップロードや削除は、GitHub REST APIを通じてリポジトリへ直接コミットされます。この通信を許可するためにPersonal Access Token（Fine-grainedトークンまたはClassicトークン）を設定します（Ownerのみ設定可能）。
           </p>
           <div class="manual-steps">
             <div class="manual-step-item">
